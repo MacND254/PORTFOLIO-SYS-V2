@@ -29,6 +29,22 @@ export class ProfileController {
     }
   }
 
+  public static async uploadMedia(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        throw new ValidationError('No image file uploaded.');
+      }
+      const mediaUrl = `/uploads/images/${req.file.filename}`;
+      return sendSuccess({
+        res,
+        message: 'Image uploaded successfully.',
+        data: { url: mediaUrl, filename: req.file.filename },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // --- EXPERIENCES ---
   public static async addExperience(req: Request, res: Response, next: NextFunction) {
     try {

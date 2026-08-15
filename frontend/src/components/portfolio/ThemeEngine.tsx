@@ -266,6 +266,18 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
       <section id="hero" className={`theme-hero theme-section ${revealCls} relative px-6 py-20 md:py-28 overflow-hidden`}>
+        {/* Header Cover Banner Background Image */}
+        {profile.coverUrl && (
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-30 pointer-events-none transition-all duration-700"
+            style={{
+              backgroundImage: `url(${profile.coverUrl})`,
+              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
+            }}
+          />
+        )}
+
         {/* Theme-specific background decoration */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl opacity-20"

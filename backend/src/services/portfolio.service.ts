@@ -244,6 +244,59 @@ export class PortfolioService {
     });
   }
 
+  public static async getRevisions(userId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    return prisma.portfolioRevision.findMany({
+      where: { profileId: profile.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  public static async restoreRevision(userId: string, revisionId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    const revision = await prisma.portfolioRevision.findFirst({
+      where: { id: revisionId, profileId: profile.id },
+    });
+    if (!revision) throw new NotFoundError('Revision snapshot not found.');
+
+    const snapshot: any = revision.snapshotData;
+    if (snapshot) {
+      await prisma.profile.update({
+        where: { id: profile.id },
+        data: {
+          title: snapshot.title,
+          headline: snapshot.headline,
+          summary: snapshot.summary,
+          bio: snapshot.bio,
+          location: snapshot.location,
+          avatarUrl: snapshot.avatarUrl,
+          coverUrl: snapshot.coverUrl,
+        },
+      });
+
+      if (snapshot.customization?.themeId) {
+        await prisma.portfolioCustomization.upsert({
+          where: { profileId: profile.id },
+          update: { themeId: snapshot.customization.themeId },
+          create: { profileId: profile.id, themeId: snapshot.customization.themeId },
+        });
+      }
+    }
+
+    await AuditService.log({
+      userId,
+      action: 'REVISION_RESTORED',
+      target: revisionId,
+    });
+
+    return { message: 'Snapshot version restored.' };
+  }
+
   private static generateSeoMetadata(fullName: string, subdomain: string, profile: any) {
     const title = `${fullName} - ${profile.title || 'Professional Portfolio'}`;
     const description = profile.summary || profile.headline || `Explore ${fullName}'s work experience, skills, projects, and certifications.`;

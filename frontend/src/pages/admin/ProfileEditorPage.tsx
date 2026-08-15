@@ -13,6 +13,7 @@ import {
   Save,
   Check,
 } from "lucide-react";
+import { ImageUploadWidget } from "../../components/ui/ImageUploadWidget";
 
 export const ProfileEditorPage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -29,6 +30,8 @@ export const ProfileEditorPage: React.FC = () => {
   // General Form State
   const [generalState, setGeneralState] = useState<any>({});
   const [isSavingGeneral, setIsSavingGeneral] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // New Item Modals
   const [isExpModalOpen, setIsExpModalOpen] = useState(false);
@@ -96,6 +99,7 @@ export const ProfileEditorPage: React.FC = () => {
         twitter: res.data.twitter || "",
         website: res.data.website || "",
         avatarUrl: res.data.avatarUrl || "",
+        coverUrl: res.data.coverUrl || "",
       });
     } catch (e) {
       console.error(e);
@@ -106,10 +110,24 @@ export const ProfileEditorPage: React.FC = () => {
 
   const handleSaveGeneral = async () => {
     setIsSavingGeneral(true);
+    setSaveSuccess(false);
+    setSaveError('');
     try {
-      await api.put("/profile", generalState);
-      fetchProfile();
-    } catch (e) {
+      const res: any = await api.put("/profile", generalState);
+      // Update profile in state immediately for live changes
+      const updated = res?.data ?? res;
+      if (updated) {
+        setProfile(updated);
+        setGeneralState((prev: any) => ({
+          ...prev,
+          avatarUrl: updated.avatarUrl ?? prev.avatarUrl,
+          coverUrl: updated.coverUrl ?? prev.coverUrl,
+        }));
+      }
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e: any) {
+      setSaveError(e?.message || 'Save failed. Please try again.');
       console.error(e);
     } finally {
       setIsSavingGeneral(false);
@@ -311,6 +329,25 @@ export const ProfileEditorPage: React.FC = () => {
           }}
           className="p-8 rounded-2xl bg-slate-900 border border-slate-800 space-y-6"
         >
+          {/* Avatar and Cover Drag-and-Drop Image Uploaders */}
+          <div className="grid md:grid-cols-3 gap-6 pb-4 border-b border-slate-800">
+            <div>
+              <ImageUploadWidget
+                label="Profile Avatar Photo"
+                value={generalState.avatarUrl || ''}
+                onChange={(url) => setGeneralState({ ...generalState, avatarUrl: url })}
+                aspectRatio="square"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <ImageUploadWidget
+                label="Header Cover Banner"
+                value={generalState.coverUrl || ''}
+                onChange={(url) => setGeneralState({ ...generalState, coverUrl: url })}
+                aspectRatio="banner"
+              />
+            </div>
+          </div>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300">
@@ -396,14 +433,29 @@ export const ProfileEditorPage: React.FC = () => {
             </div>
           </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            isLoading={isSavingGeneral}
-            leftIcon={<Save className="w-4 h-4" />}
-          >
-            Save Profile Details
-          </Button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSavingGeneral}
+              leftIcon={<Save className="w-4 h-4" />}
+            >
+              Save Profile Details
+            </Button>
+
+            {saveSuccess && (
+              <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-semibold animate-in fade-in slide-in-from-left-2 duration-300">
+                <Check className="w-4 h-4" />
+                Profile saved successfully!
+              </span>
+            )}
+
+            {saveError && (
+              <span className="inline-flex items-center gap-1.5 text-rose-400 text-xs font-semibold animate-in fade-in slide-in-from-left-2 duration-300">
+                {saveError}
+              </span>
+            )}
+          </div>
         </form>
       )}
 

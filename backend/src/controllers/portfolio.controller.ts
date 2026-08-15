@@ -133,4 +133,22 @@ export class PortfolioController {
       next(error);
     }
   }
+
+  public static async getRevisions(req: Request, res: Response, next: NextFunction) {
+    try {
+      const revisions = await PortfolioService.getRevisions(req.user!.id);
+      return sendSuccess({ res, message: 'Portfolio revisions loaded.', data: revisions });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async restoreRevision(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await PortfolioService.restoreRevision(req.user!.id, req.params.revisionId);
+      return sendSuccess({ res, message: 'Revision restored.', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   LogOut,
   Sparkles,
+  Sliders,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -36,6 +37,7 @@ export const Sidebar: React.FC = () => {
     { to: '/superadmin/users', label: 'Tenant Management', icon: Users },
     { to: '/superadmin/system-health', label: 'System Health', icon: Activity },
     { to: '/superadmin/audit-logs', label: 'Audit Logs', icon: ShieldAlert },
+    { to: '/superadmin/settings', label: 'System Settings', icon: Sliders },
   ];
 
   return (

@@ -3,10 +3,16 @@ import { AuthService } from '../services/auth.service';
 import { sendSuccess } from '../utils/apiResponse';
 import { registerSchema, loginSchema } from '../validators/auth.validator';
 import { ValidationError } from '../utils/errors';
+import { SystemSettingsService } from '../services/systemSettings.service';
 
 export class AuthController {
   public static async register(req: Request, res: Response, next: NextFunction) {
     try {
+      const isAllowed = await SystemSettingsService.isRegistrationAllowed();
+      if (!isAllowed) {
+        throw new ValidationError('New user registrations are currently disabled by platform administration.');
+      }
+
       const parsed = registerSchema.safeParse(req.body);
       if (!parsed.success) {
         throw new ValidationError('Validation failed', parsed.error.errors);

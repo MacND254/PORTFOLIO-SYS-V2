@@ -26,6 +26,18 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const message = error.response?.data?.message || error.message || 'An error occurred';
+
+    if (error.response?.status === 503 || error.response?.data?.isMaintenance) {
+      if (
+        typeof window !== 'undefined' &&
+        !window.location.pathname.startsWith('/superadmin') &&
+        !window.location.pathname.startsWith('/login') &&
+        window.location.pathname !== '/maintenance'
+      ) {
+        window.location.href = '/maintenance';
+      }
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

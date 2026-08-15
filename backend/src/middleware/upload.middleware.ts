@@ -62,16 +62,23 @@ const imageStorage = multer.diskStorage({
 });
 
 const imageFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
-  if (allowedTypes.includes(file.mimetype)) {
+  // Accept all image/* MIME types (JPEG, PNG, WEBP, GIF, SVG, HEIC, AVIF, BMP, TIFF, etc.)
+  if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new ValidationError('Invalid image format. Only JPEG, PNG, WEBP, GIF, and SVG are allowed.'));
+    // Fallback: accept by extension for formats browsers may send as octet-stream
+    const ext = path.extname(file.originalname).toLowerCase();
+    const knownImageExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.heic', '.heif', '.avif', '.bmp', '.tiff', '.tif', '.ico'];
+    if (knownImageExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new ValidationError('Invalid file type. Please upload an image file (JPG, PNG, WEBP, GIF, SVG, HEIC, AVIF, BMP, TIFF, etc.).'));
+    }
   }
 };
 
 export const imageUpload = multer({
   storage: imageStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for images
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for images
   fileFilter: imageFileFilter,
 });

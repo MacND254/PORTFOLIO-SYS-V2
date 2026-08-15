@@ -26,4 +26,10 @@ router.put('/themes/:themeId', ThemeAdminController.updateTheme);
 router.post('/themes/:themeId/toggle-publish', ThemeAdminController.togglePublish);
 router.post('/themes/:themeId/reset', ThemeAdminController.resetTheme);
 
+import { SettingsAdminController } from '../controllers/settingsAdmin.controller';
+
+// Global System Settings (Super Admin only)
+router.get('/settings', SettingsAdminController.getSettings);
+router.put('/settings', SettingsAdminController.updateSettings);
+
 export default router;

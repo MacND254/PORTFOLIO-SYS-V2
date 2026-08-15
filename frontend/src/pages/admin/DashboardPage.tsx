@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
+  History,
 } from 'lucide-react';
+import { PortfolioRevisionsModal } from '../../components/portfolio/PortfolioRevisionsModal';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -24,6 +26,7 @@ export const DashboardPage: React.FC = () => {
   const [analytics, setAnalytics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -143,6 +146,17 @@ export const DashboardPage: React.FC = () => {
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-500 group-hover:translate-x-1 transition" />
               </Link>
+
+              <button
+                onClick={() => setIsRevisionModalOpen(true)}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-sm font-medium text-slate-200 transition group text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  <History className="w-4 h-4 text-emerald-400" />
+                  <span>Revision History & Backups</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:translate-x-1 transition" />
+              </button>
             </div>
           </div>
         </div>
@@ -186,6 +200,12 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <PortfolioRevisionsModal
+        isOpen={isRevisionModalOpen}
+        onClose={() => setIsRevisionModalOpen(false)}
+        onRestored={fetchDashboardData}
+      />
     </div>
   );
 };

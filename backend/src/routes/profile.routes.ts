@@ -2,12 +2,15 @@ import { Router } from 'express';
 import { ProfileController } from '../controllers/profile.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
+import { imageUpload } from '../middleware/upload.middleware';
+
 const router = Router();
 
 router.use(authenticate);
 
 router.get('/', ProfileController.getProfile);
 router.put('/', ProfileController.updateProfile);
+router.post('/upload-media', imageUpload.single('file'), ProfileController.uploadMedia);
 
 // Experiences
 router.post('/experiences', ProfileController.addExperience);

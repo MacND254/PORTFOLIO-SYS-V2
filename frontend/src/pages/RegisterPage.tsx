@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Globe, User, Mail, Lock, Briefcase } from 'lucide-react';
+import { Globe, User, Mail, Lock, Briefcase, AlertTriangle } from 'lucide-react';
+import api from '../api/client';
 
 export const RegisterPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -12,10 +13,21 @@ export const RegisterPage: React.FC = () => {
   const [profession, setProfession] = useState('Software Engineer');
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegistrationAllowed, setIsRegistrationAllowed] = useState(true);
   const [error, setError] = useState('');
 
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    api.get('/public-settings')
+      .then((res: any) => {
+        if (res.data && typeof res.data.allowRegistration === 'boolean') {
+          setIsRegistrationAllowed(res.data.allowRegistration);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +62,13 @@ export const RegisterPage: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 rounded-2xl bg-slate-900 border border-slate-800 space-y-5 shadow-2xl">
+          {!isRegistrationAllowed && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs flex items-center gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>New user registration is currently disabled by system administration.</span>
+            </div>
+          )}
+
           {error && <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs">{error}</div>}
 
           <div className="space-y-1.5">
@@ -142,7 +161,14 @@ export const RegisterPage: React.FC = () => {
             </div>
           </div>
 
-          <Button type="submit" variant="primary" size="lg" isLoading={isLoading} className="w-full">
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            isLoading={isLoading}
+            disabled={!isRegistrationAllowed}
+            className="w-full"
+          >
             Create Account & Subdomain
           </Button>
 

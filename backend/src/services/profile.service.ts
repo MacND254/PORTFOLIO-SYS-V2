@@ -55,9 +55,21 @@ export class ProfileService {
     const profile = await prisma.profile.findUnique({ where: { userId } });
     if (!profile) throw new NotFoundError('Profile not found.');
 
+    // Whitelist only valid Profile model columns so extras from generalState are ignored
+    const allowedFields = [
+      'title', 'headline', 'summary', 'careerObjective', 'bio',
+      'phone', 'location', 'email', 'website', 'linkedin', 'github',
+      'twitter', 'behance', 'dribbble', 'medium', 'youtube', 'instagram',
+      'avatarUrl', 'coverUrl',
+    ];
+    const safeData: Record<string, any> = {};
+    allowedFields.forEach((key) => {
+      if (key in data) safeData[key] = data[key];
+    });
+
     const updated = await prisma.profile.update({
       where: { id: profile.id },
-      data,
+      data: safeData,
     });
 
     // Recalculate score

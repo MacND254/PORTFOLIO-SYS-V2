@@ -18,4 +18,8 @@ router.put('/customization', PortfolioController.updateCustomization);
 router.post('/publish', PortfolioController.publishPortfolio);
 router.post('/subdomain', PortfolioController.changeSubdomain);
 
+// Revisions & Version Control
+router.get('/revisions', PortfolioController.getRevisions);
+router.post('/revisions/:revisionId/restore', PortfolioController.restoreRevision);
+
 export default router;

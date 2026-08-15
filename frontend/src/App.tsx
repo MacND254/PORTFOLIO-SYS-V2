@@ -51,6 +51,12 @@ const SystemHealthPage = lazy(() =>
 const AuditLogsPage = lazy(() =>
   import('./pages/superadmin/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage }))
 );
+const SystemSettingsPage = lazy(() =>
+  import('./pages/superadmin/SystemSettingsPage').then((m) => ({ default: m.SystemSettingsPage }))
+);
+const MaintenancePage = lazy(() =>
+  import('./pages/MaintenancePage').then((m) => ({ default: m.MaintenancePage }))
+);
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -71,6 +77,7 @@ function App() {
 
             {/* Public Portfolio Viewer — /p/:subdomain for dev; production uses subdomain DNS */}
             <Route path="/p/:subdomain" element={<PublicPortfolioPage />} />
+            <Route path="/maintenance" element={<MaintenancePage />} />
 
             {/* Tenant Admin Routes */}
             <Route element={<ProtectedRoute />}>
@@ -92,6 +99,7 @@ function App() {
               <Route path="/superadmin/users" element={<UserManagementPage />} />
               <Route path="/superadmin/system-health" element={<SystemHealthPage />} />
               <Route path="/superadmin/audit-logs" element={<AuditLogsPage />} />
+              <Route path="/superadmin/settings" element={<SystemSettingsPage />} />
             </Route>
 
             {/* Catch-all */}
