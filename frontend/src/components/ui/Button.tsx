@@ -1,0 +1,55 @@
+import React from 'react';
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'success';
+  size?: 'sm' | 'md' | 'lg';
+  isLoading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+}
+
+export const Button: React.FC<ButtonProps> = ({
+  children,
+  variant = 'primary',
+  size = 'md',
+  isLoading = false,
+  leftIcon,
+  rightIcon,
+  className = '',
+  disabled,
+  ...props
+}) => {
+  const baseStyle =
+    'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+
+  const variants = {
+    primary: 'bg-indigo-600 hover:bg-indigo-500 text-white focus:ring-indigo-500 shadow-md shadow-indigo-500/20',
+    secondary: 'bg-slate-800 hover:bg-slate-700 text-slate-100 focus:ring-slate-500 border border-slate-700',
+    outline: 'border border-slate-700 hover:bg-slate-800 text-slate-200 focus:ring-slate-500',
+    danger: 'bg-red-600 hover:bg-red-500 text-white focus:ring-red-500 shadow-md shadow-red-500/20',
+    ghost: 'hover:bg-slate-800 text-slate-300 hover:text-white focus:ring-slate-500',
+    success: 'bg-emerald-600 hover:bg-emerald-500 text-white focus:ring-emerald-500 shadow-md shadow-emerald-500/20',
+  };
+
+  const sizes = {
+    sm: 'px-3 py-1.5 text-xs gap-1.5',
+    md: 'px-4 py-2 text-sm gap-2',
+    lg: 'px-6 py-3 text-base gap-2.5',
+  };
+
+  return (
+    <button
+      className={`${baseStyle} ${variants[variant]} ${sizes[size]} ${className}`}
+      disabled={disabled || isLoading}
+      {...props}
+    >
+      {isLoading ? (
+        <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
+      ) : (
+        leftIcon
+      )}
+      <span>{children}</span>
+      {!isLoading && rightIcon}
+    </button>
+  );
+};

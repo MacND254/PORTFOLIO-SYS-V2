@@ -1,0 +1,106 @@
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import api from '../api/client';
+import { Profile } from '../types';
+import { ThemeEngine } from '../components/portfolio/ThemeEngine';
+import { QrModal } from '../components/portfolio/QrModal';
+import { ReviewModal } from '../components/portfolio/ReviewModal';
+import { Spinner } from '../components/ui/Spinner';
+import { ShieldAlert } from 'lucide-react';
+
+export const PublicPortfolioPage: React.FC = () => {
+  const { subdomain: paramSubdomain } = useParams<{ subdomain: string }>();
+
+  // Resolve subdomain from URL path or hostname
+  const hostSubdomain = window.location.hostname.split('.')[0];
+  const activeSubdomain = paramSubdomain || (hostSubdomain !== 'localhost' && hostSubdomain !== '127' ? hostSubdomain : 'francis');
+
+  const [portfolioData, setPortfolioData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+
+  useEffect(() => {
+    fetchPublicPortfolio();
+  }, [activeSubdomain]);
+
+  const fetchPublicPortfolio = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const res: any = await api.get(`/portfolio/public/${activeSubdomain}`);
+      setPortfolioData(res.data);
+    } catch (err: any) {
+      setError(err.message || 'Portfolio not found or currently private.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (contactData: any) => {
+    await api.post('/messages/public', {
+      subdomain: activeSubdomain,
+      ...contactData,
+    });
+  };
+
+  const handleDownloadPdf = () => {
+    window.open(`/api/portfolio/pdf?subdomain=${activeSubdomain}`, '_blank');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <Spinner size="lg" />
+        <p className="text-slate-400 text-sm animate-pulse">Loading portfolio for {activeSubdomain}.myportfolio.com...</p>
+      </div>
+    );
+  }
+
+  if (error || !portfolioData) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h1 className="text-2xl font-bold text-white">Portfolio Unavailable</h1>
+        <p className="text-slate-400 text-sm max-w-md">{error || 'This portfolio does not exist or has been unpublished by the owner.'}</p>
+        <a href="/" className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg transition">
+          Return to Platform Homepage
+        </a>
+      </div>
+    );
+  }
+
+  const { profile, owner, subdomain } = portfolioData;
+
+  return (
+    <>
+      <ThemeEngine
+        profile={profile}
+        subdomain={subdomain}
+        onOpenQrModal={() => setIsQrOpen(true)}
+        onOpenReviewModal={() => setIsReviewOpen(true)}
+        onDownloadPdf={handleDownloadPdf}
+        onSendMessage={handleSendMessage}
+      />
+
+      <QrModal
+        isOpen={isQrOpen}
+        onClose={() => setIsQrOpen(false)}
+        portfolioUrl={`http://${subdomain}.myportfolio.com:5000`}
+        fullName={owner.fullName}
+      />
+
+      <ReviewModal
+        isOpen={isReviewOpen}
+        onClose={() => setIsReviewOpen(false)}
+        profileId={profile.id}
+        fullName={owner.fullName}
+      />
+    </>
+  );
+};

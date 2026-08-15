@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Multi-Tenant CV & Professional Portfolio SaaS API",
+    "version": "1.0.0",
+    "description": "API Specification for Multi-Tenant CV Parsing, Portfolio Builder, Testimonial Moderation & Super Admin Control Panel"
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Development Server" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new tenant account",
+        "responses": { "201": { "description": "Registered successfully" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user & issue tokens",
+        "responses": { "200": { "description": "Login successful" } }
+      }
+    },
+    "/portfolio/public": {
+      "get": {
+        "summary": "Get published portfolio for resolved tenant subdomain",
+        "responses": { "200": { "description": "Public portfolio details" } }
+      }
+    },
+    "/portfolio/pdf": {
+      "get": {
+        "summary": "Download generated PDF resume for portfolio",
+        "responses": { "200": { "description": "PDF Stream" } }
+      }
+    },
+    "/cv/upload": {
+      "post": {
+        "summary": "Upload CV for analysis",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "CV uploaded and queued" } }
+      }
+    }
+  }
+}

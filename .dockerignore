@@ -1,0 +1,40 @@
+# Dependencies — rebuilt inside container
+node_modules
+backend/node_modules
+frontend/node_modules
+
+# Build outputs — rebuilt inside container
+dist
+backend/dist
+frontend/dist
+
+# Vite / TS caches
+.vite
+*.tsbuildinfo
+
+# Environment files — injected at runtime via docker-compose env vars
+.env
+.env.*
+!.env.example
+
+# Git & tooling
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Logs
+*.log
+logs/
+
+# Uploaded user files (mounted as named volume, not baked into image)
+backend/uploads
+uploads
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+coverage/

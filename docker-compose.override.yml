@@ -1,0 +1,26 @@
+# ─────────────────────────────────────────────────────────────
+#  docker-compose.override.yml — LOCAL DEVELOPMENT overrides
+#
+#  This file is automatically merged with docker-compose.yml
+#  when you run `docker compose up` locally.
+#
+#  It exposes extra ports and mounts source code for live-reload.
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+
+  redis:
+    # Expose Redis for debugging with redis-cli / RedisInsight
+    ports:
+      - "6379:6379"
+
+  backend:
+    # Expose backend directly for Postman / Insomnia testing
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    # Override command to use ts-node for hot-reload (requires devDeps in image)
+    # For true hot-reload, use `npm run dev` locally instead

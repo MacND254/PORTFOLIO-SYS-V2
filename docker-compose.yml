@@ -1,0 +1,121 @@
+# ─────────────────────────────────────────────────────────────
+#  Multi-Tenant Portfolio SaaS — Docker Compose (Production)
+#
+#  Services:
+#    postgres   → PostgreSQL 16 (persisted volume)
+#    redis      → Redis 7 (rate limiting / caching)
+#    backend    → Node.js Express API  (:3000)
+#    frontend   → Nginx + React SPA    (:80)
+#
+#  Usage:
+#    docker compose up --build -d
+#    docker compose exec backend node dist/database/seed.js
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: portfolio_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-portfolio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolio_secret}
+      POSTGRES_DB:       ${POSTGRES_DB:-portfolio_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-portfolio} -d ${POSTGRES_DB:-portfolio_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - portfolio_net
+
+  # ── Redis ─────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: portfolio_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - portfolio_net
+
+  # ── Backend (Express API) ─────────────────────────────────
+  backend:
+    build:
+      context: .                          # Repo root (gives access to /prisma)
+      dockerfile: backend/Dockerfile
+    container_name: portfolio_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV:        production
+      PORT:            3000
+      DATABASE_URL:    postgresql://${POSTGRES_USER:-portfolio}:${POSTGRES_PASSWORD:-portfolio_secret}@postgres:5432/${POSTGRES_DB:-portfolio_db}
+      REDIS_URL:       redis://redis:6379
+      JWT_SECRET:      ${JWT_SECRET:-super_secret_change_in_production}
+      JWT_EXPIRES_IN:  ${JWT_EXPIRES_IN:-7d}
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-myportfolio.com}
+      FRONTEND_URL:    ${FRONTEND_URL:-http://localhost:80}
+      AI_API_KEY:      ${AI_API_KEY:-}
+      SMTP_HOST:       ${SMTP_HOST:-}
+      SMTP_PORT:       ${SMTP_PORT:-587}
+      SMTP_USER:       ${SMTP_USER:-}
+      SMTP_PASS:       ${SMTP_PASS:-}
+    volumes:
+      - uploads_data:/app/uploads         # Persist uploaded CV files
+    # Run migrations then start the server
+    command: >
+      sh -c "
+        npx prisma db push --schema=./prisma/schema.prisma &&
+        node dist/server.js
+      "
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - portfolio_net
+
+  # ── Frontend (Nginx + Vite SPA) ───────────────────────────
+  frontend:
+    build:
+      context: .                          # Repo root
+      dockerfile: frontend/Dockerfile
+    container_name: portfolio_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - portfolio_net
+
+
+# ─────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  portfolio_net:
+    driver: bridge

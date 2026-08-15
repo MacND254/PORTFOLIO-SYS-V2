@@ -1,0 +1,566 @@
+// Prisma Schema for Multi-Tenant CV & Professional Portfolio SaaS Platform
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum CVStatus {
+  UPLOADED
+  PROCESSING
+  ANALYZED
+  REVIEW_REQUIRED
+  IMPORTED
+  FAILED
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+  SUSPENDED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                String     @id @default(uuid())
+  fullName          String
+  email             String     @unique
+  password          String
+  role              Role       @default(ADMIN)
+  status            UserStatus @default(ACTIVE)
+  emailVerified     Boolean    @default(false)
+  verificationToken String?
+  resetToken        String?
+  resetTokenExpires DateTime?
+  desiredProfession String?
+
+  // Relations
+  profile       Profile?
+  subdomains    Subdomain[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  cvs           CV[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Subdomain {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug          String   @unique
+  isPrimary     Boolean  @default(true)
+  previousSlugs String[] @default([])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([slug])
+  @@index([userId])
+}
+
+model Profile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title           String? // Professional title e.g. Senior Software Architect
+  headline        String? // Short tagline
+  summary         String? // Summary text
+  careerObjective String? // Career objective
+  bio             String? // Long biography
+  phone           String?
+  location        String?
+  address         String?
+  website         String?
+  github          String?
+  linkedin        String?
+  twitter         String?
+  facebook        String?
+  instagram       String?
+  youtube         String?
+  behance         String?
+  dribbble        String?
+  researchgate    String?
+  scholar         String?
+  avatarUrl       String?
+  coverUrl        String?
+  logoUrl         String?
+
+  // Privacy Settings
+  isPublicEmail      Boolean @default(true)
+  isPublicPhone      Boolean @default(false)
+  isPublicLocation   Boolean @default(true)
+  isPublicAddress    Boolean @default(false)
+  isPublicSocial     Boolean @default(true)
+  isPublicReferences Boolean @default(false)
+
+  completenessScore Int @default(0)
+
+  // Relations
+  experiences     Experience[]
+  educations      Education[]
+  skills          Skill[]
+  certifications  Certification[]
+  awards          Award[]
+  projects        Project[]
+  publications    Publication[]
+  languages       Language[]
+  services        Service[]
+  references      Reference[]
+  memberships     Membership[]
+  customSections  CustomSection[]
+  customization   PortfolioCustomization?
+  portfolioStatus PortfolioStatus?
+  revisions       PortfolioRevision[]
+  reviews         Review[]
+  contactMessages ContactMessage[]
+  analyticsEvents AnalyticsEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CV {
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalFilename String
+  storedFilename   String
+  mimeType         String
+  fileSize         Int
+  fileUrl          String
+  status           CVStatus       @default(UPLOADED)
+  rawText          String?
+  extractions      CVExtraction[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([userId])
+}
+
+model CVExtraction {
+  id               String   @id @default(uuid())
+  cvId             String
+  cv               CV       @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  userId           String
+  extractedData    Json // Parsed JSON containing profile, experience, skills etc.
+  confidenceScores Json? // Section confidence metrics
+  status           CVStatus @default(ANALYZED)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([cvId])
+  @@index([userId])
+}
+
+model Experience {
+  id               String   @id @default(uuid())
+  profileId        String
+  profile          Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  company          String
+  position         String
+  location         String?
+  startDate        String
+  endDate          String?
+  isCurrent        Boolean  @default(false)
+  description      String?
+  responsibilities String[] @default([])
+  achievements     String[] @default([])
+  orderIndex       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Education {
+  id            String   @id @default(uuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  institution   String
+  qualification String
+  field         String?
+  startDate     String
+  endDate       String?
+  isCurrent     Boolean  @default(false)
+  grade         String?
+  description   String?
+  orderIndex    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name        String
+  category    String   @default("Technical") // Technical, Soft, Tool, Industry
+  proficiency Int? // 1 to 100
+  level       String? // Beginner, Intermediate, Expert
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Certification {
+  id                  String   @id @default(uuid())
+  profileId           String
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name                String
+  issuingOrganization String
+  issueDate           String
+  expiryDate          String?
+  credentialId        String?
+  credentialUrl       String?
+  orderIndex          Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Award {
+  id           String   @id @default(uuid())
+  profileId    String
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title        String
+  organization String
+  date         String
+  description  String?
+  orderIndex   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Project {
+  id              String   @id @default(uuid())
+  profileId       String
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title           String
+  description     String
+  longDescription String?
+  imageUrl        String?
+  demoUrl         String?
+  githubUrl       String?
+  technologies    String[] @default([])
+  role            String?
+  featured        Boolean  @default(false)
+  orderIndex      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Publication {
+  id          String   @id @default(uuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title       String
+  publisher   String
+  date        String
+  url         String?
+  description String?
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Language {
+  id          String   @id @default(uuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  language    String
+  proficiency String // Native, Fluent, Professional, Intermediate, Basic
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  icon        String?
+  price       String?
+  features    String[] @default([])
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Reference {
+  id           String   @id @default(uuid())
+  profileId    String
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name         String
+  position     String
+  organization String
+  email        String?
+  phone        String?
+  relationship String?
+  isPublic     Boolean  @default(false)
+  orderIndex   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Membership {
+  id               String   @id @default(uuid())
+  profileId        String
+  profile          Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  organization     String
+  membershipNumber String?
+  position         String?
+  startDate        String
+  endDate          String?
+  isCurrent        Boolean  @default(false)
+  website          String?
+  orderIndex       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model CustomSection {
+  id         String   @id @default(uuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title      String
+  content    String
+  isVisible  Boolean  @default(true)
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model PortfolioTheme {
+  id             String                   @id @default(uuid())
+  themeId        String                   @unique // software-engineer, data-scientist, cybersecurity, etc.
+  name           String
+  profession     String
+  description    String
+  layoutConfig   Json
+  defaultColors  Json
+  typography     Json
+  customizations PortfolioCustomization[]
+  orderIndex     Int                      @default(0)
+  isPublished    Boolean                  @default(true)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@index([themeId])
+  @@index([profession])
+}
+
+model PortfolioCustomization {
+  id                String         @id @default(uuid())
+  profileId         String         @unique
+  profile           Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  themeId           String         @default("software-engineer")
+  theme             PortfolioTheme @relation(fields: [themeId], references: [themeId], onDelete: Restrict)
+  colorPalette      Json? // Primary, Secondary, Accent, Background, Surface, Text
+  fontHeading       String         @default("Inter")
+  fontBody          String         @default("Inter")
+  customCss         String?
+  sectionVisibility Json? // Map of section names to boolean
+  sectionOrder      Json? // List of section names in order
+  customCtaText     String?
+  customCtaUrl      String?
+  showQrInPdf       Boolean        @default(true)
+  showSocialLinks   Boolean        @default(true)
+  layoutVariant     String         @default("standard")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model PortfolioStatus {
+  id            String        @id @default(uuid())
+  profileId     String        @unique
+  profile       Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  isPublished   Boolean       @default(false)
+  publishStatus PublishStatus @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model PortfolioRevision {
+  id              String   @id @default(uuid())
+  profileId       String
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  snapshotData    Json
+  revisionNote    String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@index([profileId])
+}
+
+model Review {
+  id               String       @id @default(uuid())
+  profileId        String
+  profile          Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  token            String       @unique @default(uuid())
+  reviewerName     String
+  reviewerCompany  String?
+  reviewerJobTitle String?
+  reviewerEmail    String
+  rating           Int          @default(5)
+  reviewText       String
+  reviewerWebsite  String?
+  reviewerPhotoUrl String?
+  isApproved       Boolean      @default(false)
+  isFeatured       Boolean      @default(false)
+  status           ReviewStatus @default(PENDING)
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([profileId])
+  @@index([token])
+  @@index([status])
+}
+
+model ContactMessage {
+  id         String   @id @default(uuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name       String
+  email      String
+  subject    String
+  message    String
+  isRead     Boolean  @default(false)
+  isArchived Boolean  @default(false)
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([isRead])
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  eventType  String // VIEW, DOWNLOAD_RESUME, CONTACT_SUBMIT, REVIEW_SUBMIT
+  visitorIp  String?
+  userAgent  String?
+  referrer   String?
+  deviceType String? // Desktop, Mobile, Tablet
+  browser    String?
+  country    String?
+  path       String?
+  timestamp  DateTime @default(now())
+
+  @@index([profileId])
+  @@index([eventType])
+  @@index([timestamp])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // USER_REGISTERED, CV_UPLOADED, PORTFOLIO_PUBLISHED, etc.
+  target    String? // Entity ID or description
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, SUCCESS, WARNING, ALERT
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
