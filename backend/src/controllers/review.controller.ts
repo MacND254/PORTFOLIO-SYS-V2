@@ -53,4 +53,17 @@ export class ReviewController {
       next(error);
     }
   }
+
+  public static async sendInvite(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { reviewerEmail, reviewerName } = req.body;
+      if (!reviewerEmail || !reviewerName) {
+        throw new ValidationError('reviewerEmail and reviewerName are required.');
+      }
+      const result = await ReviewService.sendReviewInvitation(req.user!.id, reviewerEmail, reviewerName);
+      return sendSuccess({ res, message: result.message, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

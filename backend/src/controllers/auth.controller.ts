@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
 import { sendSuccess } from '../utils/apiResponse';
-import { registerSchema, loginSchema } from '../validators/auth.validator';
+import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/auth.validator';
 import { ValidationError } from '../utils/errors';
 import { SystemSettingsService } from '../services/systemSettings.service';
 
@@ -49,6 +49,45 @@ export class AuthController {
       return sendSuccess({
         res,
         message: 'Logged in successfully.',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = forgotPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError('Validation failed', parsed.error.errors);
+      }
+
+      const frontendUrl = `${req.protocol}://${req.get('host')}`;
+      const result = await AuthService.forgotPassword(parsed.data.email, frontendUrl);
+
+      return sendSuccess({
+        res,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = resetPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError('Validation failed', parsed.error.errors);
+      }
+
+      const result = await AuthService.resetPassword(parsed.data);
+
+      return sendSuccess({
+        res,
+        message: result.message,
         data: result,
       });
     } catch (error) {

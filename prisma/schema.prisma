@@ -111,6 +111,7 @@ model Profile {
   summary         String? // Summary text
   careerObjective String? // Career objective
   bio             String? // Long biography
+  contactEmail    String? // Dedicated email for receiving forwarded contact messages
   phone           String?
   location        String?
   address         String?

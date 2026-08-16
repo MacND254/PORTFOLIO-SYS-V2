@@ -121,4 +121,30 @@ export class ReviewService {
 
     throw new ValidationError('Invalid moderation action.');
   }
+
+  public static async sendReviewInvitation(userId: string, reviewerEmail: string, reviewerName: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        subdomains: { where: { isPrimary: true } },
+      },
+    });
+
+    if (!user || !user.profile) throw new NotFoundError('Profile not found.');
+
+    const { MailService } = await import('./mail.service');
+    const primarySubdomain = user.subdomains[0]?.slug || 'portfolio';
+    const sent = await MailService.sendReviewInvitationEmail({
+      reviewerEmail,
+      reviewerName,
+      tenantName: user.fullName,
+      reviewToken: user.profile.id,
+      subdomain: primarySubdomain,
+    });
+
+    if (!sent) throw new ValidationError('Failed to send testimonial invitation email. Please check System Mail Settings.');
+
+    return { message: `Testimonial invitation sent successfully to ${reviewerEmail}` };
+  }
 }

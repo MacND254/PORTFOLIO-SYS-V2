@@ -12,6 +12,19 @@ import {
   Trash2,
   Save,
   Check,
+  Edit3,
+  ExternalLink,
+  Github,
+  Star,
+  Globe,
+  Layers,
+  Sparkles,
+  Mail,
+  Phone,
+  MapPin,
+  Share2,
+  Eye,
+  Lock,
 } from "lucide-react";
 import { ImageUploadWidget } from "../../components/ui/ImageUploadWidget";
 
@@ -20,6 +33,7 @@ export const ProfileEditorPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     | "general"
+    | "contacts"
     | "experience"
     | "education"
     | "skills"
@@ -63,12 +77,17 @@ export const ProfileEditorPage: React.FC = () => {
   });
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [newProject, setNewProject] = useState({
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [projectForm, setProjectForm] = useState({
     title: "",
     description: "",
+    longDescription: "",
+    imageUrl: "",
     demoUrl: "",
     githubUrl: "",
-    technologies: "React, TypeScript",
+    technologies: "React, TypeScript, TailwindCSS",
+    role: "Full Stack",
+    featured: false,
   });
 
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
@@ -92,14 +111,25 @@ export const ProfileEditorPage: React.FC = () => {
         title: res.data.title || "",
         headline: res.data.headline || "",
         summary: res.data.summary || "",
+        contactEmail: res.data.contactEmail || res.data.user?.email || "",
         location: res.data.location || "",
         phone: res.data.phone || "",
+        address: res.data.address || "",
+        website: res.data.website || "",
         github: res.data.github || "",
         linkedin: res.data.linkedin || "",
         twitter: res.data.twitter || "",
-        website: res.data.website || "",
+        facebook: res.data.facebook || "",
+        instagram: res.data.instagram || "",
+        behance: res.data.behance || "",
+        dribbble: res.data.dribbble || "",
         avatarUrl: res.data.avatarUrl || "",
         coverUrl: res.data.coverUrl || "",
+        isPublicEmail: res.data.isPublicEmail ?? true,
+        isPublicPhone: res.data.isPublicPhone ?? false,
+        isPublicLocation: res.data.isPublicLocation ?? true,
+        isPublicAddress: res.data.isPublicAddress ?? false,
+        isPublicSocial: res.data.isPublicSocial ?? true,
       });
     } catch (e) {
       console.error(e);
@@ -113,11 +143,13 @@ export const ProfileEditorPage: React.FC = () => {
     setSaveSuccess(false);
     setSaveError('');
     try {
-      const res: any = await api.put("/profile", generalState);
-      // Update profile in state immediately for live changes
-      const updated = res?.data ?? res;
-      if (updated) {
+      // api interceptor returns response.data (the envelope):
+      // { success: true, message: '...', data: <full profile object> }
+      const envelope: any = await api.put('/profile', generalState);
+      const updated = envelope?.data ?? envelope;
+      if (updated && typeof updated === 'object') {
         setProfile(updated);
+        // Sync image URLs back in case they were updated server-side
         setGeneralState((prev: any) => ({
           ...prev,
           avatarUrl: updated.avatarUrl ?? prev.avatarUrl,
@@ -128,7 +160,7 @@ export const ProfileEditorPage: React.FC = () => {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e: any) {
       setSaveError(e?.message || 'Save failed. Please try again.');
-      console.error(e);
+      console.error('[ProfileEditor] Save error:', e);
     } finally {
       setIsSavingGeneral(false);
     }
@@ -211,13 +243,54 @@ export const ProfileEditorPage: React.FC = () => {
     }
   };
 
-  const handleAddProject = async (e: React.FormEvent) => {
+  const handleOpenNewProject = () => {
+    setEditingProjectId(null);
+    setProjectForm({
+      title: "",
+      description: "",
+      longDescription: "",
+      imageUrl: "",
+      demoUrl: "",
+      githubUrl: "",
+      technologies: "React, TypeScript, TailwindCSS",
+      role: "Full Stack",
+      featured: false,
+    });
+    setIsProjectModalOpen(true);
+  };
+
+  const handleOpenEditProject = (proj: any) => {
+    setEditingProjectId(proj.id);
+    setProjectForm({
+      title: proj.title || "",
+      description: proj.description || "",
+      longDescription: proj.longDescription || "",
+      imageUrl: proj.imageUrl || "",
+      demoUrl: proj.demoUrl || "",
+      githubUrl: proj.githubUrl || "",
+      technologies: Array.isArray(proj.technologies)
+        ? proj.technologies.join(", ")
+        : (proj.technologies || ""),
+      role: proj.role || "Full Stack",
+      featured: Boolean(proj.featured),
+    });
+    setIsProjectModalOpen(true);
+  };
+
+  const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/profile/projects", {
-        ...newProject,
-        technologies: newProject.technologies.split(",").map((t) => t.trim()),
-      });
+      const payload = {
+        ...projectForm,
+        technologies: projectForm.technologies
+          ? projectForm.technologies.split(",").map((t: string) => t.trim()).filter(Boolean)
+          : [],
+      };
+      if (editingProjectId) {
+        await api.put(`/profile/projects/${editingProjectId}`, payload);
+      } else {
+        await api.post("/profile/projects", payload);
+      }
       setIsProjectModalOpen(false);
       fetchProfile();
     } catch (e) {
@@ -269,24 +342,30 @@ export const ProfileEditorPage: React.FC = () => {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-6xl mx-auto">
+      <div className="space-y-1 sm:space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
           Profile Data Editor
         </h1>
-        <p className="text-slate-400 text-sm">
+        <p className="text-slate-400 text-xs sm:text-sm">
           Manage your bio, experience, education, skills, projects, and
           certifications.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-800 gap-6 text-sm font-semibold text-slate-400 overflow-x-auto">
+      <div className="flex border-b border-slate-800 gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-slate-400 overflow-x-auto no-scrollbar scroll-smooth">
         <button
           onClick={() => setActiveTab("general")}
           className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "general" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
         >
           General Bio
+        </button>
+        <button
+          onClick={() => setActiveTab("contacts")}
+          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "contacts" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
+        >
+          Contact & Social
         </button>
         <button
           onClick={() => setActiveTab("experience")}
@@ -334,16 +413,18 @@ export const ProfileEditorPage: React.FC = () => {
             <div>
               <ImageUploadWidget
                 label="Profile Avatar Photo"
+                fieldName="avatarUrl"
                 value={generalState.avatarUrl || ''}
-                onChange={(url) => setGeneralState({ ...generalState, avatarUrl: url })}
+                onChange={(url) => setGeneralState((prev: any) => ({ ...prev, avatarUrl: url }))}
                 aspectRatio="square"
               />
             </div>
             <div className="md:col-span-2">
               <ImageUploadWidget
                 label="Header Cover Banner"
+                fieldName="coverUrl"
                 value={generalState.coverUrl || ''}
-                onChange={(url) => setGeneralState({ ...generalState, coverUrl: url })}
+                onChange={(url) => setGeneralState((prev: any) => ({ ...prev, coverUrl: url }))}
                 aspectRatio="banner"
               />
             </div>
@@ -447,6 +528,317 @@ export const ProfileEditorPage: React.FC = () => {
               <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-semibold animate-in fade-in slide-in-from-left-2 duration-300">
                 <Check className="w-4 h-4" />
                 Profile saved successfully!
+              </span>
+            )}
+
+            {saveError && (
+              <span className="inline-flex items-center gap-1.5 text-rose-400 text-xs font-semibold animate-in fade-in slide-in-from-left-2 duration-300">
+                {saveError}
+              </span>
+            )}
+          </div>
+        </form>
+      )}
+
+      {/* Contacts & Social Tab */}
+      {activeTab === "contacts" && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveGeneral();
+          }}
+          className="space-y-6"
+        >
+          {/* Section 1: Email Forwarding Configuration */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Portfolio Message Forwarding & Email</h3>
+                <p className="text-xs text-slate-400">
+                  Configure where visitor inquiries submitted through your portfolio's contact form will be emailed.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Primary Forwarding Contact Email</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={generalState.contactEmail || ''}
+                  onChange={(e) =>
+                    setGeneralState({ ...generalState, contactEmail: e.target.value })
+                  }
+                  placeholder="your.email@example.com"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Messages received on your portfolio domain will be dispatched instantly to this inbox via global SMTP.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <input
+                  type="checkbox"
+                  id="isPublicEmail"
+                  checked={generalState.isPublicEmail ?? true}
+                  onChange={(e) =>
+                    setGeneralState({ ...generalState, isPublicEmail: e.target.checked })
+                  }
+                  className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="isPublicEmail" className="text-xs text-slate-300 font-medium cursor-pointer flex items-center gap-2">
+                  <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Display contact email address publicly on portfolio footer & contact section</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Phone, Location & Address */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
+                <Phone className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Phone & Location Details</h3>
+                <p className="text-xs text-slate-400">Manage phone number, city, and physical work location.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Phone / Mobile Number</span>
+                </label>
+                <input
+                  type="text"
+                  value={generalState.phone || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, phone: e.target.value })}
+                  placeholder="+1 (555) 123-4567"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isPublicPhone"
+                    checked={generalState.isPublicPhone ?? false}
+                    onChange={(e) => setGeneralState({ ...generalState, isPublicPhone: e.target.checked })}
+                    className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-indigo-600"
+                  />
+                  <label htmlFor="isPublicPhone" className="text-[11px] text-slate-400 cursor-pointer">
+                    Show phone on portfolio
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Location (City, Country)</span>
+                </label>
+                <input
+                  type="text"
+                  value={generalState.location || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, location: e.target.value })}
+                  placeholder="San Francisco, CA, USA"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isPublicLocation"
+                    checked={generalState.isPublicLocation ?? true}
+                    onChange={(e) => setGeneralState({ ...generalState, isPublicLocation: e.target.checked })}
+                    className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-indigo-600"
+                  />
+                  <label htmlFor="isPublicLocation" className="text-[11px] text-slate-400 cursor-pointer">
+                    Show location on portfolio
+                  </label>
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 space-y-2">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Office Address</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={generalState.address || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, address: e.target.value })}
+                  placeholder="Suite 400, 100 Tech Boulevard"
+                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Social & Online Presence Links */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-600/20 text-purple-400 flex items-center justify-center">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Social Media & Portfolio Links</h3>
+                  <p className="text-xs text-slate-400">Connect your public developer & professional profiles.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isPublicSocial"
+                  checked={generalState.isPublicSocial ?? true}
+                  onChange={(e) => setGeneralState({ ...generalState, isPublicSocial: e.target.checked })}
+                  className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-indigo-600"
+                />
+                <label htmlFor="isPublicSocial" className="text-xs text-slate-300 font-medium cursor-pointer">
+                  Public Icons
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Personal Website URL</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.website || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, website: e.target.value })}
+                  placeholder="https://yourwebsite.com"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Github className="w-3.5 h-3.5 text-purple-400" />
+                  <span>GitHub Profile</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.github || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, github: e.target.value })}
+                  placeholder="https://github.com/username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                  <span>LinkedIn Profile</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.linkedin || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, linkedin: e.target.value })}
+                  placeholder="https://linkedin.com/in/username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Twitter / X Profile</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.twitter || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, twitter: e.target.value })}
+                  placeholder="https://x.com/username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Facebook Profile</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.facebook || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, facebook: e.target.value })}
+                  placeholder="https://facebook.com/username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Instagram Handle</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.instagram || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, instagram: e.target.value })}
+                  placeholder="https://instagram.com/username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Behance Profile</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.behance || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, behance: e.target.value })}
+                  placeholder="https://behance.net/username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Dribbble Shots Link</span>
+                </label>
+                <input
+                  type="url"
+                  value={generalState.dribbble || ''}
+                  onChange={(e) => setGeneralState({ ...generalState, dribbble: e.target.value })}
+                  placeholder="https://dribbble.com/username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSavingGeneral}
+              leftIcon={<Save className="w-4 h-4" />}
+            >
+              Save Contact Settings
+            </Button>
+
+            {saveSuccess && (
+              <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-semibold animate-in fade-in slide-in-from-left-2 duration-300">
+                <Check className="w-4 h-4" />
+                Contacts saved successfully!
               </span>
             )}
 
@@ -584,35 +976,113 @@ export const ProfileEditorPage: React.FC = () => {
       {activeTab === "projects" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-white">Projects</h3>
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Layers className="w-5 h-5 text-indigo-400" />
+                <span>Featured Projects Showcase</span>
+              </h3>
+              <p className="text-xs text-slate-400">Manage work portfolio items, cover photos, live links, and technologies used.</p>
+            </div>
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setIsProjectModalOpen(true)}
+              onClick={handleOpenNewProject}
               leftIcon={<Plus className="w-4 h-4" />}
             >
-              Add Project
+              Add New Project
             </Button>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {profile?.projects?.map((proj: any) => (
               <div
                 key={proj.id}
-                className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3"
+                className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 flex flex-col justify-between hover:border-slate-700 transition"
               >
-                <div className="flex items-center justify-between">
-                  <h4 className="text-base font-bold text-white">
-                    {proj.title}
-                  </h4>
-                  <button
-                    onClick={() => handleDeleteProject(proj.id)}
-                    className="text-red-400 hover:text-red-300"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div className="space-y-3">
+                  {/* Cover Image Preview */}
+                  {proj.imageUrl && (
+                    <div className="w-full h-40 rounded-xl overflow-hidden bg-slate-950 border border-slate-800/80 relative">
+                      <img src={proj.imageUrl} alt={proj.title} className="w-full h-full object-cover" />
+                      {proj.featured && (
+                        <span className="absolute top-2.5 right-2.5 bg-amber-500/90 text-slate-950 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow">
+                          <Star className="w-3 h-3 fill-slate-950" /> Featured
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Header & Badges */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {proj.role && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                            {proj.role}
+                          </span>
+                        )}
+                        {proj.featured && !proj.imageUrl && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-amber-400" /> Featured
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-base font-bold text-white">
+                        {proj.title}
+                      </h4>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleOpenEditProject(proj)}
+                        className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                        title="Edit Project"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(proj.id)}
+                        className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                        title="Delete Project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-300 leading-relaxed">{proj.description}</p>
+
+                  {/* Technologies Tags */}
+                  {proj.technologies && proj.technologies.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(Array.isArray(proj.technologies) ? proj.technologies : String(proj.technologies).split(',')).map((tech: string, idx: number) => (
+                        <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[11px] font-mono border border-slate-700">
+                          {tech.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-slate-400">{proj.description}</p>
+
+                {/* External Links */}
+                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3">
+                    {proj.demoUrl && (
+                      <a href={proj.demoUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1">
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Live Demo</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {proj.githubUrl && (
+                      <a href={proj.githubUrl} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-white font-semibold flex items-center gap-1">
+                        <Github className="w-3.5 h-3.5" />
+                        <span>Source Code</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -824,37 +1294,106 @@ export const ProfileEditorPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Project Add Modal */}
+      {/* Project Add/Edit Modal */}
       <Modal
         isOpen={isProjectModalOpen}
         onClose={() => setIsProjectModalOpen(false)}
-        title="Add Project"
+        title={editingProjectId ? "Edit Project Details" : "Add New Project"}
       >
-        <form onSubmit={handleAddProject} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs text-slate-300">Project Title</label>
-            <input
-              required
-              value={newProject.title}
-              onChange={(e) =>
-                setNewProject({ ...newProject, title: e.target.value })
-              }
-              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
-            />
+        <form onSubmit={handleSaveProject} className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
+          {/* Project Cover Image Upload */}
+          <ImageUploadWidget
+            label="Project Cover Image (Thumbnail)"
+            value={projectForm.imageUrl}
+            onChange={(url) => setProjectForm({ ...projectForm, imageUrl: url })}
+            aspectRatio="banner"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-medium">Project Title *</label>
+              <input
+                required
+                value={projectForm.title}
+                onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="e.g. AI Portfolio Generator"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-medium font-mono">Category / Role</label>
+              <input
+                value={projectForm.role}
+                onChange={(e) => setProjectForm({ ...projectForm, role: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="e.g. Full Stack Web App, Mobile App, AI Model"
+              />
+            </div>
           </div>
+
+          <div className="flex items-center gap-2 p-3 bg-slate-950 rounded-xl border border-slate-800">
+            <input
+              type="checkbox"
+              id="featuredProject"
+              checked={projectForm.featured}
+              onChange={(e) => setProjectForm({ ...projectForm, featured: e.target.checked })}
+              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-slate-700 cursor-pointer"
+            />
+            <label htmlFor="featuredProject" className="text-xs text-slate-300 font-semibold cursor-pointer flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>Highlight as Featured Project on Public Portfolio</span>
+            </label>
+          </div>
+
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">Description</label>
+            <label className="text-xs text-slate-300 font-medium">Short Description *</label>
             <textarea
               required
-              value={newProject.description}
-              onChange={(e) =>
-                setNewProject({ ...newProject, description: e.target.value })
-              }
+              rows={2}
+              value={projectForm.description}
+              onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
               className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="Brief overview of what this project accomplishes..."
             />
           </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-medium">Technologies Used (Comma-separated)</label>
+            <input
+              value={projectForm.technologies}
+              onChange={(e) => setProjectForm({ ...projectForm, technologies: e.target.value })}
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm font-mono"
+              placeholder="React, TypeScript, TailwindCSS, PostgreSQL"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-medium">Live Demo URL</label>
+              <input
+                type="url"
+                value={projectForm.demoUrl}
+                onChange={(e) => setProjectForm({ ...projectForm, demoUrl: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm font-mono"
+                placeholder="https://myproject.com"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-medium">GitHub Repository URL</label>
+              <input
+                type="url"
+                value={projectForm.githubUrl}
+                onChange={(e) => setProjectForm({ ...projectForm, githubUrl: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm font-mono"
+                placeholder="https://github.com/user/repo"
+              />
+            </div>
+          </div>
+
           <Button type="submit" variant="primary" className="w-full">
-            Save Project
+            {editingProjectId ? "Update Project" : "Save Project"}
           </Button>
         </form>
       </Modal>

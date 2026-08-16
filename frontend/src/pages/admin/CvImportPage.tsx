@@ -103,10 +103,10 @@ export const CvImportPage: React.FC = () => {
   };
 
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-6xl mx-auto">
       <div className="space-y-2">
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">AI CV Parser & Importer</h1>
-        <p className="text-slate-400 text-sm">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">AI CV Parser & Importer</h1>
+        <p className="text-slate-400 text-xs sm:text-sm">
           Upload your existing resume (PDF, DOCX) to automatically populate your professional portfolio sections.
         </p>
       </div>
@@ -119,7 +119,7 @@ export const CvImportPage: React.FC = () => {
       )}
 
       {/* Upload Zone */}
-      <form onSubmit={handleUploadCV} className="p-8 rounded-3xl bg-slate-900 border-2 border-dashed border-slate-800 hover:border-indigo-500/50 transition text-center space-y-4">
+      <form onSubmit={handleUploadCV} className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-slate-900 border-2 border-dashed border-slate-800 hover:border-indigo-500/50 transition text-center space-y-4">
         <div className="w-16 h-16 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mx-auto">
           <FileUp className="w-8 h-8" />
         </div>

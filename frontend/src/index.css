@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,21 +6,21 @@
 
 /* === DESIGN SYSTEM TOKENS === */
 :root {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --color-bg:         #020817;
-  --color-surface:    #0f172a;
-  --color-border:     #1e293b;
-  --color-primary:    #6366f1;
-  --color-accent:     #a855f7;
+  --color-bg: #020817;
+  --color-surface: #0f172a;
+  --color-border: #1e293b;
+  --color-primary: #6366f1;
+  --color-accent: #a855f7;
 
   --radius-xl: 16px;
   --radius-2xl: 20px;
   --radius-3xl: 24px;
 
   --shadow-glow-indigo: 0 0 32px 4px rgba(99, 102, 241, 0.12);
-  --shadow-glow-purple:  0 0 32px 4px rgba(168, 85, 247, 0.12);
+  --shadow-glow-purple: 0 0 32px 4px rgba(168, 85, 247, 0.12);
 }
 
 /* === GLOBAL RESET & BASE === */
@@ -46,7 +46,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-code, pre, kbd, samp {
+code,
+pre,
+kbd,
+samp {
   font-family: var(--font-mono);
 }
 
@@ -75,34 +78,69 @@ code, pre, kbd, samp {
 
 /* === ANIMATIONS === */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fade-in-scale {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-24px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-.animate-fade-in        { animation: fade-in 0.35s ease both; }
-.animate-fade-in-scale  { animation: fade-in-scale 0.35s ease both; }
-.animate-slide-in-left  { animation: slide-in-left 0.4s ease both; }
-.animate-float          { animation: float 4s ease-in-out infinite; }
+.animate-fade-in {
+  animation: fade-in 0.35s ease both;
+}
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.35s ease both;
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.4s ease both;
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
 
 /* Shimmer skeleton loader */
 .skeleton {
@@ -136,7 +174,9 @@ code, pre, kbd, samp {
 
 /* === CARD HOVER LIFT === */
 .card-lift {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .card-lift:hover {
   transform: translateY(-3px);
@@ -145,16 +185,24 @@ code, pre, kbd, samp {
 
 /* === GRADIENTS FOR HERO BG === */
 .hero-radial {
-  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99, 102, 241, 0.18), transparent);
+  background: radial-gradient(
+    ellipse 80% 60% at 50% -10%,
+    rgba(99, 102, 241, 0.18),
+    transparent
+  );
 }
 
 .hero-radial-purple {
-  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(168, 85, 247, 0.18), transparent);
+  background: radial-gradient(
+    ellipse 80% 60% at 50% -10%,
+    rgba(168, 85, 247, 0.18),
+    transparent
+  );
 }
 
 /* === NOISE TEXTURE OVERLAY === */
 .noise-overlay::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -163,21 +211,30 @@ code, pre, kbd, samp {
 }
 
 /* === FORM GLOBAL STYLES === */
-input, textarea, select {
+input,
+textarea,
+select {
   background-color: #020817;
   color: #f1f5f9;
   border: 1px solid #1e293b;
   transition: border-color 0.15s ease;
 }
 
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   border-color: #6366f1;
   outline: none;
 }
 
 /* === TRANSITION DEFAULT === */
-a, button {
-  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+a,
+button {
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
 }
 
 /* === CODE BLOCK === */
@@ -224,49 +281,135 @@ pre {
 
 /* === PUBLIC PORTFOLIO THEME ENGINE === */
 .portfolio-theme {
-  --theme-card-border: color-mix(in srgb, var(--theme-primary) 26%, transparent);
-  --theme-card-shadow: 0 18px 44px color-mix(in srgb, var(--theme-primary) 14%, transparent);
+  --theme-card-border: color-mix(
+    in srgb,
+    var(--theme-primary) 35%,
+    transparent
+  );
+  --theme-card-shadow: 0 20px 50px
+    color-mix(in srgb, var(--theme-primary) 20%, transparent);
   isolation: isolate;
 }
 
 .portfolio-theme .theme-card {
   background: var(--theme-surface);
   border: 1px solid var(--theme-card-border);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition:
+    transform 250ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 250ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 250ms ease,
+    background 250ms ease;
 }
 
 .portfolio-theme .theme-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-5px);
   box-shadow: var(--theme-card-shadow);
 }
 
+/* 1. GLASS: Frosted glassy crystal look with bright luminous rim */
 .portfolio-theme .theme-card--glass {
-  background: color-mix(in srgb, var(--theme-surface) 72%, transparent);
-  backdrop-filter: blur(18px) saturate(1.25);
-  border-color: color-mix(in srgb, var(--theme-text) 16%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--theme-surface) 45%,
+    transparent
+  ) !important;
+  backdrop-filter: blur(24px) saturate(1.8) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.8) !important;
+  border: 1.5px solid
+    color-mix(in srgb, var(--theme-primary) 40%, rgba(255, 255, 255, 0.3)) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+.portfolio-theme .theme-card--glass:hover {
+  border-color: var(--theme-primary) !important;
+  box-shadow:
+    0 24px 60px color-mix(in srgb, var(--theme-primary) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
-.portfolio-theme .theme-card--neon {
-  background: color-mix(in srgb, var(--theme-bg) 76%, transparent);
-  border: 2px solid var(--theme-primary);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--theme-primary) 23%, transparent), inset 0 0 20px color-mix(in srgb, var(--theme-primary) 5%, transparent);
+/* 2. SOLID: Opaque surface with thick primary border frame */
+.portfolio-theme .theme-card--solid {
+  background: var(--theme-surface) !important;
+  border: 2px solid color-mix(in srgb, var(--theme-primary) 55%, transparent) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45) !important;
+}
+.portfolio-theme .theme-card--solid:hover {
+  border-color: var(--theme-primary) !important;
+  background: color-mix(
+    in srgb,
+    var(--theme-surface) 95%,
+    var(--theme-primary)
+  ) !important;
 }
 
+/* 3. SHADOW: Ultra deep dramatic shadow with dark ambient glow */
 .portfolio-theme .theme-card--shadow {
-  border-color: transparent;
-  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.22);
+  background: color-mix(in srgb, var(--theme-surface) 90%, black) !important;
+  border: 1px solid color-mix(in srgb, var(--theme-text) 14%, transparent) !important;
+  box-shadow:
+    0 30px 70px -10px rgba(0, 0, 0, 0.85),
+    0 0 30px color-mix(in srgb, var(--theme-primary) 18%, transparent) !important;
+}
+.portfolio-theme .theme-card--shadow:hover {
+  transform: translateY(-6px) scale(1.01) !important;
+  box-shadow:
+    0 40px 90px -10px rgba(0, 0, 0, 0.95),
+    0 0 45px color-mix(in srgb, var(--theme-primary) 35%, transparent) !important;
 }
 
+/* 4. FLAT: Sleek architectural flat card with left color accent bar */
 .portfolio-theme .theme-card--flat {
-  background: transparent;
-  border-radius: 0.6rem;
-  box-shadow: none;
+  background: color-mix(
+    in srgb,
+    var(--theme-surface) 80%,
+    transparent
+  ) !important;
+  border: 1px solid
+    color-mix(in srgb, var(--theme-card-border) 70%, transparent) !important;
+  border-left: 5px solid var(--theme-primary) !important;
+  box-shadow: none !important;
+  border-radius: 0.75rem !important;
+}
+.portfolio-theme .theme-card--flat:hover {
+  border-left-width: 8px !important;
+  background: color-mix(
+    in srgb,
+    var(--theme-surface) 95%,
+    transparent
+  ) !important;
 }
 
+/* 5. NEON: Electric glowing cyberpunk neon with double glow stroke & halo */
+.portfolio-theme .theme-card--neon {
+  background: color-mix(in srgb, var(--theme-bg) 88%, transparent) !important;
+  border: 2.5px solid var(--theme-primary) !important;
+  box-shadow:
+    0 0 35px color-mix(in srgb, var(--theme-primary) 50%, transparent),
+    inset 0 0 25px color-mix(in srgb, var(--theme-primary) 20%, transparent) !important;
+}
+.portfolio-theme .theme-card--neon:hover {
+  border-color: var(--theme-accent) !important;
+  box-shadow:
+    0 0 50px color-mix(in srgb, var(--theme-accent) 70%, transparent),
+    inset 0 0 35px color-mix(in srgb, var(--theme-primary) 30%, transparent) !important;
+}
+
+/* 6. RAISED: High-contrast 3D isometric elevated button/card feel */
 .portfolio-theme .theme-card--raised {
-  border-color: color-mix(in srgb, var(--theme-primary) 38%, transparent);
-  box-shadow: 0 16px 0 color-mix(in srgb, var(--theme-primary) 12%, transparent), 0 28px 44px rgba(15, 23, 42, 0.18);
+  background: var(--theme-surface) !important;
+  border: 2px solid var(--theme-primary) !important;
+  box-shadow:
+    0 8px 0 0 var(--theme-primary),
+    0 16px 36px rgba(0, 0, 0, 0.45) !important;
+  transform: translateY(-4px);
+}
+.portfolio-theme .theme-card--raised:hover {
+  transform: translateY(-8px) !important;
+  box-shadow:
+    0 12px 0 0 var(--theme-primary),
+    0 24px 50px rgba(0, 0, 0, 0.6) !important;
 }
 
 .theme-terminal-line {
@@ -297,103 +440,269 @@ pre {
   text-align: center;
 }
 
-.theme-metric + .theme-metric { border-left: 1px solid var(--theme-card-border); }
-.theme-metric strong { font-size: 1.1rem; line-height: 1.2; }
-.theme-metric span { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.theme-metric + .theme-metric {
+  border-left: 1px solid var(--theme-card-border);
+}
+.theme-metric strong {
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+.theme-metric span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
+/* === ENHANCED ANIMATION KEYFRAMES === */
 @keyframes theme-slide-up {
-  from { opacity: 0; transform: translateY(28px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes theme-zoom-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  70% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes theme-flip-in {
-  from { opacity: 0; transform: perspective(900px) rotateX(-11deg) translateY(18px); }
-  to { opacity: 1; transform: perspective(900px) rotateX(0) translateY(0); }
+  from {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(-40deg) translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1000px) rotateX(0) translateY(0);
+  }
 }
 
 @keyframes theme-glitch-in {
-  0% { opacity: 0; transform: translateX(-9px); clip-path: inset(40% 0 32% 0); }
-  30% { transform: translateX(7px); clip-path: inset(8% 0 68% 0); }
-  60% { transform: translateX(-3px); clip-path: inset(72% 0 6% 0); }
-  100% { opacity: 1; transform: translateX(0); clip-path: inset(0); }
+  0% {
+    opacity: 0;
+    transform: translate(-14px, 4px) skewX(-12deg);
+    filter: drop-shadow(4px -2px 0 #00ffff) drop-shadow(-4px 2px 0 #ff0055);
+  }
+  25% {
+    opacity: 0.8;
+    transform: translate(12px, -3px) skewX(8deg);
+    filter: drop-shadow(-3px 3px 0 #00ffaa);
+  }
+  50% {
+    transform: translate(-6px, 1px) skewX(-4deg);
+  }
+  75% {
+    transform: translate(4px, -1px) skewX(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) skewX(0);
+    filter: none;
+  }
 }
 
 @keyframes theme-ripple-in {
-  from { opacity: 0; transform: scale(0.985); box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-primary) 35%, transparent); }
-  to { opacity: 1; transform: scale(1); box-shadow: 0 0 0 20px transparent; }
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+    box-shadow: 0 0 0 0 var(--theme-primary);
+  }
+  50% {
+    opacity: 0.9;
+    box-shadow: 0 0 0 28px transparent;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 @keyframes theme-bounce-in {
-  0% { opacity: 0; transform: translateY(30px) scale(0.96); }
-  65% { opacity: 1; transform: translateY(-6px) scale(1.01); }
-  100% { transform: translateY(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(50px) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-12px) scale(1.04);
+  }
+  80% {
+    transform: translateY(4px) scale(0.98);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 
-.theme-reveal { animation-duration: 620ms; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); animation-fill-mode: both; }
-.theme-reveal--fade { animation-name: fade-in; }
-.theme-reveal--slide { animation-name: theme-slide-up; }
-.theme-reveal--zoom { animation-name: theme-zoom-in; }
-.theme-reveal--flip { animation-name: theme-flip-in; }
-.theme-reveal--glitch { animation-name: theme-glitch-in; }
-.theme-reveal--ripple { animation-name: theme-ripple-in; }
-.theme-reveal--bounce { animation-name: theme-bounce-in; }
+.theme-reveal {
+  animation-duration: 700ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+.theme-reveal--fade {
+  animation-name: fade-in;
+}
+.theme-reveal--slide {
+  animation-name: theme-slide-up;
+}
+.theme-reveal--zoom {
+  animation-name: theme-zoom-in;
+}
+.theme-reveal--flip {
+  animation-name: theme-flip-in;
+}
+.theme-reveal--glitch {
+  animation-name: theme-glitch-in;
+  animation-duration: 450ms;
+}
+.theme-reveal--ripple {
+  animation-name: theme-ripple-in;
+}
+.theme-reveal--bounce {
+  animation-name: theme-bounce-in;
+}
+.theme-reveal--none {
+  animation: none !important;
+}
 
 /* Layout controls are intentionally structural, not just visual skins. */
-.portfolio-layout--minimal .theme-section { padding-top: 3.5rem; padding-bottom: 3.5rem; }
-.portfolio-layout--minimal .theme-card { border-radius: 0.55rem !important; box-shadow: none; }
-.portfolio-layout--minimal .theme-hero > div:first-child { display: none; }
+.portfolio-layout--minimal .theme-section {
+  padding-top: 3.5rem;
+  padding-bottom: 3.5rem;
+}
+.portfolio-layout--minimal .theme-card {
+  border-radius: 0.55rem !important;
+  box-shadow: none;
+}
+.portfolio-layout--minimal .theme-hero > div:first-child {
+  display: none;
+}
 
-.portfolio-layout--grid #projects .grid { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
-.portfolio-layout--grid #about .grid { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
+.portfolio-layout--grid #projects .grid {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+.portfolio-layout--grid #about .grid {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
 
-.portfolio-layout--timeline #experience .relative.space-y-8 { border-left-width: 3px; }
-.portfolio-layout--timeline #projects .grid { grid-template-columns: 1fr; max-width: 48rem; margin: 0 auto; }
+.portfolio-layout--timeline #experience .relative.space-y-8 {
+  border-left-width: 3px;
+}
+.portfolio-layout--timeline #projects .grid {
+  grid-template-columns: 1fr;
+  max-width: 48rem;
+  margin: 0 auto;
+}
 
-.portfolio-layout--card-deck .theme-card { transform: rotate(-0.3deg); }
-.portfolio-layout--card-deck .theme-card:nth-child(even) { transform: rotate(0.35deg); }
-.portfolio-layout--card-deck .theme-card:hover { transform: translateY(-6px) rotate(0); }
+.portfolio-layout--card-deck .theme-card {
+  transform: rotate(-0.3deg);
+}
+.portfolio-layout--card-deck .theme-card:nth-child(even) {
+  transform: rotate(0.35deg);
+}
+.portfolio-layout--card-deck .theme-card:hover {
+  transform: translateY(-6px) rotate(0);
+}
 
-.portfolio-layout--fullwidth section > [class*="max-w-"] { max-width: 82rem; }
-.portfolio-layout--fullwidth #projects .grid { grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+.portfolio-layout--fullwidth section > [class*="max-w-"] {
+  max-width: 82rem;
+}
+.portfolio-layout--fullwidth #projects .grid {
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+}
 
 @media (min-width: 768px) {
-  .portfolio-layout--sidebar #hero > div:last-child { grid-template-columns: minmax(15rem, 0.7fr) minmax(0, 1.3fr); }
-  .portfolio-layout--sidebar #hero > div:last-child > :first-child { grid-column: 2; }
-  .portfolio-layout--sidebar #hero > div:last-child > :last-child { grid-column: 1; grid-row: 1; }
-  .portfolio-layout--sidebar #projects .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .portfolio-layout--sidebar #hero > div:last-child {
+    grid-template-columns: minmax(15rem, 0.7fr) minmax(0, 1.3fr);
+  }
+  .portfolio-layout--sidebar #hero > div:last-child > :first-child {
+    grid-column: 2;
+  }
+  .portfolio-layout--sidebar #hero > div:last-child > :last-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .portfolio-layout--sidebar #projects .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* Hero variants let each profession retain a distinct visual character. */
 .portfolio-hero--code-split #hero,
 .portfolio-hero--hardware-hero #hero,
 .portfolio-hero--structural-hero #hero {
-  background-image: linear-gradient(var(--theme-primary) 1px, transparent 1px), linear-gradient(90deg, var(--theme-primary) 1px, transparent 1px);
+  background-image:
+    linear-gradient(var(--theme-primary) 1px, transparent 1px),
+    linear-gradient(90deg, var(--theme-primary) 1px, transparent 1px);
   background-size: 38px 38px;
   background-position: center;
 }
 
 .portfolio-hero--cyber-hud #hero,
 .portfolio-hero--topology-header #hero {
-  background-image: radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--theme-accent) 18%, transparent), transparent 26%), linear-gradient(90deg, color-mix(in srgb, var(--theme-primary) 12%, transparent) 1px, transparent 1px), linear-gradient(color-mix(in srgb, var(--theme-primary) 12%, transparent) 1px, transparent 1px);
-  background-size: auto, 26px 26px, 26px 26px;
+  background-image:
+    radial-gradient(
+      circle at 20% 15%,
+      color-mix(in srgb, var(--theme-accent) 18%, transparent),
+      transparent 26%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--theme-primary) 12%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      color-mix(in srgb, var(--theme-primary) 12%, transparent) 1px,
+      transparent 1px
+    );
+  background-size:
+    auto,
+    26px 26px,
+    26px 26px;
 }
 
 .portfolio-hero--gradient-vibrant #hero,
 .portfolio-hero--avant-garde #hero {
-  background: radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--theme-accent) 28%, transparent), transparent 24%), radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--theme-primary) 34%, transparent), transparent 28%), var(--theme-bg);
+  background:
+    radial-gradient(
+      circle at 12% 20%,
+      color-mix(in srgb, var(--theme-accent) 28%, transparent),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 86% 12%,
+      color-mix(in srgb, var(--theme-primary) 34%, transparent),
+      transparent 28%
+    ),
+    var(--theme-bg);
 }
 
 .portfolio-hero--minimal-editorial #hero,
 .portfolio-hero--monochrome-hero #hero,
-.portfolio-hero--academic-profile #hero { border-bottom: 3px solid var(--theme-primary); }
+.portfolio-hero--academic-profile #hero {
+  border-bottom: 3px solid var(--theme-primary);
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-reveal, .portfolio-theme *, .portfolio-theme *::before, .portfolio-theme *::after {
+  .theme-reveal,
+  .portfolio-theme *,
+  .portfolio-theme *::before,
+  .portfolio-theme *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
@@ -408,3 +717,162 @@ pre {
     color: black;
   }
 }
+
+/* =========================================================
+   PORTFOLIO MOBILE RESPONSIVE BREAKPOINTS
+   Covers: 320px · 360px · 480px · 640px · 768px+
+   ========================================================= */
+
+/* -- Shared mobile baseline (all < 768px) ---------------- */
+@media (max-width: 767px) {
+  .portfolio-theme {
+    overflow-x: hidden;
+    word-break: break-word;
+  }
+
+  /* Section padding tightened on mobile */
+  .portfolio-theme .theme-section {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  /* Card grids become single column */
+  .portfolio-theme .grid.md\:grid-cols-2,
+  .portfolio-theme .grid.md\:grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Terminal header truncate */
+  .portfolio-theme .theme-terminal-line {
+    font-size: 0.7rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Metrics grid 3-up compressed */
+  .portfolio-theme .theme-metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  .portfolio-theme .theme-metric strong {
+    font-size: 1.1rem;
+  }
+  .portfolio-theme .theme-metric span {
+    font-size: 0.6rem;
+  }
+
+  /* Experience timeline margin reduction */
+  .portfolio-theme .theme-section [style*="border-left"] {
+    margin-left: 0.5rem !important;
+  }
+
+  /* Button row wraps cleanly */
+  .portfolio-theme .flex.flex-wrap {
+    gap: 0.75rem;
+  }
+
+  /* Contact form full width on mobile */
+  .portfolio-theme form .grid.grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -- 320px through 359px (iPhone 4/5, Galaxy S5) -------- */
+@media (max-width: 359px) {
+  .portfolio-theme header .font-bold {
+    font-size: 0.75rem;
+  }
+
+  /* Hero greeting tighter */
+  .portfolio-theme h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.2;
+  }
+
+  /* Headline font */
+  .portfolio-theme p.text-base,
+  .portfolio-theme p.font-medium {
+    font-size: 0.85rem;
+  }
+
+  /* CTA buttons full width and stacked */
+  .portfolio-theme .flex-col a,
+  .portfolio-theme .flex-col button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Cards reduce padding */
+  .theme-card {
+    padding: 1rem !important;
+  }
+
+  /* Project image height cap */
+  .portfolio-theme .h-52 {
+    height: 9rem;
+  }
+
+  /* Skills flex chips smaller */
+  .portfolio-theme .flex-wrap .px-2\.5 {
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  /* Metrics grid 2-up on very small */
+  .portfolio-theme .theme-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* -- 360px through 479px (most Android flagships) -------- */
+@media (min-width: 360px) and (max-width: 479px) {
+  .portfolio-theme h1 {
+    font-size: 1.75rem !important;
+    line-height: 1.25;
+  }
+
+  .theme-card {
+    padding: 1.1rem !important;
+  }
+
+  .portfolio-theme .h-52 {
+    height: 10rem;
+  }
+}
+
+/* -- 480px through 639px (iPhone SE landscape, large phones) */
+@media (min-width: 480px) and (max-width: 639px) {
+  .portfolio-theme h1 {
+    font-size: 2rem !important;
+  }
+
+  .portfolio-theme .theme-section {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .theme-card {
+    padding: 1.25rem !important;
+  }
+}
+
+/* -- 640px through 767px (small tablets, landscape phones) */
+@media (min-width: 640px) and (max-width: 767px) {
+  .portfolio-theme h1 {
+    font-size: 2.5rem !important;
+  }
+
+  .portfolio-theme .theme-section {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+
+  /* 2-col cards at sm */
+  .portfolio-theme .grid.md\:grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+

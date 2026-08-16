@@ -11,6 +11,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);
 
   if (isLoading) {
     return (
@@ -32,9 +33,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) 
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-950">
-      <Sidebar />
+      <Sidebar
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar subdomain={subdomain} />
+        <Navbar
+          subdomain={subdomain}
+          onToggleSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
+        />
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>

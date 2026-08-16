@@ -2,13 +2,21 @@ import React, { useEffect, useState } from 'react';
 import api from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
-import { Star, Check, X, Trash2, Share2, Copy } from 'lucide-react';
+import { Modal } from '../../components/ui/Modal';
+import { Star, Check, X, Trash2, Share2, Copy, Send, Mail, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export const ReviewsManagerPage: React.FC = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [requestData, setRequestData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  // Invite Modal state
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [reviewerName, setReviewerName] = useState('');
+  const [reviewerEmail, setReviewerEmail] = useState('');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ success?: boolean; message?: string } | null>(null);
 
   useEffect(() => {
     fetchReviews();
@@ -47,15 +55,53 @@ export const ReviewsManagerPage: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewerName || !reviewerEmail) return;
+
+    setIsSendingInvite(true);
+    setInviteResult(null);
+
+    try {
+      const res: any = await api.post('/reviews/send-invite', {
+        reviewerEmail,
+        reviewerName,
+      });
+      setInviteResult({ success: true, message: res.message || 'Testimonial invitation sent!' });
+      setReviewerName('');
+      setReviewerEmail('');
+    } catch (err: any) {
+      setInviteResult({
+        success: false,
+        message: err?.response?.data?.message || 'Failed to dispatch email invitation.',
+      });
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="p-8 flex justify-center"><Spinner size="lg" /></div>;
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">Testimonials & Reviews</h1>
-        <p className="text-slate-400 text-sm">Collect and moderate client reviews displayed on your portfolio.</p>
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Testimonials & Client Reviews</h1>
+          <p className="text-slate-400 text-xs sm:text-sm">Collect, invite, and moderate client reviews displayed on your portfolio.</p>
+        </div>
+
+        <Button
+          variant="primary"
+          onClick={() => {
+            setInviteResult(null);
+            setIsInviteModalOpen(true);
+          }}
+          leftIcon={<Send className="w-4 h-4" />}
+        >
+          Send Testimonial Invite
+        </Button>
       </div>
 
       {/* Share Review Link Box */}
@@ -133,10 +179,84 @@ export const ReviewsManagerPage: React.FC = () => {
           </div>
         ) : (
           <div className="p-8 text-center bg-slate-900/60 rounded-2xl border border-slate-800 text-slate-400 text-sm">
-            No testimonial reviews received yet. Share your review request link above.
+            No testimonial reviews received yet. Share your review request link or send a direct invite above.
           </div>
         )}
       </div>
+
+      {/* Send Review Invite Modal */}
+      <Modal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        title="Send Direct Testimonial Email Request"
+      >
+        <form onSubmit={handleSendInvite} className="space-y-4">
+          <p className="text-xs text-slate-400">
+            Dispatch an automated email invitation containing a unique direct review link to your client or colleague.
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-300">Client / Reviewer Name *</label>
+            <input
+              type="text"
+              required
+              value={reviewerName}
+              onChange={(e) => setReviewerName(e.target.value)}
+              placeholder="e.g. John Doe"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-300">Client Email Address *</label>
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={reviewerEmail}
+                onChange={(e) => setReviewerEmail(e.target.value)}
+                placeholder="john.doe@company.com"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+              />
+              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+            </div>
+          </div>
+
+          {inviteResult && (
+            <div
+              className={`p-4 rounded-xl text-xs flex items-start gap-3 border ${
+                inviteResult.success
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+              }`}
+            >
+              {inviteResult.success ? (
+                <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 shrink-0 text-rose-400" />
+              )}
+              <div>
+                <span className="font-bold block">{inviteResult.success ? 'Invite Sent' : 'Failed'}</span>
+                <p className="mt-0.5 opacity-90">{inviteResult.message}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" type="button" onClick={() => setIsInviteModalOpen(false)}>
+              Close
+            </Button>
+            <Button
+              variant="primary"
+              type="submit"
+              isLoading={isSendingInvite}
+              leftIcon={<Send className="w-4 h-4" />}
+            >
+              Send Invite Email
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Globe, User, Mail, Lock, Briefcase, AlertTriangle } from 'lucide-react';
 import api from '../api/client';
+import { PasswordStrengthIndicator } from '../components/auth/PasswordStrengthIndicator';
 
 export const RegisterPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -159,6 +160,7 @@ export const RegisterPage: React.FC = () => {
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
               />
             </div>
+            <PasswordStrengthIndicator password={password} />
           </div>
 
           <Button

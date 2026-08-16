@@ -5,6 +5,15 @@ export default {
     './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
+    screens: {
+      '3xs': '320px',   // Galaxy S5, iPhone 4/5 — minimum supported width
+      'xs':  '480px',   // Large phones (iPhone SE landscape, Galaxy A series)
+      'sm':  '640px',   // TW default
+      'md':  '768px',   // TW default
+      'lg':  '1024px',  // TW default
+      'xl':  '1280px',  // TW default
+      '2xl': '1536px',  // TW default
+    },
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],

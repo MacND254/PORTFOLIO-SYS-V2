@@ -2,15 +2,29 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../database/client';
 import { sendSuccess } from '../utils/apiResponse';
 import { SystemSettingsService } from '../services/systemSettings.service';
+import { MailService } from '../services/mail.service';
 
 const DEFAULT_SETTINGS = [
   { key: 'MAINTENANCE_MODE', value: 'false', description: 'Enable platform maintenance mode (block non-admin traffic).' },
   { key: 'ALLOW_REGISTRATION', value: 'true', description: 'Allow new tenant user registrations.' },
   { key: 'MAX_CV_UPLOAD_MB', value: '10', description: 'Maximum file size allowed for CV uploads in megabytes.' },
   { key: 'OPENAI_API_KEY', value: 'sk-proj-demo-key-portfolio-saas', description: 'API Key for AI CV Parsing Service.' },
-  { key: 'SMTP_HOST', value: 'smtp.mailtrap.io', description: 'SMTP Host for sending platform emails.' },
-  { key: 'SMTP_PORT', value: '2525', description: 'SMTP Port for outgoing email delivery.' },
-  { key: 'SMTP_USER', value: 'portfolio_saas_mailer', description: 'SMTP Username.' },
+  // 1. Portfolio Messages Forwarding Gateway
+  { key: 'SMTP_HOST', value: 'smtp.gmail.com', description: 'Portfolio Gateway: Host' },
+  { key: 'SMTP_PORT', value: '587', description: 'Portfolio Gateway: Port' },
+  { key: 'SMTP_SECURE', value: 'false', description: 'Portfolio Gateway: SSL' },
+  { key: 'SMTP_USER', value: '', description: 'Portfolio Gateway: Username' },
+  { key: 'SMTP_PASS', value: '', description: 'Portfolio Gateway: Password' },
+  { key: 'SMTP_FROM_EMAIL', value: 'noreply@myportfolio.com', description: 'Portfolio Gateway: From Email' },
+  { key: 'SMTP_FROM_NAME', value: 'Portfolio SaaS Mailer', description: 'Portfolio Gateway: From Name' },
+  // 2. Security & Password Reset Mail Gateway
+  { key: 'SMTP_RESET_HOST', value: 'smtp.gmail.com', description: 'Password Reset Gateway: Host' },
+  { key: 'SMTP_RESET_PORT', value: '587', description: 'Password Reset Gateway: Port' },
+  { key: 'SMTP_RESET_SECURE', value: 'false', description: 'Password Reset Gateway: SSL' },
+  { key: 'SMTP_RESET_USER', value: '', description: 'Password Reset Gateway: Username' },
+  { key: 'SMTP_RESET_PASS', value: '', description: 'Password Reset Gateway: Password' },
+  { key: 'SMTP_RESET_FROM_EMAIL', value: 'security@myportfolio.com', description: 'Password Reset Gateway: From Email' },
+  { key: 'SMTP_RESET_FROM_NAME', value: 'Portfolio Security & Password Reset Gateway', description: 'Password Reset Gateway: From Name' },
   { key: 'PLATFORM_NAME', value: 'Portfolio SaaS Enterprise', description: 'Public platform branding title.' },
 ];
 
@@ -18,18 +32,15 @@ export class SettingsAdminController {
   /** GET /api/admin/settings */
   public static async getSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      let settings = await prisma.systemSetting.findMany({
-        orderBy: { key: 'asc' },
+      // Ensure all default settings exist in database
+      await prisma.systemSetting.createMany({
+        data: DEFAULT_SETTINGS,
+        skipDuplicates: true,
       });
 
-      // Seed defaults if table is empty
-      if (settings.length === 0) {
-        await prisma.systemSetting.createMany({
-          data: DEFAULT_SETTINGS,
-          skipDuplicates: true,
-        });
-        settings = await prisma.systemSetting.findMany({ orderBy: { key: 'asc' } });
-      }
+      const settings = await prisma.systemSetting.findMany({
+        orderBy: { key: 'asc' },
+      });
 
       const map: Record<string, string> = {};
       settings.forEach((s) => { map[s.key] = s.value; });
@@ -64,6 +75,25 @@ export class SettingsAdminController {
         res,
         message: 'Platform settings updated successfully.',
         data: all,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /api/admin/settings/test-email */
+  public static async testSmtpConnection(req: Request, res: Response, next: NextFunction) {
+    try {
+      const recipientEmail = req.body.recipientEmail || req.user?.email || 'test@example.com';
+      const gatewayType: 'portfolio' | 'reset' = req.body.gatewayType === 'reset' ? 'reset' : 'portfolio';
+      const result = await MailService.sendTestEmail(recipientEmail, gatewayType);
+      if (!result.success) {
+        return res.status(400).json({ success: false, message: result.message });
+      }
+      return sendSuccess({
+        res,
+        message: result.message,
+        data: result,
       });
     } catch (error) {
       next(error);

@@ -18,9 +18,7 @@ export class ProfileService {
         references: { orderBy: { orderIndex: 'asc' } },
         memberships: { orderBy: { orderIndex: 'asc' } },
         customSections: { orderBy: { orderIndex: 'asc' } },
-        customization: {
-          include: { theme: true },
-        },
+        customization: true,
         portfolioStatus: true,
         user: {
           select: {
@@ -52,15 +50,20 @@ export class ProfileService {
   }
 
   public static async updateProfile(userId: string, data: any) {
-    const profile = await prisma.profile.findUnique({ where: { userId } });
-    if (!profile) throw new NotFoundError('Profile not found.');
+    let profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) {
+      profile = await prisma.profile.create({
+        data: { userId, title: 'Professional' },
+      });
+    }
 
     // Whitelist only valid Profile model columns so extras from generalState are ignored
     const allowedFields = [
-      'title', 'headline', 'summary', 'careerObjective', 'bio',
-      'phone', 'location', 'email', 'website', 'linkedin', 'github',
-      'twitter', 'behance', 'dribbble', 'medium', 'youtube', 'instagram',
-      'avatarUrl', 'coverUrl',
+      'title', 'headline', 'summary', 'careerObjective', 'bio', 'contactEmail',
+      'phone', 'location', 'address', 'website', 'linkedin', 'github',
+      'twitter', 'behance', 'dribbble', 'facebook', 'instagram', 'youtube',
+      'avatarUrl', 'coverUrl', 'logoUrl',
+      'isPublicEmail', 'isPublicPhone', 'isPublicLocation', 'isPublicAddress', 'isPublicSocial',
     ];
     const safeData: Record<string, any> = {};
     allowedFields.forEach((key) => {
@@ -151,6 +154,90 @@ export class ProfileService {
   public static async deleteCertification(id: string, userId: string) {
     const profile = await this.getProfileRef(userId);
     return prisma.certification.deleteMany({ where: { id, profileId: profile.id } });
+  }
+
+  // --- SERVICES ---
+  public static async addService(userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.service.create({ data: { ...data, profileId: profile.id } });
+  }
+  public static async updateService(id: string, userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.service.updateMany({ where: { id, profileId: profile.id }, data });
+  }
+  public static async deleteService(id: string, userId: string) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.service.deleteMany({ where: { id, profileId: profile.id } });
+  }
+
+  // --- PUBLICATIONS ---
+  public static async addPublication(userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.publication.create({ data: { ...data, profileId: profile.id } });
+  }
+  public static async updatePublication(id: string, userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.publication.updateMany({ where: { id, profileId: profile.id }, data });
+  }
+  public static async deletePublication(id: string, userId: string) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.publication.deleteMany({ where: { id, profileId: profile.id } });
+  }
+
+  // --- AWARDS ---
+  public static async addAward(userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.award.create({ data: { ...data, profileId: profile.id } });
+  }
+  public static async updateAward(id: string, userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.award.updateMany({ where: { id, profileId: profile.id }, data });
+  }
+  public static async deleteAward(id: string, userId: string) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.award.deleteMany({ where: { id, profileId: profile.id } });
+  }
+
+  // --- LANGUAGES ---
+  public static async addLanguage(userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.language.create({ data: { ...data, profileId: profile.id } });
+  }
+  public static async updateLanguage(id: string, userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.language.updateMany({ where: { id, profileId: profile.id }, data });
+  }
+  public static async deleteLanguage(id: string, userId: string) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.language.deleteMany({ where: { id, profileId: profile.id } });
+  }
+
+  // --- REFERENCES ---
+  public static async addReference(userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.reference.create({ data: { ...data, profileId: profile.id } });
+  }
+  public static async updateReference(id: string, userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.reference.updateMany({ where: { id, profileId: profile.id }, data });
+  }
+  public static async deleteReference(id: string, userId: string) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.reference.deleteMany({ where: { id, profileId: profile.id } });
+  }
+
+  // --- CUSTOM SECTIONS ---
+  public static async addCustomSection(userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.customSection.create({ data: { ...data, profileId: profile.id } });
+  }
+  public static async updateCustomSection(id: string, userId: string, data: any) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.customSection.updateMany({ where: { id, profileId: profile.id }, data });
+  }
+  public static async deleteCustomSection(id: string, userId: string) {
+    const profile = await this.getProfileRef(userId);
+    return prisma.customSection.deleteMany({ where: { id, profileId: profile.id } });
   }
 
   private static async getProfileRef(userId: string) {

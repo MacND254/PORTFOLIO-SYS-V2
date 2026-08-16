@@ -1,11 +1,13 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from '../database/client';
 import { config } from '../config/env';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../utils/errors';
 import { validateSubdomainFormat, normalizeSubdomain } from '../utils/slug';
 import { AuditService } from './audit.service';
 import { NotificationService } from './notification.service';
+import { MailService } from './mail.service';
 import { Role } from '@prisma/client';
 
 export class AuthService {
@@ -136,13 +138,39 @@ export class AuthService {
       },
     });
 
-    if (!user || user.status !== 'ACTIVE') {
-      throw new UnauthorizedError('Invalid credentials or account is suspended.');
+    if (!user) {
+      await AuditService.log({
+        action: 'USER_LOGIN_FAILED',
+        target: email,
+        ipAddress: reqMeta?.ipAddress,
+        userAgent: reqMeta?.userAgent,
+        metadata: { reason: 'User not found' },
+      });
+      throw new UnauthorizedError('Invalid email or password.');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      await AuditService.log({
+        action: 'USER_LOGIN_FAILED',
+        target: email,
+        ipAddress: reqMeta?.ipAddress,
+        userAgent: reqMeta?.userAgent,
+        metadata: { reason: 'Account suspended/deactivated' },
+      });
+      throw new UnauthorizedError('Account is suspended or deactivated.');
     }
 
     const isMatch = await bcrypt.compare(data.password, user.password);
     if (!isMatch) {
-      throw new UnauthorizedError('Invalid credentials.');
+      await AuditService.log({
+        userId: user.id,
+        action: 'USER_LOGIN_FAILED',
+        target: email,
+        ipAddress: reqMeta?.ipAddress,
+        userAgent: reqMeta?.userAgent,
+        metadata: { reason: 'Invalid password' },
+      });
+      throw new UnauthorizedError('Invalid email or password.');
     }
 
     const token = this.generateToken(user);
@@ -207,6 +235,79 @@ export class AuthService {
       ...user,
       subdomain: primarySubdomain,
     };
+  }
+
+  public static async forgotPassword(email: string, frontendUrl?: string) {
+    const normEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({ where: { email: normEmail } });
+
+    // Always return a success message to prevent user enumeration
+    if (!user || user.status !== 'ACTIVE') {
+      return {
+        message: 'If an active account exists with that email address, a password reset link has been dispatched.',
+      };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken, resetTokenExpires },
+    });
+
+    await MailService.sendPasswordResetEmail({
+      email: user.email,
+      resetToken,
+      userName: user.fullName,
+      frontendUrl,
+    });
+
+    await AuditService.log({
+      userId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      target: user.email,
+    });
+
+    return {
+      message: 'If an active account exists with that email address, a password reset link has been dispatched.',
+    };
+  }
+
+  public static async resetPassword(data: { token: string; newPassword: string }) {
+    const { token, newPassword } = data;
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new ValidationError('Invalid or expired password reset token. Please request a new link.');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpires: null,
+      },
+    });
+
+    // Invalidate active sessions
+    await prisma.session.deleteMany({ where: { userId: user.id } });
+
+    await AuditService.log({
+      userId: user.id,
+      action: 'PASSWORD_RESET_COMPLETED',
+      target: user.email,
+    });
+
+    return { message: 'Password updated successfully. You can now log in with your new credentials.' };
   }
 
   public static generateToken(user: { id: string; email: string; role: Role }): string {

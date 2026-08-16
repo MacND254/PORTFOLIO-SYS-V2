@@ -12,5 +12,6 @@ router.use(authenticate);
 router.get('/request-token', ReviewController.getShareableToken);
 router.get('/', ReviewController.getAdminReviews);
 router.put('/:id/moderate', ReviewController.moderateReview);
+router.post('/send-invite', ReviewController.sendInvite);
 
 export default router;

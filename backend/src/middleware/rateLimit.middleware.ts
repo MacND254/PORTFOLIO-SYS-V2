@@ -24,6 +24,18 @@ export const authRateLimiter = rateLimit({
   },
 });
 
+export const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Stricter limit: 10 failed/successful login attempts per 15 minutes window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many login attempts from this IP. Please try again in 15 minutes to prevent brute-force attacks.',
+    code: 'LOGIN_RATE_LIMIT_EXCEEDED',
+  },
+});
+
 export const contactRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10, // Limit contact submissions to 10 per hour

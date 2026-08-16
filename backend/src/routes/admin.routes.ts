@@ -31,5 +31,6 @@ import { SettingsAdminController } from '../controllers/settingsAdmin.controller
 // Global System Settings (Super Admin only)
 router.get('/settings', SettingsAdminController.getSettings);
 router.put('/settings', SettingsAdminController.updateSettings);
+router.post('/settings/test-email', SettingsAdminController.testSmtpConnection);
 
 export default router;

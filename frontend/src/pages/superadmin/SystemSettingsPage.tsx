@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import api from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
+import { Modal } from '../../components/ui/Modal';
 import {
-  Sliders, Save, Check, RefreshCw, ShieldAlert, UserPlus, HardDrive, Key, Mail, Building,
+  Sliders, Save, Check, RefreshCw, ShieldAlert, UserPlus, Key, Mail, Send, AlertTriangle, CheckCircle, Lock,
 } from 'lucide-react';
 
 export const SystemSettingsPage: React.FC = () => {
@@ -11,6 +12,13 @@ export const SystemSettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // SMTP Test State
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [activeTestGateway, setActiveTestGateway] = useState<'portfolio' | 'reset'>('portfolio');
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [testResult, setTestResult] = useState<{ success?: boolean; message?: string } | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -55,6 +63,38 @@ export const SystemSettingsPage: React.FC = () => {
     }
   };
 
+  const handleRunSmtpTest = async () => {
+    if (!testEmailAddress) return;
+    setIsTestingSmtp(true);
+    setTestResult(null);
+    try {
+      // First save current settings to ensure backend tests latest input
+      await api.put('/admin/settings', settings);
+      
+      const res: any = await api.post('/admin/settings/test-email', {
+        recipientEmail: testEmailAddress,
+        gatewayType: activeTestGateway,
+      });
+      setTestResult({
+        success: true,
+        message: res.message || `${activeTestGateway === 'reset' ? 'Password Reset' : 'Portfolio'} SMTP test email sent successfully!`,
+      });
+    } catch (e: any) {
+      setTestResult({
+        success: false,
+        message: e?.response?.data?.message || e.message || 'SMTP connection failed. Check your host credentials.',
+      });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
+  const openTestModal = (gateway: 'portfolio' | 'reset') => {
+    setActiveTestGateway(gateway);
+    setTestResult(null);
+    setIsTestModalOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="p-8 flex flex-col items-center justify-center gap-4">
@@ -65,16 +105,16 @@ export const SystemSettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
             <Sliders className="w-7 h-7 text-indigo-400" />
             Global System Settings
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Configure platform maintenance mode, user registration policies, AI integrations, file upload limits, and SMTP servers.
+          <p className="text-slate-400 text-xs sm:text-sm mt-1">
+            Configure platform maintenance mode, user registration policies, AI keys, and dual SMTP mail gateways.
           </p>
         </div>
 
@@ -174,43 +214,252 @@ export const SystemSettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 3. Email & SMTP Gateway ── */}
+      {/* ── 3. Mail Gateway 1: Portfolio Message Forwarder ── */}
       <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6">
-        <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-          <Mail className="w-4 h-4 text-indigo-400" />
-          <span>Platform SMTP Email Delivery Service</span>
-        </h3>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Mail className="w-4 h-4 text-indigo-400" />
+              <span>Gateway 1: Portfolio Message Forwarder (Gmail / Custom SMTP)</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Dispatches visitor contact form inquiries from public portfolios to tenant recipient emails.
+            </p>
+          </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<Send className="w-4 h-4 text-indigo-400" />}
+            onClick={() => openTestModal('portfolio')}
+          >
+            Test Portfolio Gateway
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300">SMTP Host</label>
+            <label className="text-xs font-semibold text-slate-300">SMTP Host / Server</label>
             <input
               type="text"
-              value={settings.SMTP_HOST || ''}
+              value={settings.SMTP_HOST || 'smtp.gmail.com'}
               onChange={(e) => handleChange('SMTP_HOST', e.target.value)}
+              placeholder="smtp.gmail.com"
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
+
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-300">SMTP Port</label>
             <input
               type="text"
-              value={settings.SMTP_PORT || '2525'}
+              value={settings.SMTP_PORT || '587'}
               onChange={(e) => handleChange('SMTP_PORT', e.target.value)}
+              placeholder="587"
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
+
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300">SMTP User</label>
+            <label className="text-xs font-semibold text-slate-300">SSL Connection (Secure)</label>
+            <select
+              value={settings.SMTP_SECURE || 'false'}
+              onChange={(e) => handleChange('SMTP_SECURE', e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="false">False (Port 587 / STARTTLS)</option>
+              <option value="true">True (Port 465 / SSL)</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">SMTP Username / Email</label>
             <input
               type="text"
               value={settings.SMTP_USER || ''}
               onChange={(e) => handleChange('SMTP_USER', e.target.value)}
+              placeholder="portfolio.app@gmail.com"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">SMTP Password / App Password</label>
+            <input
+              type="password"
+              value={settings.SMTP_PASS || ''}
+              onChange={(e) => handleChange('SMTP_PASS', e.target.value)}
+              placeholder="••••••••••••••••"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Sender "From" Email</label>
+            <input
+              type="email"
+              value={settings.SMTP_FROM_EMAIL || 'noreply@myportfolio.com'}
+              onChange={(e) => handleChange('SMTP_FROM_EMAIL', e.target.value)}
+              placeholder="noreply@myportfolio.com"
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
         </div>
       </div>
+
+      {/* ── 4. Mail Gateway 2: Password Reset & Security Mailer ── */}
+      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2">
+              <Lock className="w-4 h-4 text-rose-400" />
+              <span>Gateway 2: Dedicated Security & Password Reset Gateway</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Isolated SMTP mail server configuration used exclusively for password resets, email verification, and authentication security alerts.
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-rose-500/30 text-rose-300 hover:bg-rose-500/10"
+            leftIcon={<Send className="w-4 h-4 text-rose-400" />}
+            onClick={() => openTestModal('reset')}
+          >
+            Test Reset Gateway
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Reset SMTP Host</label>
+            <input
+              type="text"
+              value={settings.SMTP_RESET_HOST || ''}
+              onChange={(e) => handleChange('SMTP_RESET_HOST', e.target.value)}
+              placeholder="smtp.gmail.com (leave blank to mirror Gateway 1)"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-rose-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Reset SMTP Port</label>
+            <input
+              type="text"
+              value={settings.SMTP_RESET_PORT || '587'}
+              onChange={(e) => handleChange('SMTP_RESET_PORT', e.target.value)}
+              placeholder="587"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-rose-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Reset SSL Connection</label>
+            <select
+              value={settings.SMTP_RESET_SECURE || 'false'}
+              onChange={(e) => handleChange('SMTP_RESET_SECURE', e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-rose-500 focus:outline-none"
+            >
+              <option value="false">False (Port 587 / STARTTLS)</option>
+              <option value="true">True (Port 465 / SSL)</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Reset SMTP Username</label>
+            <input
+              type="text"
+              value={settings.SMTP_RESET_USER || ''}
+              onChange={(e) => handleChange('SMTP_RESET_USER', e.target.value)}
+              placeholder="security.app@gmail.com"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-rose-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Reset SMTP Password</label>
+            <input
+              type="password"
+              value={settings.SMTP_RESET_PASS || ''}
+              onChange={(e) => handleChange('SMTP_RESET_PASS', e.target.value)}
+              placeholder="••••••••••••••••"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-rose-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Sender "From" Security Email</label>
+            <input
+              type="email"
+              value={settings.SMTP_RESET_FROM_EMAIL || 'security@myportfolio.com'}
+              onChange={(e) => handleChange('SMTP_RESET_FROM_EMAIL', e.target.value)}
+              placeholder="security@myportfolio.com"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-rose-500 focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* SMTP Test Connection Modal */}
+      <Modal
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
+        title={`Test ${activeTestGateway === 'reset' ? 'Password Reset Security' : 'Portfolio Forwarding'} Mail Gateway`}
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-400">
+            Send a test email using the <strong>{activeTestGateway === 'reset' ? 'Password Reset Security' : 'Portfolio Forwarding'}</strong> Gateway credentials.
+          </p>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Destination Recipient Email Address</label>
+            <input
+              type="email"
+              required
+              value={testEmailAddress}
+              onChange={(e) => setTestEmailAddress(e.target.value)}
+              placeholder="your.email@domain.com"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          {testResult && (
+            <div
+              className={`p-4 rounded-xl text-xs flex items-start gap-3 border ${
+                testResult.success
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+              }`}
+            >
+              {testResult.success ? (
+                <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 shrink-0 text-rose-400" />
+              )}
+              <div>
+                <span className="font-bold block">{testResult.success ? 'SMTP Test Passed' : 'SMTP Test Failed'}</span>
+                <p className="mt-0.5 opacity-90">{testResult.message}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setIsTestModalOpen(false)}>
+              Close
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleRunSmtpTest}
+              isLoading={isTestingSmtp}
+              disabled={!testEmailAddress}
+              leftIcon={<Send className="w-4 h-4" />}
+            >
+              Send Test Email
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

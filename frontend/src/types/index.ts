@@ -197,6 +197,7 @@ export interface PortfolioCustomization {
   fontHeading: string;
   fontBody: string;
   customCss?: string;
+  avatarStyle?: any;
   sectionVisibility?: Record<string, boolean>;
   sectionOrder?: string[];
   customCtaText?: string;

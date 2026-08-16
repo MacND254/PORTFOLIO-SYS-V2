@@ -5,7 +5,7 @@ import {
   Briefcase, GraduationCap, Award as AwardIcon, Code, Terminal,
   ShieldCheck, Cpu, Layers, Database, ExternalLink, Phone, MapPin,
   CheckCircle2, Share2, Zap, BarChart2, BookOpen, Scale, TrendingUp,
-  Camera, Users, FlaskConical,
+  Camera, Users, FlaskConical, Menu, X as XIcon,
 } from 'lucide-react';
 
 interface ThemeEngineProps {
@@ -20,13 +20,29 @@ interface ThemeEngineProps {
 // ─── Derive full theme config from DB record ───────────────────────────────
 function buildThemeVars(themeId: string, customization: any) {
   const theme = customization?.theme;
-  const colors = theme?.defaultColors || getDefaultColors(themeId);
-  const typography = theme?.typography || getDefaultTypography(themeId);
-  const layout = theme?.layoutConfig || {};
-  const animation = layout.animation || getDefaultAnimation(themeId);
-  const cardStyle = LEGACY_CARD_STYLE_ALIASES[layout.cardStyle] || layout.cardStyle || getDefaultCardStyle(themeId);
+  const rawColors = customization?.colorPalette || theme?.defaultColors || getDefaultColors(themeId);
+  const colors = {
+    ...getDefaultColors(themeId),
+    ...(theme?.defaultColors || {}),
+    ...(typeof rawColors === 'object' ? rawColors : {}),
+  };
 
-  return { colors, typography, animation, cardStyle, layout, theme };
+  const headingFont = customization?.fontHeading || theme?.typography?.heading || getDefaultTypography(themeId).heading;
+  const bodyFont = customization?.fontBody || theme?.typography?.body || getDefaultTypography(themeId).body;
+  const typography = { heading: headingFont, body: bodyFont, code: theme?.typography?.code };
+
+  const layout = theme?.layoutConfig || {};
+  
+  const customAnim = customization?.colorPalette?.animationStyle || customization?.animationStyle;
+  const animation = customAnim || layout.animation || getDefaultAnimation(themeId);
+
+  const customCard = customization?.colorPalette?.cardStyle || customization?.cardStyle;
+  const rawCard = customCard || layout.cardStyle || getDefaultCardStyle(themeId);
+  const cardStyle = LEGACY_CARD_STYLE_ALIASES[rawCard] || rawCard || 'solid';
+
+  const avatarStyle = customization?.colorPalette?.avatarStyle || customization?.avatarStyle;
+
+  return { colors, typography, animation, cardStyle, avatarStyle, layout, theme };
 }
 
 // Per-theme defaults (fallbacks if DB not yet loaded)
@@ -145,6 +161,25 @@ function getThemeIcon(themeId: string) {
   return Icon;
 }
 
+// ─── Avatar Shape Helper ──────────────────────────────────────────────────
+export type AvatarViewShape = 'round' | 'oval' | 'square';
+
+function getDefaultAvatarShape(themeId: string): AvatarViewShape {
+  const ovalThemes = [
+    'ui-ux-designer', 'graphic-designer', 'photographer',
+    'creative-professional', 'asymmetrical-art', 'marketing-professional',
+  ];
+  const squareThemes = [
+    'data-scientist', 'architect', 'electrical-engineer',
+    'mechanical-engineer', 'legal-professional', 'finance-professional',
+    'educator', 'freelancer-consultant',
+  ];
+
+  if (ovalThemes.includes(themeId)) return 'oval';
+  if (squareThemes.includes(themeId)) return 'square';
+  return 'round';
+}
+
 // ─── Main Engine ──────────────────────────────────────────────────────────
 export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   profile, subdomain, onOpenQrModal, onOpenReviewModal, onDownloadPdf, onSendMessage,
@@ -152,6 +187,44 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   const themeId = profile.customization?.themeId || 'software-engineer';
   const fullName = profile.user?.fullName || 'Portfolio Owner';
   const title = profile.title || 'Professional';
+
+  const defaultAvatarShape = getDefaultAvatarShape(themeId);
+  const activeCustomAvatarStyle = (profile.customization?.avatarStyle || profile.customization?.colorPalette?.avatarStyle) as AvatarViewShape | undefined;
+  const [avatarShape, setAvatarShape] = React.useState<AvatarViewShape>(
+    (activeCustomAvatarStyle && ['round', 'oval', 'square'].includes(activeCustomAvatarStyle)) ? activeCustomAvatarStyle : defaultAvatarShape
+  );
+
+  React.useEffect(() => {
+    const shapeFromCustom = (profile.customization?.avatarStyle || profile.customization?.colorPalette?.avatarStyle) as AvatarViewShape | undefined;
+    if (shapeFromCustom && ['round', 'oval', 'square'].includes(shapeFromCustom)) {
+      setAvatarShape(shapeFromCustom);
+    } else {
+      setAvatarShape(getDefaultAvatarShape(themeId));
+    }
+  }, [themeId, profile.customization?.avatarStyle, profile.customization?.colorPalette?.avatarStyle]);
+
+  const avatarShapeConfigs: Record<AvatarViewShape, { container: string; glow: string; image: string; name: string }> = {
+    round: {
+      container: 'w-64 h-64 md:w-76 md:h-76 rounded-full',
+      glow: 'rounded-full',
+      image: 'rounded-full',
+      name: 'Round View',
+    },
+    oval: {
+      container: 'w-60 h-72 md:w-68 md:h-84 rounded-[50%_50%_45%_45%] aspect-[4/5]',
+      glow: 'rounded-[50%_50%_45%_45%]',
+      image: 'rounded-[50%_50%_45%_45%]',
+      name: 'Oval View',
+    },
+    square: {
+      container: 'w-64 h-64 md:w-80 md:h-80 rounded-2xl md:rounded-3xl',
+      glow: 'rounded-2xl md:rounded-3xl',
+      image: 'rounded-2xl md:rounded-3xl',
+      name: 'Rectangular View',
+    },
+  };
+
+  const activeAvatarConfig = avatarShapeConfigs[avatarShape] || avatarShapeConfigs.round;
 
   const { colors, typography, animation, cardStyle, layout, theme } = buildThemeVars(themeId, profile.customization);
   const ThemeIcon = getThemeIcon(themeId);
@@ -165,6 +238,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   const showPrototypes = Boolean(layout.showPrototypes);
   const showQrAction = layout.showQrInPdf !== false;
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [contactState, setContactState] = React.useState({ name:'', email:'', subject:'', message:'', honeypot:'' });
   const [isSubmittingContact, setIsSubmittingContact] = React.useState(false);
   const [contactSuccess, setContactSuccess] = React.useState(false);
@@ -212,33 +286,36 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
     >
       {/* ── Sticky Header ─────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 backdrop-blur-lg px-6 py-4 transition-all"
+        className="sticky top-0 z-50 backdrop-blur-lg transition-all"
         style={{
-          background: `${colors.background}cc`,
+          background: `${colors.background}e0`,
           borderBottom: `1px solid ${colors.primary}30`,
           boxShadow: `0 1px 20px ${colors.primary}15`,
         }}
       >
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <a href="#hero" className="flex items-center gap-3">
+        {/* Main toolbar */}
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+          {/* Logo / Name */}
+          <a href="#hero" className="flex items-center gap-2 sm:gap-3 min-w-0" onClick={() => setIsMobileMenuOpen(false)}>
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shadow-lg text-lg"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold text-white shadow-lg text-base sm:text-lg shrink-0"
               style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
             >
               {fullName.charAt(0)}
             </div>
-            <div>
-              <span className="font-bold text-lg tracking-tight" style={{ color: colors.text, fontFamily: `var(--theme-font-heading)` }}>
+            <div className="min-w-0">
+              <span className="font-bold text-sm sm:text-base md:text-lg tracking-tight truncate block" style={{ color: colors.text, fontFamily: `var(--theme-font-heading)` }}>
                 {fullName}
               </span>
-              <span className="block text-xs" style={{ color: colors.primary }}>{title}</span>
+              <span className="block text-[10px] sm:text-xs truncate" style={{ color: colors.primary }}>{title}</span>
             </div>
           </a>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: `${colors.text}99` }}>
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-4 lg:gap-6 text-sm font-medium">
             {['About','Experience','Skills','Projects','Testimonials','Contact'].map(s => (
               <a key={s} href={`#${s.toLowerCase()}`}
-                className="hover:opacity-100 transition"
+                className="hover:opacity-100 transition whitespace-nowrap"
                 style={{ color: `${colors.text}80` }}
                 onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
                 onMouseLeave={e => (e.currentTarget.style.color = `${colors.text}80`)}
@@ -246,43 +323,98 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          {/* Right actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {showQrAction && (
               <button onClick={onOpenQrModal}
-                className="p-2 rounded-lg border transition"
+                className="hidden sm:flex p-2 rounded-lg border transition"
                 style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
                 title="QR Code"
               ><QrCode className="w-4 h-4" /></button>
             )}
             <button onClick={onDownloadPdf}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition"
+              className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition whitespace-nowrap"
               style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 4px 15px ${colors.primary}40` }}
             >
-              <Download className="w-3.5 h-3.5" /><span>Resume PDF</span>
+              <Download className="w-3.5 h-3.5" /><span>Resume</span>
+            </button>
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setIsMobileMenuOpen(prev => !prev)}
+              className="md:hidden p-2 rounded-xl border transition-all"
+              style={{ borderColor: `${colors.primary}40`, color: colors.primary, background: `${colors.surface}80` }}
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen
+                ? <XIcon className="w-5 h-5" />
+                : <Menu className="w-5 h-5" />}
             </button>
           </div>
+        </div>
+
+        {/* Mobile slide-down nav drawer */}
+        <div
+          className="md:hidden overflow-hidden transition-all duration-300 ease-in-out"
+          style={{
+            maxHeight: isMobileMenuOpen ? '400px' : '0px',
+            borderTop: isMobileMenuOpen ? `1px solid ${colors.primary}20` : 'none',
+          }}
+        >
+          <nav className="flex flex-col px-4 py-3 gap-1"
+               style={{ background: `${colors.background}f8` }}>
+            {['About','Experience','Skills','Projects','Testimonials','Contact'].map(s => (
+              <a
+                key={s}
+                href={`#${s.toLowerCase()}`}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all active:scale-[0.98]"
+                style={{ color: `${colors.text}90` }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${colors.primary}18`; e.currentTarget.style.color = colors.primary; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = `${colors.text}90`; }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: colors.primary }} />
+                {s}
+              </a>
+            ))}
+            {/* Mobile resume button */}
+            <div className="flex items-center gap-2 pt-2 pb-1 px-1">
+              <button onClick={() => { onDownloadPdf(); setIsMobileMenuOpen(false); }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition"
+                style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
+              >
+                <Download className="w-4 h-4" /><span>Download Resume</span>
+              </button>
+              {showQrAction && (
+                <button onClick={() => { onOpenQrModal(); setIsMobileMenuOpen(false); }}
+                  className="p-2.5 rounded-xl border transition"
+                  style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
+                ><QrCode className="w-4 h-4" /></button>
+              )}
+            </div>
+          </nav>
         </div>
       </header>
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
-      <section id="hero" className={`theme-hero theme-section ${revealCls} relative px-6 py-20 md:py-28 overflow-hidden`}>
-        {/* Header Cover Banner Background Image */}
+      <section id="hero" className={`theme-hero theme-section ${revealCls} relative overflow-hidden`}
+               style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
+        {/* Cover banner background */}
         {profile.coverUrl && (
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-30 pointer-events-none transition-all duration-700"
+            className="absolute inset-0 bg-cover bg-center opacity-25 pointer-events-none transition-all duration-700"
             style={{
               backgroundImage: `url(${profile.coverUrl})`,
-              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
+              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
             }}
           />
         )}
 
-        {/* Theme-specific background decoration */}
+        {/* Ambient background blobs */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl opacity-20"
+          <div className="absolute -top-40 -right-40 w-80 h-80 sm:w-96 sm:h-96 rounded-full blur-3xl opacity-20"
                style={{ background: colors.primary }} />
-          <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full blur-3xl opacity-10"
+          <div className="absolute -bottom-20 -left-20 w-56 h-56 sm:w-72 sm:h-72 rounded-full blur-3xl opacity-10"
                style={{ background: colors.accent }} />
           {themeId === 'cybersecurity' && (
             <div className="absolute inset-0 opacity-[0.03]"
@@ -290,13 +422,133 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
           )}
         </div>
 
-        <div className="max-w-6xl mx-auto grid md:grid-cols-12 gap-12 items-center relative">
+        {/* ═══ MOBILE LAYOUT (< md) — stacked: text → avatar → body ═══ */}
+        <div className="md:hidden relative px-4 xs:px-5 sm:px-6 space-y-5">
+
+          {/* Theme badge */}
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium"
+               style={{ background: `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}35` }}>
+            <ThemeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="truncate max-w-[180px] sm:max-w-none">Available for Hire &amp; Speaking</span>
+            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse shrink-0" style={{ background: colors.accent }} />
+          </div>
+
+          {showTerminalHeader && (
+            <div className="theme-terminal-line text-xs" style={{ color: colors.accent, borderColor: `${colors.accent}45` }}>
+              <Terminal className="w-3 h-3" />
+              <span className="truncate">portfolio@{subdomain}:~$ whoami</span>
+            </div>
+          )}
+
+          {/* Greeting + Name */}
+          <h1
+            className="text-[1.75rem] xs:text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight"
+            style={{ fontFamily: `var(--theme-font-heading)`, color: colors.text }}
+          >
+            Hi, I'm{' '}
+            <span style={{
+              background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
+              {fullName}
+            </span>
+          </h1>
+
+          {/* ★ Avatar — appears right after the name on mobile ★ */}
+          <div className="flex justify-center py-2">
+            <div className="relative group">
+              <div className={`absolute -inset-1 sm:-inset-1.5 blur-xl sm:blur-2xl opacity-50 sm:opacity-60 group-hover:opacity-80 transition-all duration-700 ${activeAvatarConfig.glow}`}
+                   style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` }} />
+              {/* Mobile avatar size: 160px on 320px, scales up */}
+              <div
+                className={`relative overflow-hidden shadow-2xl transition-all duration-500
+                  w-36 h-36 xs:w-44 xs:h-44 sm:w-56 sm:h-56
+                  ${avatarShape === 'round' ? 'rounded-full' : avatarShape === 'oval' ? 'rounded-[50%_50%_45%_45%]' : 'rounded-2xl'}`}
+                style={{ border: `2px solid ${colors.primary}50` }}
+              >
+                <img
+                  key={`mobile-${avatarShape}-${profile.avatarUrl}`}
+                  src={profile.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80'}
+                  alt={fullName}
+                  className="w-full h-full object-cover object-[center_20%] group-hover:scale-105 transition-all duration-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Headline & Summary */}
+          <p className="text-base xs:text-lg sm:text-xl font-medium leading-relaxed" style={{ color: `${colors.text}cc` }}>
+            {profile.headline || `${title} crafting scalable solutions.`}
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: `${colors.text}75` }}>
+            {profile.summary || 'Welcome to my professional portfolio.'}
+          </p>
+
+          {/* CTA Buttons — stacked on 320, side-by-side on sm */}
+          <div className="flex flex-col xs:flex-row flex-wrap items-stretch xs:items-center gap-3 pt-1">
+            <a href="#contact"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-white shadow-lg transition hover:opacity-90 text-sm"
+              style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 6px 20px ${colors.primary}40` }}
+            >
+              <Mail className="w-4 h-4" /><span>Get In Touch</span>
+            </a>
+            <button onClick={onDownloadPdf}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold border transition text-sm"
+              style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}80` }}
+            >
+              <Download className="w-4 h-4" /><span>Download Resume</span>
+            </button>
+          </div>
+
+          {/* Social links */}
+          <div className="flex items-center gap-4 pt-1" style={{ color: `${colors.text}60` }}>
+            {profile.github && <a href={profile.github} target="_blank" rel="noreferrer"
+              style={{ color: `${colors.text}60` }}
+              onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+              onMouseLeave={e => (e.currentTarget.style.color = `${colors.text}60`)}
+            ><Github className="w-5 h-5" /></a>}
+            {profile.linkedin && <a href={profile.linkedin} target="_blank" rel="noreferrer"
+              style={{ color: `${colors.text}60` }}
+              onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+              onMouseLeave={e => (e.currentTarget.style.color = `${colors.text}60`)}
+            ><Linkedin className="w-5 h-5" /></a>}
+            {profile.twitter && <a href={profile.twitter} target="_blank" rel="noreferrer"
+              style={{ color: `${colors.text}60` }}
+              onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+              onMouseLeave={e => (e.currentTarget.style.color = `${colors.text}60`)}
+            ><Twitter className="w-5 h-5" /></a>}
+            {profile.website && <a href={profile.website} target="_blank" rel="noreferrer"
+              style={{ color: `${colors.text}60` }}
+              onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+              onMouseLeave={e => (e.currentTarget.style.color = `${colors.text}60`)}
+            ><Globe className="w-5 h-5" /></a>}
+          </div>
+
+          {showCharts && (
+            <div className="theme-metrics-grid" style={{ borderColor: `${colors.primary}28` }}>
+              {[
+                { label: 'Projects', value: profile.projects?.length || 0 },
+                { label: 'Skills', value: profile.skills?.length || 0 },
+                { label: 'Experience', value: profile.experiences?.length || 0 },
+              ].map((metric) => (
+                <div key={metric.label} className="theme-metric" style={{ background: `${colors.surface}99` }}>
+                  <strong style={{ color: colors.primary }}>{metric.value}</strong>
+                  <span style={{ color: `${colors.text}75` }}>{metric.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ═══ DESKTOP / TABLET LAYOUT (≥ md) — original side-by-side ═══ */}
+        <div className="hidden md:grid md:grid-cols-12 gap-8 lg:gap-12 items-start relative max-w-6xl mx-auto px-6" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
           <div className="md:col-span-7 space-y-6">
-            {/* Theme badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
                  style={{ background: `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}35` }}>
               <ThemeIcon className="w-3.5 h-3.5" />
-              <span>Available for Hire & Keynote Speaking</span>
+              <span>Available for Hire &amp; Keynote Speaking</span>
               <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: colors.accent }} />
             </div>
 
@@ -308,7 +560,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             )}
 
             <h1
-              className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight"
+              className="text-4xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-tight"
               style={{ fontFamily: `var(--theme-font-heading)`, color: colors.text }}
             >
               Hi, I'm{' '}
@@ -325,7 +577,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             <p className="text-xl font-medium leading-relaxed" style={{ color: `${colors.text}cc` }}>
               {profile.headline || `${title} crafting scalable solutions.`}
             </p>
-            <p className="text-sm md:text-base leading-relaxed" style={{ color: `${colors.text}80` }}>
+            <p className="text-base leading-relaxed" style={{ color: `${colors.text}80` }}>
               {profile.summary || 'Welcome to my professional portfolio.'}
             </p>
 
@@ -391,16 +643,17 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             </div>
           </div>
 
-          <div className="md:col-span-5 flex justify-center">
+          <div className="md:col-span-5 flex justify-center md:justify-end items-start relative z-10 pt-1">
             <div className="relative group">
-              <div className="absolute -inset-1 rounded-3xl blur-2xl opacity-50 group-hover:opacity-80 transition duration-700"
+              <div className={`absolute -inset-1.5 blur-2xl opacity-60 group-hover:opacity-90 transition-all duration-700 ${activeAvatarConfig.glow}`}
                    style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` }} />
-              <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-3xl overflow-hidden shadow-2xl"
+              <div className={`relative ${activeAvatarConfig.container} overflow-hidden shadow-2xl transition-all duration-500 hover:-translate-y-1.5`}
                    style={{ border: `2px solid ${colors.primary}40` }}>
                 <img
+                  key={`${avatarShape}-${profile.avatarUrl}`}
                   src={profile.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80'}
                   alt={fullName}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                  className={`w-full h-full object-cover object-[center_20%] group-hover:scale-105 transition-all duration-500 ${activeAvatarConfig.image}`}
                 />
               </div>
             </div>
@@ -521,27 +774,48 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
               <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
             </div>
             <div className="grid md:grid-cols-2 gap-8">
-              {profile.projects.map((proj) => (
+              {profile.projects.map((proj: any) => (
                 <div key={proj.id}
-                     className={`rounded-2xl overflow-hidden flex flex-col transition ${cardCls}`}
+                     className={`rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 ${cardCls}`}
                      style={cardStyle === 'neon' ? { borderColor: colors.primary, boxShadow: `0 0 20px ${colors.primary}25` } : {}}
                 >
                   {proj.imageUrl && (
-                    <div className="h-48 overflow-hidden">
-                      <img src={proj.imageUrl} alt={proj.title} className="w-full h-full object-cover hover:scale-105 transition duration-500" />
+                    <div className="h-52 overflow-hidden relative group">
+                      <img src={proj.imageUrl} alt={proj.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition" />
+                      {proj.featured && (
+                        <span className="absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider uppercase flex items-center gap-1 shadow-lg backdrop-blur-md"
+                              style={{ background: `${colors.accent}ee`, color: '#090d16' }}>
+                          <Star className="w-3 h-3 fill-current" /> Featured
+                        </span>
+                      )}
                     </div>
                   )}
                   <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {proj.role && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border"
+                                style={{ background: `${colors.primary}15`, color: colors.primary, borderColor: `${colors.primary}30` }}>
+                            {proj.role}
+                          </span>
+                        )}
+                        {proj.featured && !proj.imageUrl && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase flex items-center gap-1 border"
+                                style={{ background: `${colors.accent}15`, color: colors.accent, borderColor: `${colors.accent}30` }}>
+                            <Star className="w-3 h-3 fill-current" /> Featured
+                          </span>
+                        )}
+                      </div>
                       <h3 className="text-xl font-bold transition" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>{proj.title}</h3>
-                      <p className="text-sm" style={{ color: `${colors.text}cc` }}>{proj.description}</p>
+                      <p className="text-sm leading-relaxed" style={{ color: `${colors.text}cc` }}>{proj.description}</p>
                     </div>
                     {proj.technologies && proj.technologies.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-2">
-                        {proj.technologies.map((tech, idx) => (
-                          <span key={idx} className="px-2.5 py-1 rounded-md text-[11px] font-medium"
-                                style={{ background: `${colors.accent}20`, color: colors.accent }}>
-                            {tech}
+                        {(Array.isArray(proj.technologies) ? proj.technologies : String(proj.technologies).split(',')).map((tech: string, idx: number) => (
+                          <span key={idx} className="px-2.5 py-1 rounded-md text-[11px] font-mono font-medium border"
+                                style={{ background: `${colors.accent}12`, color: colors.accent, borderColor: `${colors.accent}25` }}>
+                            {tech.trim()}
                           </span>
                         ))}
                       </div>
@@ -550,16 +824,16 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                          style={{ borderColor: `${colors.primary}20` }}>
                       {proj.demoUrl && (
                         <a href={proj.demoUrl} target="_blank" rel="noreferrer"
-                           className="flex items-center gap-1 hover:opacity-80 transition"
-                           style={{ color: colors.primary }}>
+                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition hover:opacity-90 shadow-sm"
+                           style={{ background: colors.primary, color: '#ffffff' }}>
                           <span>Live Demo</span><ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       )}
                       {proj.githubUrl && (
                         <a href={proj.githubUrl} target="_blank" rel="noreferrer"
-                           className="flex items-center gap-1 hover:opacity-80 transition"
-                           style={{ color: `${colors.text}70` }}>
-                          <Github className="w-3.5 h-3.5" /><span>Code</span>
+                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition hover:opacity-90 border"
+                           style={{ background: `${colors.surface}80`, color: colors.text, borderColor: `${colors.text}20` }}>
+                          <Github className="w-3.5 h-3.5" /><span>Source Code</span>
                         </a>
                       )}
                     </div>

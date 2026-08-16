@@ -34,11 +34,24 @@ export class ProfileController {
       if (!req.file) {
         throw new ValidationError('No image file uploaded.');
       }
+
       const mediaUrl = `/uploads/images/${req.file.filename}`;
+      const field = req.query.field as string | undefined;
+
+      // Immediately persist avatarUrl or coverUrl to profile if field param is provided
+      if (field && (field === 'avatarUrl' || field === 'coverUrl') && req.user?.id) {
+        try {
+          await ProfileService.updateProfile(req.user.id, { [field]: mediaUrl });
+        } catch (persistErr) {
+          // Non-fatal: log but still return the URL to the client
+          console.error('[uploadMedia] Failed to auto-persist URL to profile:', persistErr);
+        }
+      }
+
       return sendSuccess({
         res,
         message: 'Image uploaded successfully.',
-        data: { url: mediaUrl, filename: req.file.filename },
+        data: { url: mediaUrl, filename: req.file.filename, field },
       });
     } catch (error) {
       next(error);
@@ -131,6 +144,17 @@ export class ProfileController {
     }
   }
 
+  public static async updateProject(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = projectSchema.partial().safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid project data', parsed.error.errors);
+      await ProfileService.updateProject(req.params.id, req.user!.id, parsed.data);
+      return sendSuccess({ res, message: 'Project updated.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async deleteProject(req: Request, res: Response, next: NextFunction) {
     try {
       await ProfileService.deleteProject(req.params.id, req.user!.id);
@@ -159,5 +183,89 @@ export class ProfileController {
     } catch (error) {
       next(error);
     }
+  }
+
+  // --- SERVICES ---
+  public static async addService(req: Request, res: Response, next: NextFunction) {
+    try {
+      const item = await ProfileService.addService(req.user!.id, req.body);
+      return sendSuccess({ res, statusCode: 201, message: 'Service added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async deleteService(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deleteService(req.params.id, req.user!.id);
+      return sendSuccess({ res, message: 'Service deleted.' });
+    } catch (error) { next(error); }
+  }
+
+  // --- PUBLICATIONS ---
+  public static async addPublication(req: Request, res: Response, next: NextFunction) {
+    try {
+      const item = await ProfileService.addPublication(req.user!.id, req.body);
+      return sendSuccess({ res, statusCode: 201, message: 'Publication added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async deletePublication(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deletePublication(req.params.id, req.user!.id);
+      return sendSuccess({ res, message: 'Publication deleted.' });
+    } catch (error) { next(error); }
+  }
+
+  // --- AWARDS ---
+  public static async addAward(req: Request, res: Response, next: NextFunction) {
+    try {
+      const item = await ProfileService.addAward(req.user!.id, req.body);
+      return sendSuccess({ res, statusCode: 201, message: 'Award added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async deleteAward(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deleteAward(req.params.id, req.user!.id);
+      return sendSuccess({ res, message: 'Award deleted.' });
+    } catch (error) { next(error); }
+  }
+
+  // --- LANGUAGES ---
+  public static async addLanguage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const item = await ProfileService.addLanguage(req.user!.id, req.body);
+      return sendSuccess({ res, statusCode: 201, message: 'Language added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async deleteLanguage(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deleteLanguage(req.params.id, req.user!.id);
+      return sendSuccess({ res, message: 'Language deleted.' });
+    } catch (error) { next(error); }
+  }
+
+  // --- REFERENCES ---
+  public static async addReference(req: Request, res: Response, next: NextFunction) {
+    try {
+      const item = await ProfileService.addReference(req.user!.id, req.body);
+      return sendSuccess({ res, statusCode: 201, message: 'Reference added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async deleteReference(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deleteReference(req.params.id, req.user!.id);
+      return sendSuccess({ res, message: 'Reference deleted.' });
+    } catch (error) { next(error); }
+  }
+
+  // --- CUSTOM SECTIONS ---
+  public static async addCustomSection(req: Request, res: Response, next: NextFunction) {
+    try {
+      const item = await ProfileService.addCustomSection(req.user!.id, req.body);
+      return sendSuccess({ res, statusCode: 201, message: 'Custom Section added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async deleteCustomSection(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deleteCustomSection(req.params.id, req.user!.id);
+      return sendSuccess({ res, message: 'Custom Section deleted.' });
+    } catch (error) { next(error); }
   }
 }

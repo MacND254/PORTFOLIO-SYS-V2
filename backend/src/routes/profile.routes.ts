@@ -27,10 +27,35 @@ router.delete('/skills/:id', ProfileController.deleteSkill);
 
 // Projects
 router.post('/projects', ProfileController.addProject);
+router.put('/projects/:id', ProfileController.updateProject);
 router.delete('/projects/:id', ProfileController.deleteProject);
 
 // Certifications
 router.post('/certifications', ProfileController.addCertification);
 router.delete('/certifications/:id', ProfileController.deleteCertification);
+
+// Services & Pricing
+router.post('/services', ProfileController.addService);
+router.delete('/services/:id', ProfileController.deleteService);
+
+// Publications
+router.post('/publications', ProfileController.addPublication);
+router.delete('/publications/:id', ProfileController.deletePublication);
+
+// Awards
+router.post('/awards', ProfileController.addAward);
+router.delete('/awards/:id', ProfileController.deleteAward);
+
+// Languages
+router.post('/languages', ProfileController.addLanguage);
+router.delete('/languages/:id', ProfileController.deleteLanguage);
+
+// References
+router.post('/references', ProfileController.addReference);
+router.delete('/references/:id', ProfileController.deleteReference);
+
+// Custom Sections
+router.post('/custom-sections', ProfileController.addCustomSection);
+router.delete('/custom-sections/:id', ProfileController.deleteCustomSection);
 
 export default router;

@@ -30,9 +30,7 @@ export class PortfolioService {
                 references: { where: { isPublic: true }, orderBy: { orderIndex: 'asc' } },
                 memberships: { orderBy: { orderIndex: 'asc' } },
                 customSections: { where: { isVisible: true }, orderBy: { orderIndex: 'asc' } },
-                customization: {
-                  include: { theme: true },
-                },
+                customization: true,
                 portfolioStatus: true,
                 reviews: {
                   where: { isApproved: true },
@@ -93,9 +91,7 @@ export class PortfolioService {
         references: { orderBy: { orderIndex: 'asc' } },
         memberships: { orderBy: { orderIndex: 'asc' } },
         customSections: { orderBy: { orderIndex: 'asc' } },
-        customization: {
-          include: { theme: true },
-        },
+        customization: true,
         portfolioStatus: true,
         reviews: { orderBy: { createdAt: 'desc' } },
         user: {
@@ -110,10 +106,10 @@ export class PortfolioService {
 
     if (!profile) throw new NotFoundError('Profile not found.');
 
-    const primarySubdomain = profile.user.subdomains[0]?.slug || 'preview';
+    const primarySubdomain = (profile as any).user?.subdomains?.[0]?.slug || 'preview';
     return {
       subdomain: primarySubdomain,
-      owner: { fullName: profile.user.fullName },
+      owner: { fullName: (profile as any).user?.fullName },
       profile,
     };
   }
@@ -122,8 +118,6 @@ export class PortfolioService {
     const profile = await prisma.profile.findUnique({ where: { userId } });
     if (!profile) throw new NotFoundError('Profile not found.');
 
-    // Theme design is shared platform content. Tenant admins may select a published
-    // theme for their portfolio, but cannot override its visual settings.
     const themeId = typeof customizationData?.themeId === 'string'
       ? customizationData.themeId.trim()
       : '';
@@ -134,14 +128,41 @@ export class PortfolioService {
       throw new ValidationError('The selected theme is unavailable.');
     }
 
+    const fontHeading = customizationData?.fontHeading || undefined;
+    const fontBody = customizationData?.fontBody || undefined;
+    const cardStyle = customizationData?.cardStyle || undefined;
+    const animationStyle = customizationData?.animationStyle || undefined;
+    const avatarStyle = customizationData?.avatarStyle || undefined;
+    const customColors = customizationData?.colorPalette || {};
+
+    const existingCustomization = await prisma.portfolioCustomization.findUnique({
+      where: { profileId: profile.id },
+    });
+
+    const existingPalette = (existingCustomization?.colorPalette as Record<string, any>) || {};
+    const updatedPalette = {
+      ...existingPalette,
+      ...(typeof customColors === 'object' ? customColors : {}),
+      ...(cardStyle ? { cardStyle } : {}),
+      ...(animationStyle ? { animationStyle } : {}),
+      ...(avatarStyle ? { avatarStyle } : {}),
+    };
+
     const updated = await prisma.portfolioCustomization.upsert({
       where: { profileId: profile.id },
-      update: { themeId },
+      update: {
+        themeId,
+        ...(fontHeading ? { fontHeading } : {}),
+        ...(fontBody ? { fontBody } : {}),
+        colorPalette: updatedPalette,
+      },
       create: {
         profileId: profile.id,
         themeId,
+        fontHeading: fontHeading || 'Inter',
+        fontBody: fontBody || 'Inter',
+        colorPalette: updatedPalette,
       },
-      include: { theme: true },
     });
 
     // Save automatic revision snapshot

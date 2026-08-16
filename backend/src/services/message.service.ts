@@ -2,6 +2,7 @@ import { prisma } from '../database/client';
 import { NotFoundError, ValidationError } from '../utils/errors';
 import { NotificationService } from './notification.service';
 import { AuditService } from './audit.service';
+import { MailService } from './mail.service';
 
 export class MessageService {
   public static async submitContactMessage(
@@ -15,18 +16,20 @@ export class MessageService {
     },
     reqMeta?: { ipAddress?: string; userAgent?: string }
   ) {
-    if (data.honeypot) {
-      // Spam honeypot triggered - return fake success silently
-      return { success: true, message: 'Message received.' };
+    if (data.honeypot && data.honeypot.trim().length > 0) {
+      // Anti-bot spam honeypot triggered — drop silently and return success
+      return { id: 'honeypot-ignored', message: 'Message received.' };
     }
 
-    const subRecord = await prisma.subdomain.findUnique({
+    const subRecord: any = await prisma.subdomain.findUnique({
       where: { slug: subdomain },
       include: {
         user: {
           select: {
             id: true,
-            profile: { select: { id: true } },
+            email: true,
+            fullName: true,
+            profile: { select: { id: true, contactEmail: true } as any },
           },
         },
       },
@@ -39,22 +42,39 @@ export class MessageService {
     const contactMsg = await prisma.contactMessage.create({
       data: {
         profileId: subRecord.user.profile.id,
-        name: data.name,
-        email: data.email,
-        subject: data.subject,
-        message: data.message,
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        subject: data.subject.trim(),
+        message: data.message.trim(),
         ipAddress: reqMeta?.ipAddress,
         userAgent: reqMeta?.userAgent,
       },
     });
 
+    // In-App Notification
     await NotificationService.create({
       userId: subRecord.user.id,
-      title: 'New Contact Message Received!',
+      title: 'New Portfolio Inquiry Received!',
       message: `Message from ${data.name}: "${data.subject}"`,
       type: 'INFO',
       link: '/admin/messages',
     });
+
+    // Email Forwarding to Tenant's contactEmail or primary account email
+    const recipientEmail = subRecord.user.profile.contactEmail || subRecord.user.email;
+    if (recipientEmail) {
+      MailService.forwardTenantContactMessage({
+        tenantEmail: recipientEmail,
+        tenantName: subRecord.user.fullName,
+        senderName: data.name.trim(),
+        senderEmail: data.email.trim().toLowerCase(),
+        subject: data.subject.trim(),
+        message: data.message.trim(),
+        subdomain,
+      }).catch((err) => {
+        console.error('Failed to dispatch contact email to tenant:', err);
+      });
+    }
 
     return contactMsg;
   }
