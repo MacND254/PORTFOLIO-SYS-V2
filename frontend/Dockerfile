@@ -1,5 +1,5 @@
 # =============================================================
-# Build context: REPO ROOT  (docker build -f frontend/Dockerfile .)
+# Build context: frontend directory
 # =============================================================
 
 # ── Stage 1: Builder ─────────────────────────────────────────
@@ -7,10 +7,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY frontend/package*.json ./
+COPY package*.json ./
 RUN npm ci
 
-COPY frontend/ ./
+COPY . ./
 RUN npm run build
 # Output → /app/dist
 
@@ -24,7 +24,7 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy our custom Nginx config (SPA routing + API proxy)
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
