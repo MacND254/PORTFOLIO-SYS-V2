@@ -60,9 +60,9 @@ export class UserService {
     ]);
 
     return {
-      users: users.map((u) => ({
+      users: users.map((u: any) => ({
         ...u,
-        subdomain: u.subdomains.find((s) => s.isPrimary)?.slug || '',
+        subdomain: u.subdomains.find((s: any) => s.isPrimary)?.slug || '',
       })),
       total,
       page,

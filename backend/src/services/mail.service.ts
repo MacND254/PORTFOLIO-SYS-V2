@@ -50,7 +50,7 @@ export class MailService {
       });
 
       const map: Record<string, string> = {};
-      settings.forEach((s) => {
+      settings.forEach((s: any) => {
         map[s.key] = s.value;
       });
 

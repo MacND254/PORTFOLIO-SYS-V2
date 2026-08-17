@@ -138,7 +138,7 @@ export class CVService {
 
     const { personalInfo, summary, headline, experiences, education, skills, certifications, projects, languages } = confirmedData;
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // 1. Update Profile Main Details
       await tx.profile.update({
         where: { id: profile.id },

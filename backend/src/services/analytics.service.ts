@@ -76,7 +76,7 @@ export class AnalyticsService {
       viewsByDate[dateStr] = 0;
     }
 
-    viewsList.forEach((e) => {
+    viewsList.forEach((e: any) => {
       const dateStr = e.timestamp.toISOString().split('T')[0];
       if (viewsByDate[dateStr] !== undefined) {
         viewsByDate[dateStr]++;
@@ -142,7 +142,7 @@ export class AnalyticsService {
       _count: { desiredProfession: true },
     });
 
-    const popularProfessions = professionsRaw.map((p) => ({
+    const popularProfessions = professionsRaw.map((p: any) => ({
       profession: p.desiredProfession || 'Software Engineer',
       count: p._count.desiredProfession,
     }));

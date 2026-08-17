@@ -43,7 +43,7 @@ export class SettingsAdminController {
       });
 
       const map: Record<string, string> = {};
-      settings.forEach((s) => { map[s.key] = s.value; });
+      settings.forEach((s: any) => { map[s.key] = s.value; });
 
       return sendSuccess({
         res,

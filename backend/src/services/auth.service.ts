@@ -43,7 +43,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
     // 5. Transaction to create user, profile, subdomain, portfolio status & customization
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const user = await tx.user.create({
         data: {
           fullName: data.fullName,
@@ -230,7 +230,7 @@ export class AuthService {
 
     if (!user) throw new NotFoundError('User not found.');
 
-    const primarySubdomain = user.subdomains.find((s) => s.isPrimary)?.slug || '';
+    const primarySubdomain = user.subdomains.find((s: any) => s.isPrimary)?.slug || '';
     return {
       ...user,
       subdomain: primarySubdomain,

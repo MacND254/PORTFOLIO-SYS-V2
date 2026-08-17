@@ -29,7 +29,7 @@ export class NotificationController {
         });
       }
 
-      const unreadCount = notifications.filter((n) => !n.isRead).length;
+      const unreadCount = notifications.filter((n: any) => !n.isRead).length;
 
       return sendSuccess({
         res,
