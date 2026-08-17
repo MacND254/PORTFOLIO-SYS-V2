@@ -7,7 +7,7 @@ services:
     name: portfolio-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm install && npx prisma generate --schema=../prisma/schema.prisma && npm run build
+    buildCommand: cd backend && npm install --include=dev && npx prisma generate --schema=../prisma/schema.prisma && npm run build
     startCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma && node dist/database/seed.js && npm start
     envVars:
       - key: NODE_ENV
