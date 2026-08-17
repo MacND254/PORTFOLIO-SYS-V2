@@ -5,10 +5,10 @@ services:
   # Backend Web Service
   - type: web
     name: portfolio-backend
-    env: node
+    runtime: node
     plan: free
     buildCommand: cd backend && npm install && npx prisma generate --schema=../prisma/schema.prisma && npm run build
-    startCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma && npm run db:seed && npm start
+    startCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma && node dist/database/seed.js && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -35,7 +35,7 @@ services:
   # Frontend Static Site
   - type: web
     name: portfolio-frontend
-    env: static
+    runtime: static
     plan: free
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: ./frontend/dist
@@ -55,6 +55,9 @@ services:
     name: portfolio-redis
     plan: free
     maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
 
 databases:
   # PostgreSQL Database
