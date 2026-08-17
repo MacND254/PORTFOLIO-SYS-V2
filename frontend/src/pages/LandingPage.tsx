@@ -262,8 +262,8 @@ export const LandingPage: React.FC = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="relative z-10 px-6 pt-20 pb-28 md:pt-28 md:pb-36 text-center max-w-7xl mx-auto">
-        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-indigo-500/30 text-indigo-300 text-xs font-semibold shadow-inner mb-8">
+      <section className="relative z-10 px-6 pt-6 pb-20 md:pt-10 md:pb-28 text-center max-w-7xl mx-auto">
+        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-indigo-500/30 text-indigo-300 text-xs font-semibold shadow-inner mb-6">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
