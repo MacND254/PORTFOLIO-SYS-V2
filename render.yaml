@@ -1,0 +1,64 @@
+# Render Blueprint Configuration
+# Learn more at https://render.com/docs/blueprint-spec
+
+services:
+  # Backend Web Service
+  - type: web
+    name: portfolio-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install && npx prisma generate --schema=../prisma/schema.prisma && npm run build
+    startCommand: cd backend && npx prisma migrate deploy --schema=../prisma/schema.prisma && npm run db:seed && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: portfolio-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: portfolio-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: PLATFORM_DOMAIN
+        value: onrender.com
+
+  # Frontend Static Site
+  - type: web
+    name: portfolio-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://portfolio-backend.onrender.com/api/*
+      - type: rewrite
+        source: /uploads/*
+        destination: https://portfolio-backend.onrender.com/uploads/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # Key-Value / Redis Cache
+  - type: redis
+    name: portfolio-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
+databases:
+  # PostgreSQL Database
+  - name: portfolio-db
+    plan: free
+    databaseName: portfolio_db
+    user: portfolio_user
