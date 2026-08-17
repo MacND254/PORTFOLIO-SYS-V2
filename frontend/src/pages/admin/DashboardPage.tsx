@@ -157,6 +157,19 @@ export const DashboardPage: React.FC = () => {
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-500 group-hover:translate-x-1 transition" />
               </button>
+
+              <a
+                href={`/api/portfolio/pdf?subdomain=${subdomain}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-sm font-medium text-indigo-300 transition group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Download className="w-4 h-4 text-indigo-400" />
+                  <span>Download Resume as PDF</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-indigo-500 group-hover:translate-x-1 transition" />
+              </a>
             </div>
           </div>
         </div>

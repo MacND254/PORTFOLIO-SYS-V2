@@ -88,27 +88,31 @@ export class PortfolioController {
 
   public static async downloadPdfResume(req: Request, res: Response, next: NextFunction) {
     try {
-      // Allow public download if tenant resolves, or admin download
-      const userId = req.user ? req.user.id : req.tenantUserId;
-      if (!userId) {
+      const requestedSubdomain = req.tenantSubdomain || String(req.query.subdomain || '').trim();
+      if (!requestedSubdomain) {
         return res.status(404).json({ message: 'Portfolio not found' });
       }
 
-      const pdfBuffer = await PDFService.generateResumePdf(userId);
+      // A public resume may only be generated for an active, published portfolio.
+      // This also ensures the query parameter can never select an arbitrary user.
+      const portfolio = await PortfolioService.getPublicPortfolioBySubdomain(requestedSubdomain);
+      const pdfBuffer = await PDFService.generateResumePdf(portfolio.profile.userId);
 
-      // Record Download Event
-      const profile = await PortfolioService.getAdminPreview(userId);
-      if (profile && profile.profile) {
-        AnalyticsService.recordEvent({
-          profileId: profile.profile.id,
-          eventType: 'DOWNLOAD_RESUME',
-          visitorIp: req.ip,
-          userAgent: req.get('User-Agent'),
-        });
-      }
+      AnalyticsService.recordEvent({
+        profileId: portfolio.profile.id,
+        eventType: 'DOWNLOAD_RESUME',
+        visitorIp: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      const ownerName = portfolio.owner.fullName
+        .replace(/[^a-z0-9]+/gi, '_')
+        .replace(/^_+|_+$/g, '') || 'Resume';
 
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=Resume_${profile.owner.fullName.replace(/\s+/g, '_')}.pdf`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.setHeader('Content-Disposition', `attachment; filename="${ownerName}_Resume.pdf"`);
       return res.send(pdfBuffer);
     } catch (error) {
       next(error);

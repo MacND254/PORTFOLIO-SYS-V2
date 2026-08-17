@@ -21,6 +21,8 @@ export const PublicPortfolioPage: React.FC = () => {
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isDownloadingResume, setIsDownloadingResume] = useState(false);
+  const [resumeDownloadError, setResumeDownloadError] = useState('');
 
   useEffect(() => {
     fetchPublicPortfolio();
@@ -47,8 +49,34 @@ export const PublicPortfolioPage: React.FC = () => {
     });
   };
 
-  const handleDownloadPdf = () => {
-    window.open(`/api/portfolio/pdf?subdomain=${activeSubdomain}`, '_blank');
+  const handleDownloadPdf = async () => {
+    if (isDownloadingResume) return;
+
+    setIsDownloadingResume(true);
+    setResumeDownloadError('');
+    try {
+      const response: any = await api.get(`/portfolio/pdf?subdomain=${activeSubdomain}`, {
+        responseType: 'blob',
+      });
+      const blob = response instanceof Blob ? response : new Blob([response], { type: 'application/pdf' });
+      if (blob.size === 0) throw new Error('The resume file was empty. Please try again.');
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const ownerName = portfolioData?.owner?.fullName || 'Portfolio_Owner';
+      const fileName = `${ownerName.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'Resume'}_Resume.pdf`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (err: any) {
+      console.error('Download PDF error:', err);
+      setResumeDownloadError(err?.message || 'Unable to generate this resume. Please try again.');
+    } finally {
+      setIsDownloadingResume(false);
+    }
   };
 
   if (isLoading) {
@@ -85,6 +113,8 @@ export const PublicPortfolioPage: React.FC = () => {
         onOpenQrModal={() => setIsQrOpen(true)}
         onOpenReviewModal={() => setIsReviewOpen(true)}
         onDownloadPdf={handleDownloadPdf}
+        isDownloadingResume={isDownloadingResume}
+        resumeDownloadError={resumeDownloadError}
         onSendMessage={handleSendMessage}
       />
 

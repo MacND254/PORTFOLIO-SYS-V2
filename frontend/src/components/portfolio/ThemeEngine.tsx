@@ -13,7 +13,9 @@ interface ThemeEngineProps {
   subdomain: string;
   onOpenQrModal: () => void;
   onOpenReviewModal: () => void;
-  onDownloadPdf: () => void;
+  onDownloadPdf: () => Promise<void>;
+  isDownloadingResume?: boolean;
+  resumeDownloadError?: string;
   onSendMessage: (data: any) => Promise<void>;
 }
 
@@ -182,7 +184,8 @@ function getDefaultAvatarShape(themeId: string): AvatarViewShape {
 
 // ─── Main Engine ──────────────────────────────────────────────────────────
 export const ThemeEngine: React.FC<ThemeEngineProps> = ({
-  profile, subdomain, onOpenQrModal, onOpenReviewModal, onDownloadPdf, onSendMessage,
+  profile, subdomain, onOpenQrModal, onOpenReviewModal, onDownloadPdf,
+  isDownloadingResume = false, resumeDownloadError, onSendMessage,
 }) => {
   const themeId = profile.customization?.themeId || 'software-engineer';
   const fullName = profile.user?.fullName || 'Portfolio Owner';
@@ -237,6 +240,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   const showTerminalHeader = Boolean(layout.showTerminalHeader);
   const showPrototypes = Boolean(layout.showPrototypes);
   const showQrAction = layout.showQrInPdf !== false;
+  const resumeActionLabel = isDownloadingResume ? 'Preparing resume...' : 'Download Resume';
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [contactState, setContactState] = React.useState({ name:'', email:'', subject:'', message:'', honeypot:'' });
@@ -284,6 +288,15 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       data-theme-id={theme?.themeId || themeId}
       data-theme-animation={animation}
     >
+      {resumeDownloadError && (
+        <div
+          role="alert"
+          className="fixed z-50 top-4 left-1/2 -translate-x-1/2 max-w-[calc(100vw-2rem)] px-4 py-3 rounded-xl text-sm font-medium shadow-xl"
+          style={{ background: '#7f1d1d', color: '#fee2e2', border: '1px solid #f87171' }}
+        >
+          {resumeDownloadError}
+        </div>
+      )}
       {/* ── Sticky Header ─────────────────────────────────────────── */}
       <header
         className="sticky top-0 z-50 backdrop-blur-lg transition-all"
@@ -332,11 +345,12 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                 title="QR Code"
               ><QrCode className="w-4 h-4" /></button>
             )}
-            <button onClick={onDownloadPdf}
-              className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition whitespace-nowrap"
+            <button onClick={() => void onDownloadPdf()} disabled={isDownloadingResume}
+              className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition whitespace-nowrap disabled:cursor-wait disabled:opacity-70"
               style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 4px 15px ${colors.primary}40` }}
+              aria-busy={isDownloadingResume}
             >
-              <Download className="w-3.5 h-3.5" /><span>Resume</span>
+              <Download className="w-3.5 h-3.5" /><span>{isDownloadingResume ? 'Preparing...' : 'Resume'}</span>
             </button>
             {/* Mobile hamburger */}
             <button
@@ -378,11 +392,12 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             ))}
             {/* Mobile resume button */}
             <div className="flex items-center gap-2 pt-2 pb-1 px-1">
-              <button onClick={() => { onDownloadPdf(); setIsMobileMenuOpen(false); }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition"
+              <button onClick={() => { void onDownloadPdf(); setIsMobileMenuOpen(false); }} disabled={isDownloadingResume}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-70"
                 style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
+                aria-busy={isDownloadingResume}
               >
-                <Download className="w-4 h-4" /><span>Download Resume</span>
+                <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
               </button>
               {showQrAction && (
                 <button onClick={() => { onOpenQrModal(); setIsMobileMenuOpen(false); }}
@@ -494,11 +509,12 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             >
               <Mail className="w-4 h-4" /><span>Get In Touch</span>
             </a>
-            <button onClick={onDownloadPdf}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold border transition text-sm"
+            <button onClick={() => void onDownloadPdf()} disabled={isDownloadingResume}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold border transition text-sm disabled:cursor-wait disabled:opacity-70"
               style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}80` }}
+              aria-busy={isDownloadingResume}
             >
-              <Download className="w-4 h-4" /><span>Download Resume</span>
+              <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
             </button>
           </div>
 
@@ -588,11 +604,12 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
               >
                 <Mail className="w-4 h-4" /><span>Get In Touch</span>
               </a>
-              <button onClick={onDownloadPdf}
-                className="px-6 py-3 rounded-xl font-semibold border transition flex items-center gap-2"
+              <button onClick={() => void onDownloadPdf()} disabled={isDownloadingResume}
+                className="px-6 py-3 rounded-xl font-semibold border transition flex items-center gap-2 disabled:cursor-wait disabled:opacity-70"
                 style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}80` }}
+                aria-busy={isDownloadingResume}
               >
-                <Download className="w-4 h-4" /><span>Download Resume</span>
+                <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
               </button>
               {showPrototypes && (
                 <a href="#projects"
