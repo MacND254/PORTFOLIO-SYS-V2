@@ -82,3 +82,20 @@ export const imageUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for images
   fileFilter: imageFileFilter,
 });
+
+const certificateFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedDocExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.heic', '.avif', '.bmp'];
+  
+  if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf' || allowedDocExts.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new ValidationError('Invalid file type. Only PDF documents and image files (JPG, PNG, WEBP, SVG) are allowed for certificates.'));
+  }
+};
+
+export const certificateUpload = multer({
+  storage: imageStorage,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  fileFilter: certificateFileFilter,
+});

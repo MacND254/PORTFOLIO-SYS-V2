@@ -11,6 +11,132 @@ import { MailService } from './mail.service';
 import { Role } from '@prisma/client';
 
 export class AuthService {
+  public static async socialLogin(data: {
+    provider: 'google' | 'github';
+    email: string;
+    fullName: string;
+    providerId?: string;
+    avatarUrl?: string;
+    desiredSubdomain?: string;
+    desiredProfession?: string;
+  }, reqMeta?: { ipAddress?: string; userAgent?: string }) {
+    const email = data.email.toLowerCase().trim();
+    let user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        profile: true,
+        subdomains: { where: { isPrimary: true } },
+      },
+    });
+
+    if (!user) {
+      let baseSub = (data.desiredSubdomain || data.fullName || email.split('@')[0])
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 20);
+      if (baseSub.length < 3) baseSub = `user${Math.floor(1000 + Math.random() * 9000)}`;
+
+      let subdomainSlug = baseSub;
+      let counter = 1;
+      while (await prisma.subdomain.findUnique({ where: { slug: subdomainSlug } })) {
+        subdomainSlug = `${baseSub}${counter}`;
+        counter++;
+      }
+
+      const profession = data.desiredProfession || 'Software Engineer';
+      const randomPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12);
+
+      const result = await prisma.$transaction(async (tx: any) => {
+        const newUser = await tx.user.create({
+          data: {
+            fullName: data.fullName || email.split('@')[0],
+            email,
+            password: randomPassword,
+            role: Role.ADMIN,
+            desiredProfession: profession,
+            emailVerified: true,
+          },
+        });
+
+        const newProfile = await tx.profile.create({
+          data: {
+            userId: newUser.id,
+            title: profession,
+            summary: `Welcome to ${data.fullName}'s professional portfolio!`,
+            avatarUrl: data.avatarUrl || null,
+            completenessScore: 30,
+          },
+        });
+
+        await tx.subdomain.create({
+          data: {
+            userId: newUser.id,
+            slug: subdomainSlug,
+            isPrimary: true,
+          },
+        });
+
+        await tx.portfolioStatus.create({
+          data: {
+            profileId: newProfile.id,
+            isPublished: true,
+            publishStatus: 'PUBLISHED',
+            publishedAt: new Date(),
+          },
+        });
+
+        await tx.portfolioCustomization.create({
+          data: {
+            profileId: newProfile.id,
+            themeId: 'modern-dark',
+            fontHeading: 'Inter',
+            fontBody: 'Inter',
+          },
+        });
+
+        return newUser;
+      });
+
+      user = await prisma.user.findUnique({
+        where: { id: result.id },
+        include: {
+          profile: true,
+          subdomains: { where: { isPrimary: true } },
+        },
+      });
+    }
+
+    if (!user || user.status !== 'ACTIVE') {
+      throw new UnauthorizedError('Account is inactive or suspended.');
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      config.jwtSecret,
+      { expiresIn: (config.jwtExpiresIn || '7d') as any }
+    );
+
+    await AuditService.log({
+      userId: user.id,
+      action: 'USER_LOGIN_SOCIAL',
+      target: data.provider,
+      metadata: { ip: reqMeta?.ipAddress },
+    });
+
+    const primarySubdomain = user.subdomains?.[0]?.slug || 'portfolio';
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        subdomain: primarySubdomain,
+        avatarUrl: user.profile?.avatarUrl,
+      },
+    };
+  }
   public static async register(data: {
     fullName: string;
     email: string;

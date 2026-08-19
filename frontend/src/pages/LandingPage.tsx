@@ -704,6 +704,8 @@ export const LandingPage: React.FC = () => {
             <Link to="/p/francis" className="hover:text-white transition">Demo Portfolio</Link>
             <Link to="/login" className="hover:text-white transition">Admin Panel</Link>
             <Link to="/register" className="hover:text-white transition">Register</Link>
+            <Link to="/privacy" className="hover:text-white transition">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-white transition">Terms of Service</Link>
           </div>
 
           <p>© {new Date().getFullYear()} Multi-Tenant Portfolio SaaS. All rights reserved.</p>

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { ProfileController } from '../controllers/profile.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
-import { imageUpload } from '../middleware/upload.middleware';
+import { imageUpload, certificateUpload } from '../middleware/upload.middleware';
 
 const router = Router();
 
@@ -11,6 +11,7 @@ router.use(authenticate);
 router.get('/', ProfileController.getProfile);
 router.put('/', ProfileController.updateProfile);
 router.post('/upload-media', imageUpload.single('file'), ProfileController.uploadMedia);
+router.post('/upload-certificate', certificateUpload.single('file'), ProfileController.uploadCertificate);
 
 // Experiences
 router.post('/experiences', ProfileController.addExperience);
@@ -19,6 +20,7 @@ router.delete('/experiences/:id', ProfileController.deleteExperience);
 
 // Education
 router.post('/educations', ProfileController.addEducation);
+router.put('/educations/:id', ProfileController.updateEducation);
 router.delete('/educations/:id', ProfileController.deleteEducation);
 
 // Skills
@@ -32,6 +34,7 @@ router.delete('/projects/:id', ProfileController.deleteProject);
 
 // Certifications
 router.post('/certifications', ProfileController.addCertification);
+router.put('/certifications/:id', ProfileController.updateCertification);
 router.delete('/certifications/:id', ProfileController.deleteCertification);
 
 // Services & Pricing
@@ -56,6 +59,7 @@ router.delete('/references/:id', ProfileController.deleteReference);
 
 // Custom Sections
 router.post('/custom-sections', ProfileController.addCustomSection);
+router.put('/custom-sections/:id', ProfileController.updateCustomSection);
 router.delete('/custom-sections/:id', ProfileController.deleteCustomSection);
 
 export default router;

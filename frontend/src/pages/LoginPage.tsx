@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck, Github } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -10,7 +10,7 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuth();
+  const { login, socialLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,25 +50,48 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Demo Quick-Fill Buttons */}
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block text-center">Quick Demo Login</span>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block text-center">One-Click Social OAuth Login</span>
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={fillTestAdmin}
+              onClick={() => {
+                const raw = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+                const base = (raw.startsWith('http://') || raw.startsWith('https://')) ? raw.replace(/\/api\/?$/, '') : '';
+                window.location.href = `${base}/api/auth/google`;
+              }}
               type="button"
-              className="px-3 py-2 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-medium transition flex items-center justify-center gap-1.5"
+              className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-700 text-white text-xs font-semibold transition flex items-center justify-center gap-2"
             >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Test Admin (Francis)</span>
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/>
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+                <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12s.7 2.3 1.9 4.7l3.7-2.9z"/>
+                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/>
+              </svg>
+              <span>Google</span>
             </button>
+
             <button
-              onClick={fillSuperAdmin}
+              onClick={() => {
+                const raw = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+                const base = (raw.startsWith('http://') || raw.startsWith('https://')) ? raw.replace(/\/api\/?$/, '') : '';
+                window.location.href = `${base}/api/auth/github`;
+              }}
               type="button"
-              className="px-3 py-2 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/30 text-purple-300 text-xs font-medium transition flex items-center justify-center gap-1.5"
+              className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold transition flex items-center justify-center gap-2"
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Super Admin</span>
+              <Github className="w-4 h-4 text-white" />
+              <span>GitHub</span>
             </button>
+          </div>
+
+          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+            <span className="text-[10px] text-slate-400">Demo Accounts:</span>
+            <div className="flex gap-2">
+              <button onClick={fillTestAdmin} type="button" className="text-[10px] text-indigo-400 hover:underline">Francis (Admin)</button>
+              <span className="text-slate-600">•</span>
+              <button onClick={fillSuperAdmin} type="button" className="text-[10px] text-purple-400 hover:underline">Super Admin</button>
+            </div>
           </div>
         </div>
 

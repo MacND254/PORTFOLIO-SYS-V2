@@ -5,15 +5,16 @@ import {
   Briefcase, GraduationCap, Award as AwardIcon, Code, Terminal,
   ShieldCheck, Cpu, Layers, Database, ExternalLink, Phone, MapPin,
   CheckCircle2, Share2, Zap, BarChart2, BookOpen, Scale, TrendingUp,
-  Camera, Users, FlaskConical, Menu, X as XIcon,
+  Camera, Users, FlaskConical, Menu, X as XIcon, Eye, Lock, FileText, Shield,
 } from 'lucide-react';
+import { CertificateViewerModal } from './CertificateViewerModal';
 
 interface ThemeEngineProps {
   profile: Profile;
   subdomain: string;
   onOpenQrModal: () => void;
   onOpenReviewModal: () => void;
-  onDownloadPdf: () => Promise<void>;
+  onDownloadPdf: (templateStyle?: string) => Promise<void>;
   isDownloadingResume?: boolean;
   resumeDownloadError?: string;
   onSendMessage: (data: any) => Promise<void>;
@@ -208,19 +209,19 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
 
   const avatarShapeConfigs: Record<AvatarViewShape, { container: string; glow: string; image: string; name: string }> = {
     round: {
-      container: 'w-64 h-64 md:w-76 md:h-76 rounded-full',
+      container: 'w-80 h-80 md:w-96 md:h-96 lg:w-[26rem] lg:h-[26rem] rounded-full',
       glow: 'rounded-full',
       image: 'rounded-full',
       name: 'Round View',
     },
     oval: {
-      container: 'w-60 h-72 md:w-68 md:h-84 rounded-[50%_50%_45%_45%] aspect-[4/5]',
+      container: 'w-72 h-[22rem] md:w-80 md:h-[26rem] lg:w-[22rem] lg:h-[30rem] rounded-[50%_50%_45%_45%] aspect-[4/5]',
       glow: 'rounded-[50%_50%_45%_45%]',
       image: 'rounded-[50%_50%_45%_45%]',
       name: 'Oval View',
     },
     square: {
-      container: 'w-64 h-64 md:w-80 md:h-80 rounded-2xl md:rounded-3xl',
+      container: 'w-80 h-80 md:w-96 md:h-96 lg:w-[26rem] lg:h-[26rem] rounded-2xl md:rounded-3xl',
       glow: 'rounded-2xl md:rounded-3xl',
       image: 'rounded-2xl md:rounded-3xl',
       name: 'Rectangular View',
@@ -243,6 +244,8 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   const resumeActionLabel = isDownloadingResume ? 'Preparing resume...' : 'Download Resume';
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = React.useState(false);
+  const [viewCertificate, setViewCertificate] = React.useState<{ url: string; title: string; issuer?: string } | null>(null);
   const [contactState, setContactState] = React.useState({ name:'', email:'', subject:'', message:'', honeypot:'' });
   const [isSubmittingContact, setIsSubmittingContact] = React.useState(false);
   const [contactSuccess, setContactSuccess] = React.useState(false);
@@ -307,7 +310,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
         }}
       >
         {/* Main toolbar */}
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4">
           {/* Logo / Name */}
           <a href="#hero" className="flex items-center gap-2 sm:gap-3 min-w-0" onClick={() => setIsMobileMenuOpen(false)}>
             <div
@@ -325,10 +328,10 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
           </a>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-4 lg:gap-6 text-sm font-medium">
-            {['About','Experience','Skills','Projects','Testimonials','Contact'].map(s => (
+          <nav className="hidden md:flex items-center gap-2.5 lg:gap-5 text-xs lg:text-sm font-medium">
+            {['About','Experience','Education','Skills','Projects','Certifications','Testimonials','Contact'].map(s => (
               <a key={s} href={`#${s.toLowerCase()}`}
-                className="hover:opacity-100 transition whitespace-nowrap"
+                className="hover:opacity-100 transition whitespace-nowrap px-1 py-0.5"
                 style={{ color: `${colors.text}80` }}
                 onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
                 onMouseLeave={e => (e.currentTarget.style.color = `${colors.text}80`)}
@@ -345,7 +348,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                 title="QR Code"
               ><QrCode className="w-4 h-4" /></button>
             )}
-            <button onClick={() => void onDownloadPdf()} disabled={isDownloadingResume}
+            <button onClick={() => setIsPdfModalOpen(true)} disabled={isDownloadingResume}
               className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition whitespace-nowrap disabled:cursor-wait disabled:opacity-70"
               style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 4px 15px ${colors.primary}40` }}
               aria-busy={isDownloadingResume}
@@ -370,13 +373,13 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
         <div
           className="md:hidden overflow-hidden transition-all duration-300 ease-in-out"
           style={{
-            maxHeight: isMobileMenuOpen ? '400px' : '0px',
+            maxHeight: isMobileMenuOpen ? '450px' : '0px',
             borderTop: isMobileMenuOpen ? `1px solid ${colors.primary}20` : 'none',
           }}
         >
           <nav className="flex flex-col px-4 py-3 gap-1"
                style={{ background: `${colors.background}f8` }}>
-            {['About','Experience','Skills','Projects','Testimonials','Contact'].map(s => (
+            {['About','Experience','Education','Skills','Projects','Certifications','Testimonials','Contact'].map(s => (
               <a
                 key={s}
                 href={`#${s.toLowerCase()}`}
@@ -392,7 +395,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             ))}
             {/* Mobile resume button */}
             <div className="flex items-center gap-2 pt-2 pb-1 px-1">
-              <button onClick={() => { void onDownloadPdf(); setIsMobileMenuOpen(false); }} disabled={isDownloadingResume}
+              <button onClick={() => { setIsPdfModalOpen(true); setIsMobileMenuOpen(false); }} disabled={isDownloadingResume}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-70"
                 style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
                 aria-busy={isDownloadingResume}
@@ -412,7 +415,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
       <section id="hero" className={`theme-hero theme-section ${revealCls} relative overflow-hidden`}
-               style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
+               style={{ paddingTop: '0.75rem', paddingBottom: '1.5rem' }}>
         {/* Cover banner background */}
         {profile.coverUrl && (
           <div
@@ -438,7 +441,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
         </div>
 
         {/* ═══ MOBILE LAYOUT (< md) — stacked: text → avatar → body ═══ */}
-        <div className="md:hidden relative px-4 xs:px-5 sm:px-6 space-y-5">
+        <div className="md:hidden relative px-4 xs:px-5 sm:px-6 space-y-4 pt-2">
 
           {/* Theme badge */}
           <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium"
@@ -476,12 +479,12 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             <div className="relative group">
               <div className={`absolute -inset-1 sm:-inset-1.5 blur-xl sm:blur-2xl opacity-50 sm:opacity-60 group-hover:opacity-80 transition-all duration-700 ${activeAvatarConfig.glow}`}
                    style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` }} />
-              {/* Mobile avatar size: 160px on 320px, scales up */}
+              {/* Mobile avatar size: enlarged for better visual presence */}
               <div
                 className={`relative overflow-hidden shadow-2xl transition-all duration-500
-                  w-36 h-36 xs:w-44 xs:h-44 sm:w-56 sm:h-56
+                  w-48 h-48 xs:w-56 xs:h-56 sm:w-72 sm:h-72
                   ${avatarShape === 'round' ? 'rounded-full' : avatarShape === 'oval' ? 'rounded-[50%_50%_45%_45%]' : 'rounded-2xl'}`}
-                style={{ border: `2px solid ${colors.primary}50` }}
+                style={{ border: `3px solid ${colors.primary}55` }}
               >
                 <img
                   key={`mobile-${avatarShape}-${profile.avatarUrl}`}
@@ -509,7 +512,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             >
               <Mail className="w-4 h-4" /><span>Get In Touch</span>
             </a>
-            <button onClick={() => void onDownloadPdf()} disabled={isDownloadingResume}
+            <button onClick={() => setIsPdfModalOpen(true)} disabled={isDownloadingResume}
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold border transition text-sm disabled:cursor-wait disabled:opacity-70"
               style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}80` }}
               aria-busy={isDownloadingResume}
@@ -559,8 +562,8 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
         </div>
 
         {/* ═══ DESKTOP / TABLET LAYOUT (≥ md) — original side-by-side ═══ */}
-        <div className="hidden md:grid md:grid-cols-12 gap-8 lg:gap-12 items-start relative max-w-6xl mx-auto px-6" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
-          <div className="md:col-span-7 space-y-6">
+        <div className="hidden md:grid md:grid-cols-12 gap-8 lg:gap-12 items-center relative max-w-7xl mx-auto px-4 sm:px-8 lg:px-12" style={{ paddingTop: '0.75rem', paddingBottom: '1.5rem' }}>
+          <div className="md:col-span-6 space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
                  style={{ background: `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}35` }}>
               <ThemeIcon className="w-3.5 h-3.5" />
@@ -604,7 +607,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
               >
                 <Mail className="w-4 h-4" /><span>Get In Touch</span>
               </a>
-              <button onClick={() => void onDownloadPdf()} disabled={isDownloadingResume}
+              <button onClick={() => setIsPdfModalOpen(true)} disabled={isDownloadingResume}
                 className="px-6 py-3 rounded-xl font-semibold border transition flex items-center gap-2 disabled:cursor-wait disabled:opacity-70"
                 style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}80` }}
                 aria-busy={isDownloadingResume}
@@ -660,11 +663,11 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             </div>
           </div>
 
-          <div className="md:col-span-5 flex justify-center md:justify-end items-start relative z-10 pt-1">
+          <div className="md:col-span-6 flex justify-center md:justify-end items-center relative z-10">
             <div className="relative group">
-              <div className={`absolute -inset-1.5 blur-2xl opacity-60 group-hover:opacity-90 transition-all duration-700 ${activeAvatarConfig.glow}`}
+              <div className={`absolute -inset-3 blur-3xl opacity-50 group-hover:opacity-80 transition-all duration-700 ${activeAvatarConfig.glow}`}
                    style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` }} />
-              <div className={`relative ${activeAvatarConfig.container} overflow-hidden shadow-2xl transition-all duration-500 hover:-translate-y-1.5`}
+              <div className={`relative ${activeAvatarConfig.container} overflow-hidden shadow-2xl transition-all duration-500 hover:-translate-y-2`}
                    style={{ border: `2px solid ${colors.primary}40` }}>
                 <img
                   key={`${avatarShape}-${profile.avatarUrl}`}
@@ -680,7 +683,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
 
       {/* ── ABOUT ─────────────────────────────────────────────────── */}
       <section id="about" className={`theme-section ${revealCls} px-6 py-16`} style={{ background: `${colors.surface}99`, borderTop: `1px solid ${colors.primary}20`, borderBottom: `1px solid ${colors.primary}20` }}>
-        <div className="max-w-6xl mx-auto space-y-8">
+        <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-8 lg:px-12">
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>About Me</h2>
             <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
@@ -710,7 +713,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       {/* ── EXPERIENCE ────────────────────────────────────────────── */}
       {profile.experiences && profile.experiences.length > 0 && (
         <section id="experience" className={`theme-section ${revealCls} px-6 py-20`}>
-          <div className="max-w-4xl mx-auto space-y-12">
+          <div className="max-w-7xl mx-auto space-y-12 px-4 sm:px-8 lg:px-12">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Work Experience</h2>
               <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
@@ -752,10 +755,60 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
         </section>
       )}
 
+      {/* ── EDUCATION ─────────────────────────────────────────────── */}
+      {profile.educations && profile.educations.length > 0 && (
+        <section id="education" className={`theme-section ${revealCls} px-6 py-20`} style={{ background: `${colors.surface}40`, borderTop: `1px solid ${colors.primary}20` }}>
+          <div className="max-w-7xl mx-auto space-y-12 px-4 sm:px-8 lg:px-12">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Education Background</h2>
+              <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
+            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              {profile.educations.map((edu: any) => (
+                <div key={edu.id} className={`p-6 rounded-2xl space-y-4 flex flex-col justify-between ${cardCls}`}
+                     style={cardStyle === 'neon' ? { borderColor: colors.primary, boxShadow: `0 0 12px ${colors.primary}15` } : {}}>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold"
+                            style={{ background: `${colors.primary}20`, color: colors.primary }}>
+                        {edu.startDate} – {edu.endDate || 'Present'}
+                      </span>
+                      {edu.grade && (
+                        <span className="text-xs font-mono font-medium px-2.5 py-0.5 rounded bg-slate-900 border border-slate-800" style={{ color: colors.accent }}>
+                          {edu.grade}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>
+                      {edu.qualification} {edu.field ? `in ${edu.field}` : ''}
+                    </h3>
+                    <p className="font-semibold text-sm" style={{ color: colors.primary }}>{edu.institution}</p>
+                    {edu.description && <p className="text-xs leading-relaxed" style={{ color: `${colors.text}aa` }}>{edu.description}</p>}
+                  </div>
+
+                  {edu.certificateUrl && (
+                    <div className="pt-3 border-t" style={{ borderColor: `${colors.primary}20` }}>
+                      <button
+                        onClick={() => setViewCertificate({ url: edu.certificateUrl, title: `${edu.qualification} — ${edu.institution}`, issuer: edu.institution })}
+                        className="w-full py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-2 hover:opacity-90 shadow-sm"
+                        style={{ background: `${colors.primary}15`, color: colors.primary, borderColor: `${colors.primary}40` }}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Certificate (View Only)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── SKILLS ────────────────────────────────────────────────── */}
       {profile.skills && profile.skills.length > 0 && (
         <section id="skills" className={`theme-section ${revealCls} px-6 py-16`} style={{ background: `${colors.surface}60`, borderTop: `1px solid ${colors.primary}20`, borderBottom: `1px solid ${colors.primary}20` }}>
-          <div className="max-w-5xl mx-auto space-y-10">
+          <div className="max-w-7xl mx-auto space-y-10 px-4 sm:px-8 lg:px-12">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Skills & Expertise</h2>
               <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
@@ -785,7 +838,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       {/* ── PROJECTS ──────────────────────────────────────────────── */}
       {profile.projects && profile.projects.length > 0 && (
         <section id="projects" className={`theme-section ${revealCls} px-6 py-20`}>
-          <div className="max-w-6xl mx-auto space-y-12">
+          <div className="max-w-7xl mx-auto space-y-12 px-4 sm:px-8 lg:px-12">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Featured Projects</h2>
               <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
@@ -865,24 +918,56 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       {/* ── CERTIFICATIONS ────────────────────────────────────────── */}
       {profile.certifications && profile.certifications.length > 0 && (
         <section id="certifications" className={`theme-section ${revealCls} px-6 py-16`} style={{ background: `${colors.surface}40`, borderTop: `1px solid ${colors.primary}20` }}>
-          <div className="max-w-5xl mx-auto space-y-10">
+          <div className="max-w-7xl mx-auto space-y-10 px-4 sm:px-8 lg:px-12">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Certifications</h2>
               <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               {profile.certifications.map((cert: any) => (
-                <div key={cert.id} className={`p-5 rounded-2xl flex items-center gap-4 ${cardCls}`}
+                <div key={cert.id} className={`p-5 rounded-2xl flex flex-col justify-between gap-4 ${cardCls}`}
                      style={cardStyle === 'neon' ? { borderColor: colors.accent, boxShadow: `0 0 12px ${colors.accent}20` } : {}}>
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                       style={{ background: `${colors.primary}20` }}>
-                    <AwardIcon className="w-6 h-6" style={{ color: colors.primary }} />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                         style={{ background: `${colors.primary}20` }}>
+                      <AwardIcon className="w-6 h-6" style={{ color: colors.primary }} />
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <h4 className="font-bold text-sm truncate" style={{ color: colors.text }}>{cert.name}</h4>
+                      <p className="text-xs font-semibold" style={{ color: colors.primary }}>{cert.issuingOrganization}</p>
+                      <p className="text-xs" style={{ color: `${colors.text}50` }}>Issued: {cert.issueDate}</p>
+                      {cert.credentialId && (
+                        <p className="text-[11px] font-mono" style={{ color: `${colors.text}40` }}>ID: {cert.credentialId}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-sm" style={{ color: colors.text }}>{cert.name}</h4>
-                    <p className="text-xs" style={{ color: colors.primary }}>{cert.issuingOrganization}</p>
-                    <p className="text-xs" style={{ color: `${colors.text}50` }}>Issued: {cert.issueDate}</p>
-                  </div>
+
+                  {(cert.certificateUrl || cert.credentialUrl) && (
+                    <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: `${colors.primary}20` }}>
+                      {cert.certificateUrl && (
+                        <button
+                          onClick={() => setViewCertificate({ url: cert.certificateUrl, title: cert.name, issuer: cert.issuingOrganization })}
+                          className="flex-1 py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1.5 hover:opacity-90 shadow-sm"
+                          style={{ background: `${colors.accent}15`, color: colors.accent, borderColor: `${colors.accent}40` }}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Certificate (View Only)</span>
+                        </button>
+                      )}
+                      {cert.credentialUrl && (
+                        <a
+                          href={cert.credentialUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1 hover:opacity-90"
+                          style={{ background: `${colors.surface}80`, color: colors.text, borderColor: `${colors.text}20` }}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Verify</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -892,7 +977,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
 
       {/* ── TESTIMONIALS ──────────────────────────────────────────── */}
       <section id="testimonials" className={`theme-section ${revealCls} px-6 py-20`}>
-        <div className="max-w-6xl mx-auto space-y-12">
+        <div className="max-w-7xl mx-auto space-y-12 px-4 sm:px-8 lg:px-12">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
               <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Client & Employer Reviews</h2>
@@ -945,7 +1030,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
 
       {/* ── CONTACT ───────────────────────────────────────────────── */}
       <section id="contact" className={`theme-section ${revealCls} px-6 py-20`} style={{ background: `${colors.surface}40`, borderTop: `1px solid ${colors.primary}20` }}>
-        <div className="max-w-4xl mx-auto space-y-10">
+        <div className="max-w-7xl mx-auto space-y-10 px-4 sm:px-8 lg:px-12">
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Get In Touch</h2>
             <p className="text-sm" style={{ color: `${colors.text}70` }}>Send a direct message to {fullName}</p>
@@ -1016,11 +1101,96 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       </section>
 
       {/* ── FOOTER ────────────────────────────────────────────────── */}
-      <footer className="px-6 py-8 text-center text-xs" style={{ borderTop: `1px solid ${colors.primary}20`, color: `${colors.text}50` }}>
+      <footer className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 text-center text-xs" style={{ borderTop: `1px solid ${colors.primary}20`, color: `${colors.text}50` }}>
         <p>© {new Date().getFullYear()} {fullName}. All rights reserved. Powered by{' '}
           <span style={{ color: colors.primary }}>Portfolio SaaS Platform</span>.
         </p>
       </footer>
+
+      {/* View-Only Secure Certificate Modal */}
+      <CertificateViewerModal
+        isOpen={!!viewCertificate}
+        onClose={() => setViewCertificate(null)}
+        certificateUrl={viewCertificate?.url || ''}
+        title={viewCertificate?.title || ''}
+        issuer={viewCertificate?.issuer}
+      />
+
+      {/* Multi-Template PDF Resume Selection Modal — Compact & Sleek */}
+      {isPdfModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm sm:max-w-md p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 shadow-2xl text-slate-100 relative">
+            <button
+              onClick={() => setIsPdfModalOpen(false)}
+              className="absolute top-3.5 right-3.5 text-slate-400 hover:text-white p-1 rounded-lg transition"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+
+            <div className="space-y-1 pr-6">
+              <div className="flex items-center gap-1.5 text-indigo-400 font-bold text-[11px] uppercase tracking-wider">
+                <FileText className="w-3.5 h-3.5" />
+                <span>PDF Resume Download Engine</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight">Select Resume Template</h3>
+              <p className="text-xs text-slate-400">Choose a layout tailored for ATS systems or executive review.</p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => { setIsPdfModalOpen(false); void onDownloadPdf('modern'); }}
+                disabled={isDownloadingResume}
+                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/50 transition text-left flex items-center gap-3 group"
+              >
+                <div className="p-2 rounded-lg bg-indigo-600/20 text-indigo-400 group-hover:scale-105 transition shrink-0">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="text-xs font-bold text-white truncate">Modern Two-Column</h4>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold uppercase">Popular</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">Sidebar layout, contact icons, skill pill lists &amp; QR code.</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setIsPdfModalOpen(false); void onDownloadPdf('executive'); }}
+                disabled={isDownloadingResume}
+                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 transition text-left flex items-center gap-3 group"
+              >
+                <div className="p-2 rounded-lg bg-amber-600/20 text-amber-400 group-hover:scale-105 transition shrink-0">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="text-xs font-bold text-white truncate">Executive Formal</h4>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold uppercase">Corporate</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">Serif fonts, slate top bar, gold rules &amp; corporate summary.</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setIsPdfModalOpen(false); void onDownloadPdf('minimalist'); }}
+                disabled={isDownloadingResume}
+                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 transition text-left flex items-center gap-3 group"
+              >
+                <div className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 group-hover:scale-105 transition shrink-0">
+                  <Terminal className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="text-xs font-bold text-white truncate">Minimalist Tech</h4>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold uppercase">Clean</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">High-contrast monochrome list, crisp spacing &amp; screeners.</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

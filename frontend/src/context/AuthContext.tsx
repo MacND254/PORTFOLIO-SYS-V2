@@ -8,6 +8,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<void>;
+  socialLogin: (data: {
+    provider: 'google' | 'github';
+    email: string;
+    fullName: string;
+    providerId?: string;
+    avatarUrl?: string;
+    desiredSubdomain?: string;
+    desiredProfession?: string;
+  }) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -47,6 +56,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
   };
 
+  const socialLogin = async (data: {
+    provider: 'google' | 'github';
+    email: string;
+    fullName: string;
+    providerId?: string;
+    avatarUrl?: string;
+    desiredSubdomain?: string;
+    desiredProfession?: string;
+  }) => {
+    const res: any = await api.post('/auth/social-login', data);
+    const { token: newToken, user: userData } = res.data;
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+    setUser(userData);
+  };
+
   const register = async (data: any) => {
     const res: any = await api.post('/auth/register', data);
     const { token: newToken, user: userData } = res.data;
@@ -70,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        socialLogin,
         register,
         logout,
         refreshUser,

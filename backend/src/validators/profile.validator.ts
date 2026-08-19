@@ -21,6 +21,7 @@ export const educationSchema = z.object({
   isCurrent: z.boolean().optional(),
   grade: z.string().optional(),
   description: z.string().optional(),
+  certificateUrl: z.string().optional().nullable(),
 });
 
 export const skillSchema = z.object({
@@ -49,4 +50,5 @@ export const certificationSchema = z.object({
   expiryDate: z.string().optional().nullable(),
   credentialId: z.string().optional(),
   credentialUrl: z.string().optional(),
+  certificateUrl: z.string().optional().nullable(),
 });

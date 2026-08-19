@@ -13,15 +13,15 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      // Proxy /api requests to the Express backend
+      // Proxy /api requests to the Express backend on port 5000
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
       },
       // Proxy /uploads requests to the Express backend static file server
       '/uploads': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
       },

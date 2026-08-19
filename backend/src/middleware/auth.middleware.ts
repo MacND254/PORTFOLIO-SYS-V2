@@ -4,23 +4,9 @@ import { config } from '../config/env';
 import { prisma } from '../database/client';
 import { UnauthorizedError, ForbiddenError } from '../utils/errors';
 import { Role } from '@prisma/client';
+import type { AuthenticatedUser } from '../types/express.d';
 
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  role: Role;
-  fullName: string;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthenticatedUser;
-      tenantSubdomain?: string;
-      tenantUserId?: string;
-    }
-  }
-}
+export type { AuthenticatedUser };
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {

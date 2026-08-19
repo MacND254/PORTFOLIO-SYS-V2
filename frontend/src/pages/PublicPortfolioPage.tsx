@@ -49,13 +49,13 @@ export const PublicPortfolioPage: React.FC = () => {
     });
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async (templateStyle: string = 'modern') => {
     if (isDownloadingResume) return;
 
     setIsDownloadingResume(true);
     setResumeDownloadError('');
     try {
-      const response: any = await api.get(`/portfolio/pdf?subdomain=${activeSubdomain}`, {
+      const response: any = await api.get(`/portfolio/pdf?subdomain=${activeSubdomain}&template=${templateStyle}`, {
         responseType: 'blob',
       });
       const blob = response instanceof Blob ? response : new Blob([response], { type: 'application/pdf' });
@@ -65,7 +65,7 @@ export const PublicPortfolioPage: React.FC = () => {
       const link = document.createElement('a');
       link.href = url;
       const ownerName = portfolioData?.owner?.fullName || 'Portfolio_Owner';
-      const fileName = `${ownerName.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'Resume'}_Resume.pdf`;
+      const fileName = `${ownerName.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'Resume'}_${templateStyle}_Resume.pdf`;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();

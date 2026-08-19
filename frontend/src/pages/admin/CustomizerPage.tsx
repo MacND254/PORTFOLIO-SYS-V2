@@ -5,7 +5,21 @@ import { Spinner } from '../../components/ui/Spinner';
 import {
   Palette, CheckCircle2, Globe, Eye, Save, Check,
   Sparkles, ExternalLink, RefreshCw, Layers, ShieldCheck,
+  ArrowUp, ArrowDown, EyeOff, Plus, FileText, Trash2, Edit3,
 } from 'lucide-react';
+
+const DEFAULT_SECTIONS = [
+  { id: 'about', label: 'About & Bio' },
+  { id: 'experience', label: 'Work Experience' },
+  { id: 'education', label: 'Education & Certifications' },
+  { id: 'skills', label: 'Skills & Tech Stack' },
+  { id: 'projects', label: 'Featured Projects' },
+  { id: 'certifications', label: 'Certifications' },
+  { id: 'services', label: 'Services Offered' },
+  { id: 'awards', label: 'Honors & Awards' },
+  { id: 'publications', label: 'Publications' },
+  { id: 'references', label: 'Professional References' },
+];
 
 export const CustomizerPage: React.FC = () => {
   const [themes, setThemes] = useState<any[]>([]);
@@ -13,6 +27,25 @@ export const CustomizerPage: React.FC = () => {
   const [subdomain, setSubdomain] = useState('francis');
   const [newSubdomain, setNewSubdomain] = useState('');
   const [subdomainMessage, setSubdomainMessage] = useState('');
+
+  const [sectionOrder, setSectionOrder] = useState<string[]>(DEFAULT_SECTIONS.map((s) => s.id));
+  const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>({
+    about: true,
+    experience: true,
+    education: true,
+    skills: true,
+    projects: true,
+    certifications: true,
+    services: true,
+    awards: true,
+    publications: true,
+    references: true,
+  });
+
+  const [customSections, setCustomSections] = useState<any[]>([]);
+  const [newCustomTitle, setNewCustomTitle] = useState('');
+  const [newCustomContent, setNewCustomContent] = useState('');
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,7 +72,19 @@ export const CustomizerPage: React.FC = () => {
           animationStyle: cust.animationStyle || colorPal.animationStyle,
           avatarStyle: cust.avatarStyle || colorPal.avatarStyle,
         });
+
+        if (Array.isArray(cust.sectionOrder) && cust.sectionOrder.length > 0) {
+          setSectionOrder(cust.sectionOrder);
+        }
+        if (cust.sectionVisibility && typeof cust.sectionVisibility === 'object') {
+          setSectionVisibility(cust.sectionVisibility);
+        }
       }
+
+      if (profileRes.data?.customSections) {
+        setCustomSections(profileRes.data.customSections);
+      }
+
       const sub = profileRes.data?.user?.subdomains?.[0]?.slug || 'francis';
       setSubdomain(sub);
       setNewSubdomain(sub);
@@ -47,6 +92,51 @@ export const CustomizerPage: React.FC = () => {
       console.error(e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMoveSection = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...sectionOrder];
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= newOrder.length) return;
+    const temp = newOrder[index];
+    newOrder[index] = newOrder[targetIdx];
+    newOrder[targetIdx] = temp;
+    setSectionOrder(newOrder);
+  };
+
+  const handleToggleVisibility = (sectionId: string) => {
+    setSectionVisibility((prev) => ({
+      ...prev,
+      [sectionId]: prev[sectionId] === false ? true : false,
+    }));
+  };
+
+  const handleAddCustomSection = async () => {
+    if (!newCustomTitle.trim()) return;
+    try {
+      const res: any = await api.post('/profile/custom-sections', {
+        title: newCustomTitle,
+        content: newCustomContent,
+      });
+      setCustomSections((prev) => [...prev, res.data]);
+      setSectionOrder((prev) => [...prev, `custom_${res.data.id}`]);
+      setSectionVisibility((prev) => ({ ...prev, [`custom_${res.data.id}`]: true }));
+      setNewCustomTitle('');
+      setNewCustomContent('');
+      setIsAddingCustom(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteCustomSection = async (id: string) => {
+    try {
+      await api.delete(`/profile/custom-sections/${id}`);
+      setCustomSections((prev) => prev.filter((s) => s.id !== id));
+      setSectionOrder((prev) => prev.filter((secId) => secId !== `custom_${id}`));
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -78,6 +168,8 @@ export const CustomizerPage: React.FC = () => {
         cardStyle: customization.cardStyle,
         animationStyle: customization.animationStyle,
         avatarStyle: customization.avatarStyle,
+        sectionOrder,
+        sectionVisibility,
       });
       if (res.data) {
         const cust = res.data;
@@ -271,6 +363,125 @@ export const CustomizerPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Dynamic Section Manager & Custom Section Creator */}
+      <div className="p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span>Portfolio Section Order & Custom Section Creator</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Reorder sections using move controls, toggle section visibility, or create custom Markdown sections (e.g., Speaking, Patents, Volunteering).
+            </p>
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsAddingCustom(!isAddingCustom)}
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+          >
+            {isAddingCustom ? 'Cancel' : 'Create Custom Section'}
+          </Button>
+        </div>
+
+        {/* Custom Section Form */}
+        {isAddingCustom && (
+          <div className="p-4 rounded-xl bg-slate-950 border border-indigo-500/30 space-y-3">
+            <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wide">Add Custom Markdown / Rich Text Section</h4>
+            <input
+              type="text"
+              placeholder="Section Title (e.g., Patents & Publications, Speaking Engagements)"
+              value={newCustomTitle}
+              onChange={(e) => setNewCustomTitle(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+            <textarea
+              rows={4}
+              placeholder="Section Content (Supports arbitrary markdown/text)..."
+              value={newCustomContent}
+              onChange={(e) => setNewCustomContent(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="primary" onClick={handleAddCustomSection}>
+                Save Custom Section
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Section Reorder List */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {sectionOrder.map((secId, idx) => {
+            const defaultSec = DEFAULT_SECTIONS.find((s) => s.id === secId);
+            const customSec = secId.startsWith('custom_')
+              ? customSections.find((cs) => `custom_${cs.id}` === secId)
+              : null;
+
+            const label = defaultSec?.label || customSec?.title || secId;
+            const isVisible = sectionVisibility[secId] !== false;
+
+            return (
+              <div
+                key={secId}
+                className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+                  isVisible ? 'bg-slate-950/80 border-slate-800 text-white' : 'bg-slate-950/30 border-slate-900/50 text-slate-500'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-[10px] font-mono font-bold text-slate-500 w-4">{idx + 1}.</span>
+                  <span className="text-xs font-semibold truncate">{label}</span>
+                  {customSec && <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold uppercase">Custom</span>}
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleMoveSection(idx, 'up')}
+                    disabled={idx === 0}
+                    className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 transition"
+                    title="Move Up"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveSection(idx, 'down')}
+                    disabled={idx === sectionOrder.length - 1}
+                    className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 transition"
+                    title="Move Down"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleVisibility(secId)}
+                    className={`p-1 rounded transition ${
+                      isVisible ? 'bg-indigo-600/20 text-indigo-400' : 'bg-slate-900 text-slate-600'
+                    }`}
+                    title={isVisible ? 'Visible' : 'Hidden'}
+                  >
+                    {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  </button>
+                  {customSec && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomSection(customSec.id)}
+                      className="p-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                      title="Delete Custom Section"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Subdomain Manager */}
       <div className="p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">

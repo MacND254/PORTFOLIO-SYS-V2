@@ -95,8 +95,9 @@ export class PortfolioController {
 
       // A public resume may only be generated for an active, published portfolio.
       // This also ensures the query parameter can never select an arbitrary user.
+      const templateStyle = String(req.query.template || req.query.style || 'modern').toLowerCase();
       const portfolio = await PortfolioService.getPublicPortfolioBySubdomain(requestedSubdomain);
-      const pdfBuffer = await PDFService.generateResumePdf(portfolio.profile.userId);
+      const pdfBuffer = await PDFService.generateResumePdf(portfolio.profile.userId, templateStyle);
 
       AnalyticsService.recordEvent({
         profileId: portfolio.profile.id,

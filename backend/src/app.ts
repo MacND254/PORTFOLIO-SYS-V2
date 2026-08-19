@@ -2,9 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import session from 'express-session';
+import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
 import { config } from './config/env';
 import { logger } from './config/logger';
+import { configurePassport } from './config/passport';
 import apiRouter from './routes';
 import { errorHandler } from './middleware/error.middleware';
 import { globalRateLimiter } from './middleware/rateLimit.middleware';
@@ -50,6 +53,21 @@ app.use(
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Session middleware (required by Passport for OAuth state parameter)
+app.use(
+  session({
+    secret: config.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: config.env === 'production', maxAge: 10 * 60 * 1000 }, // 10 min
+  })
+);
+
+// Passport OAuth strategies
+configurePassport();
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Static file serving for uploads (CVs and Images)
 app.use('/uploads', express.static(config.storagePath));

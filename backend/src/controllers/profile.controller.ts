@@ -90,6 +90,23 @@ export class ProfileController {
     }
   }
 
+  public static async uploadCertificate(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        throw new ValidationError('No certificate file uploaded.');
+      }
+
+      const fileUrl = `/uploads/images/${req.file.filename}`;
+      return sendSuccess({
+        res,
+        message: 'Certificate file uploaded successfully.',
+        data: { url: fileUrl, filename: req.file.filename },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // --- EDUCATION ---
   public static async addEducation(req: Request, res: Response, next: NextFunction) {
     try {
@@ -97,6 +114,17 @@ export class ProfileController {
       if (!parsed.success) throw new ValidationError('Invalid education data', parsed.error.errors);
       const item = await ProfileService.addEducation(req.user!.id, parsed.data);
       return sendSuccess({ res, statusCode: 201, message: 'Education added.', data: item });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async updateEducation(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = educationSchema.partial().safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid data', parsed.error.errors);
+      const item = await ProfileService.updateEducation(req.params.id, req.user!.id, parsed.data);
+      return sendSuccess({ res, message: 'Education updated.', data: item });
     } catch (error) {
       next(error);
     }
@@ -171,6 +199,17 @@ export class ProfileController {
       if (!parsed.success) throw new ValidationError('Invalid certification data', parsed.error.errors);
       const item = await ProfileService.addCertification(req.user!.id, parsed.data);
       return sendSuccess({ res, statusCode: 201, message: 'Certification added.', data: item });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async updateCertification(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = certificationSchema.partial().safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid data', parsed.error.errors);
+      const item = await ProfileService.updateCertification(req.params.id, req.user!.id, parsed.data);
+      return sendSuccess({ res, message: 'Certification updated.', data: item });
     } catch (error) {
       next(error);
     }
@@ -260,6 +299,12 @@ export class ProfileController {
     try {
       const item = await ProfileService.addCustomSection(req.user!.id, req.body);
       return sendSuccess({ res, statusCode: 201, message: 'Custom Section added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async updateCustomSection(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.updateCustomSection(req.params.id, req.user!.id, req.body);
+      return sendSuccess({ res, message: 'Custom Section updated.' });
     } catch (error) { next(error); }
   }
   public static async deleteCustomSection(req: Request, res: Response, next: NextFunction) {

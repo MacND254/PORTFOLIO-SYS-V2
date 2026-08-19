@@ -25,8 +25,10 @@ import {
   Share2,
   Eye,
   Lock,
+  FileText,
 } from "lucide-react";
 import { ImageUploadWidget } from "../../components/ui/ImageUploadWidget";
+import { CertificateUploadWidget } from "../../components/ui/CertificateUploadWidget";
 
 export const ProfileEditorPage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -60,13 +62,15 @@ export const ProfileEditorPage: React.FC = () => {
   });
 
   const [isEduModalOpen, setIsEduModalOpen] = useState(false);
-  const [newEdu, setNewEdu] = useState({
+  const [editingEduId, setEditingEduId] = useState<string | null>(null);
+  const [eduForm, setEduForm] = useState({
     institution: "",
     qualification: "",
     field: "",
     startDate: "",
     endDate: "",
     grade: "",
+    certificateUrl: "",
   });
 
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
@@ -91,11 +95,13 @@ export const ProfileEditorPage: React.FC = () => {
   });
 
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
-  const [newCert, setNewCert] = useState({
+  const [editingCertId, setEditingCertId] = useState<string | null>(null);
+  const [certForm, setCertForm] = useState({
     name: "",
     issuingOrganization: "",
     issueDate: "",
     credentialUrl: "",
+    certificateUrl: "",
   });
 
   useEffect(() => {
@@ -195,19 +201,43 @@ export const ProfileEditorPage: React.FC = () => {
     }
   };
 
-  const handleAddEducation = async (e: React.FormEvent) => {
+  const handleOpenNewEdu = () => {
+    setEditingEduId(null);
+    setEduForm({
+      institution: "",
+      qualification: "",
+      field: "",
+      startDate: "",
+      endDate: "",
+      grade: "",
+      certificateUrl: "",
+    });
+    setIsEduModalOpen(true);
+  };
+
+  const handleOpenEditEdu = (edu: any) => {
+    setEditingEduId(edu.id);
+    setEduForm({
+      institution: edu.institution || "",
+      qualification: edu.qualification || "",
+      field: edu.field || "",
+      startDate: edu.startDate || "",
+      endDate: edu.endDate || "",
+      grade: edu.grade || "",
+      certificateUrl: edu.certificateUrl || "",
+    });
+    setIsEduModalOpen(true);
+  };
+
+  const handleSaveEducation = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/profile/educations", newEdu);
+      if (editingEduId) {
+        await api.put(`/profile/educations/${editingEduId}`, eduForm);
+      } else {
+        await api.post("/profile/educations", eduForm);
+      }
       setIsEduModalOpen(false);
-      setNewEdu({
-        institution: "",
-        qualification: "",
-        field: "",
-        startDate: "",
-        endDate: "",
-        grade: "",
-      });
       fetchProfile();
     } catch (e) {
       console.error(e);
@@ -307,17 +337,39 @@ export const ProfileEditorPage: React.FC = () => {
     }
   };
 
-  const handleAddCertification = async (e: React.FormEvent) => {
+  const handleOpenNewCert = () => {
+    setEditingCertId(null);
+    setCertForm({
+      name: "",
+      issuingOrganization: "",
+      issueDate: "",
+      credentialUrl: "",
+      certificateUrl: "",
+    });
+    setIsCertModalOpen(true);
+  };
+
+  const handleOpenEditCert = (cert: any) => {
+    setEditingCertId(cert.id);
+    setCertForm({
+      name: cert.name || "",
+      issuingOrganization: cert.issuingOrganization || "",
+      issueDate: cert.issueDate || "",
+      credentialUrl: cert.credentialUrl || "",
+      certificateUrl: cert.certificateUrl || "",
+    });
+    setIsCertModalOpen(true);
+  };
+
+  const handleSaveCertification = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/profile/certifications", newCert);
+      if (editingCertId) {
+        await api.put(`/profile/certifications/${editingCertId}`, certForm);
+      } else {
+        await api.post("/profile/certifications", certForm);
+      }
       setIsCertModalOpen(false);
-      setNewCert({
-        name: "",
-        issuingOrganization: "",
-        issueDate: "",
-        credentialUrl: "",
-      });
       fetchProfile();
     } catch (e) {
       console.error(e);
@@ -902,7 +954,7 @@ export const ProfileEditorPage: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setIsEduModalOpen(true)}
+              onClick={handleOpenNewEdu}
               leftIcon={<Plus className="w-4 h-4" />}
             >
               Add Education
@@ -913,23 +965,40 @@ export const ProfileEditorPage: React.FC = () => {
             {profile?.educations?.map((edu: any) => (
               <div
                 key={edu.id}
-                className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between"
+                className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4"
               >
-                <div>
-                  <h4 className="text-base font-bold text-white">
-                    {edu.qualification} in {edu.field} — {edu.institution}
-                  </h4>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-bold text-white">
+                      {edu.qualification} in {edu.field} — {edu.institution}
+                    </h4>
+                    {edu.certificateUrl && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Certificate Attached
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400">
                     {edu.startDate} – {edu.endDate || "Present"}{" "}
                     {edu.grade ? `(${edu.grade})` : ""}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleDeleteEducation(edu.id)}
-                  className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleOpenEditEdu(edu)}
+                    className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                    title="Edit Education"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteEducation(edu.id)}
+                    className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                    title="Delete Education"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1097,7 +1166,7 @@ export const ProfileEditorPage: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setIsCertModalOpen(true)}
+              onClick={handleOpenNewCert}
               leftIcon={<Plus className="w-4 h-4" />}
             >
               Add Certification
@@ -1108,22 +1177,39 @@ export const ProfileEditorPage: React.FC = () => {
             {profile?.certifications?.map((cert: any) => (
               <div
                 key={cert.id}
-                className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between"
+                className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4"
               >
-                <div>
-                  <h4 className="text-base font-bold text-white">
-                    {cert.name} — {cert.issuingOrganization}
-                  </h4>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-bold text-white">
+                      {cert.name} — {cert.issuingOrganization}
+                    </h4>
+                    {cert.certificateUrl && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Certificate Attached
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400">
                     Issued: {cert.issueDate}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleDeleteCertification(cert.id)}
-                  className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleOpenEditCert(cert)}
+                    className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                    title="Edit Certification"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCertification(cert.id)}
+                    className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                    title="Delete Certification"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1190,22 +1276,22 @@ export const ProfileEditorPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Education Add Modal */}
+      {/* Education Modal */}
       <Modal
         isOpen={isEduModalOpen}
         onClose={() => setIsEduModalOpen(false)}
-        title="Add Education"
+        title={editingEduId ? "Edit Education Record" : "Add Education Record"}
       >
-        <form onSubmit={handleAddEducation} className="space-y-4">
+        <form onSubmit={handleSaveEducation} className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs text-slate-300">
               Institution / University
             </label>
             <input
               required
-              value={newEdu.institution}
+              value={eduForm.institution}
               onChange={(e) =>
-                setNewEdu({ ...newEdu, institution: e.target.value })
+                setEduForm({ ...eduForm, institution: e.target.value })
               }
               className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
               placeholder="e.g. Stanford University"
@@ -1218,9 +1304,9 @@ export const ProfileEditorPage: React.FC = () => {
               </label>
               <input
                 required
-                value={newEdu.qualification}
+                value={eduForm.qualification}
                 onChange={(e) =>
-                  setNewEdu({ ...newEdu, qualification: e.target.value })
+                  setEduForm({ ...eduForm, qualification: e.target.value })
                 }
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
                 placeholder="e.g. Bachelor of Science"
@@ -1230,9 +1316,9 @@ export const ProfileEditorPage: React.FC = () => {
               <label className="text-xs text-slate-300">Field of Study</label>
               <input
                 required
-                value={newEdu.field}
+                value={eduForm.field}
                 onChange={(e) =>
-                  setNewEdu({ ...newEdu, field: e.target.value })
+                  setEduForm({ ...eduForm, field: e.target.value })
                 }
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
                 placeholder="e.g. Computer Science"
@@ -1244,9 +1330,9 @@ export const ProfileEditorPage: React.FC = () => {
               <label className="text-xs text-slate-300">Start Date</label>
               <input
                 required
-                value={newEdu.startDate}
+                value={eduForm.startDate}
                 onChange={(e) =>
-                  setNewEdu({ ...newEdu, startDate: e.target.value })
+                  setEduForm({ ...eduForm, startDate: e.target.value })
                 }
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
                 placeholder="2018"
@@ -1255,17 +1341,24 @@ export const ProfileEditorPage: React.FC = () => {
             <div className="space-y-1">
               <label className="text-xs text-slate-300">End Date</label>
               <input
-                value={newEdu.endDate}
+                value={eduForm.endDate}
                 onChange={(e) =>
-                  setNewEdu({ ...newEdu, endDate: e.target.value })
+                  setEduForm({ ...eduForm, endDate: e.target.value })
                 }
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
                 placeholder="2022"
               />
             </div>
           </div>
+
+          <CertificateUploadWidget
+            label="Upload Degree / Education Certificate (PDF or Image)"
+            value={eduForm.certificateUrl}
+            onChange={(url) => setEduForm({ ...eduForm, certificateUrl: url })}
+          />
+
           <Button type="submit" variant="primary" className="w-full">
-            Save Education
+            {editingEduId ? "Update Education" : "Save Education"}
           </Button>
         </form>
       </Modal>
@@ -1398,19 +1491,19 @@ export const ProfileEditorPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Certification Add Modal */}
+      {/* Certification Modal */}
       <Modal
         isOpen={isCertModalOpen}
         onClose={() => setIsCertModalOpen(false)}
-        title="Add Certification"
+        title={editingCertId ? "Edit Certification" : "Add Certification"}
       >
-        <form onSubmit={handleAddCertification} className="space-y-4">
+        <form onSubmit={handleSaveCertification} className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs text-slate-300">Certification Name</label>
             <input
               required
-              value={newCert.name}
-              onChange={(e) => setNewCert({ ...newCert, name: e.target.value })}
+              value={certForm.name}
+              onChange={(e) => setCertForm({ ...certForm, name: e.target.value })}
               className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
               placeholder="e.g. AWS Certified Solutions Architect"
             />
@@ -1421,28 +1514,49 @@ export const ProfileEditorPage: React.FC = () => {
             </label>
             <input
               required
-              value={newCert.issuingOrganization}
+              value={certForm.issuingOrganization}
               onChange={(e) =>
-                setNewCert({ ...newCert, issuingOrganization: e.target.value })
+                setCertForm({ ...certForm, issuingOrganization: e.target.value })
               }
               className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
               placeholder="e.g. Amazon Web Services"
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-300">Issue Date</label>
-            <input
-              required
-              value={newCert.issueDate}
-              onChange={(e) =>
-                setNewCert({ ...newCert, issueDate: e.target.value })
-              }
-              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
-              placeholder="2023-05"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300">Issue Date</label>
+              <input
+                required
+                value={certForm.issueDate}
+                onChange={(e) =>
+                  setCertForm({ ...certForm, issueDate: e.target.value })
+                }
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="2023-05"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300">Credential Verification Link (URL)</label>
+              <input
+                type="url"
+                value={certForm.credentialUrl}
+                onChange={(e) =>
+                  setCertForm({ ...certForm, credentialUrl: e.target.value })
+                }
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm font-mono"
+                placeholder="https://credly.com/..."
+              />
+            </div>
           </div>
+
+          <CertificateUploadWidget
+            label="Upload Official Certificate File (PDF or Image)"
+            value={certForm.certificateUrl}
+            onChange={(url) => setCertForm({ ...certForm, certificateUrl: url })}
+          />
+
           <Button type="submit" variant="primary" className="w-full">
-            Save Certification
+            {editingCertId ? "Update Certification" : "Save Certification"}
           </Button>
         </form>
       </Modal>

@@ -2,7 +2,6 @@
 
 generator client {
   provider      = "prisma-client-js"
-  output        = "../backend/node_modules/@prisma/client"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
@@ -219,20 +218,21 @@ model Experience {
 }
 
 model Education {
-  id            String   @id @default(uuid())
-  profileId     String
-  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  institution   String
-  qualification String
-  field         String?
-  startDate     String
-  endDate       String?
-  isCurrent     Boolean  @default(false)
-  grade         String?
-  description   String?
-  orderIndex    Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(uuid())
+  profileId      String
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  institution    String
+  qualification  String
+  field          String?
+  startDate      String
+  endDate        String?
+  isCurrent      Boolean  @default(false)
+  grade          String?
+  description    String?
+  certificateUrl String?
+  orderIndex     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([profileId])
 }
@@ -262,6 +262,7 @@ model Certification {
   expiryDate          String?
   credentialId        String?
   credentialUrl       String?
+  certificateUrl      String?
   orderIndex          Int      @default(0)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

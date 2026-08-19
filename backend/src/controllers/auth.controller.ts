@@ -34,6 +34,36 @@ export class AuthController {
     }
   }
 
+  public static async socialLogin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { provider, email, fullName, providerId, avatarUrl, desiredSubdomain, desiredProfession } = req.body;
+      if (!email || !provider) {
+        throw new ValidationError('Email and OAuth provider are required.');
+      }
+
+      const result = await AuthService.socialLogin({
+        provider,
+        email,
+        fullName: fullName || email.split('@')[0],
+        providerId,
+        avatarUrl,
+        desiredSubdomain,
+        desiredProfession,
+      }, {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      return sendSuccess({
+        res,
+        message: `Authenticated successfully via ${provider}.`,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async login(req: Request, res: Response, next: NextFunction) {
     try {
       const parsed = loginSchema.safeParse(req.body);

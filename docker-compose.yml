@@ -97,8 +97,8 @@ services:
   # ── Frontend (Nginx + Vite SPA) ───────────────────────────
   frontend:
     build:
-      context: .                          # Repo root
-      dockerfile: frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: portfolio_frontend
     restart: unless-stopped
     depends_on:

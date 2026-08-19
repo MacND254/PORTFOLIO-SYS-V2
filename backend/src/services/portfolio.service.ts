@@ -148,6 +148,9 @@ export class PortfolioService {
       ...(avatarStyle ? { avatarStyle } : {}),
     };
 
+    const sectionOrder = Array.isArray(customizationData?.sectionOrder) ? customizationData.sectionOrder : undefined;
+    const sectionVisibility = typeof customizationData?.sectionVisibility === 'object' ? customizationData.sectionVisibility : undefined;
+
     const updated = await prisma.portfolioCustomization.upsert({
       where: { profileId: profile.id },
       update: {
@@ -155,6 +158,8 @@ export class PortfolioService {
         ...(fontHeading ? { fontHeading } : {}),
         ...(fontBody ? { fontBody } : {}),
         colorPalette: updatedPalette,
+        ...(sectionOrder !== undefined ? { sectionOrder } : {}),
+        ...(sectionVisibility !== undefined ? { sectionVisibility } : {}),
       },
       create: {
         profileId: profile.id,
@@ -162,6 +167,8 @@ export class PortfolioService {
         fontHeading: fontHeading || 'Inter',
         fontBody: fontBody || 'Inter',
         colorPalette: updatedPalette,
+        ...(sectionOrder !== undefined ? { sectionOrder } : {}),
+        ...(sectionVisibility !== undefined ? { sectionVisibility } : {}),
       },
     });
 
