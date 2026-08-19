@@ -44,6 +44,9 @@ const MessagesManagerPage = lazy(() =>
 const AnalyticsPage = lazy(() =>
   import('./pages/admin/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage }))
 );
+const UserSettingsPage = lazy(() =>
+  import('./pages/admin/UserSettingsPage').then((m) => ({ default: m.UserSettingsPage }))
+);
 
 // Super Admin pages
 const SuperAdminDashboard = lazy(() =>
@@ -102,6 +105,7 @@ function App() {
               <Route path="/admin/cv-import" element={<CvImportPage />} />
               <Route path="/admin/customizer" element={<CustomizerPage />} />
               <Route path="/admin/profile" element={<ProfileEditorPage />} />
+              <Route path="/admin/account" element={<UserSettingsPage />} />
               <Route path="/admin/reviews" element={<ReviewsManagerPage />} />
               <Route path="/admin/messages" element={<MessagesManagerPage />} />
               <Route path="/admin/analytics" element={<AnalyticsPage />} />

@@ -14,6 +14,8 @@ router.post('/social-login/complete', authRateLimiter, OAuthController.completeS
 router.post('/forgot-password', authRateLimiter, AuthController.forgotPassword);
 router.post('/reset-password', authRateLimiter, AuthController.resetPassword);
 router.get('/me', authenticate, AuthController.getMe);
+router.put('/account', authenticate, AuthController.updateAccount);
+router.put('/change-password', authenticate, AuthController.changePassword);
 router.post('/logout', authenticate, AuthController.logout);
 
 // ── Google OAuth redirect flow ─────────────────────────────────────────────

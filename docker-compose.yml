@@ -62,19 +62,27 @@ services:
       redis:
         condition: service_healthy
     environment:
-      NODE_ENV:        production
-      PORT:            3000
-      DATABASE_URL:    postgresql://${POSTGRES_USER:-portfolio}:${POSTGRES_PASSWORD:-portfolio_secret}@postgres:5432/${POSTGRES_DB:-portfolio_db}
-      REDIS_URL:       redis://redis:6379
-      JWT_SECRET:      ${JWT_SECRET:-super_secret_change_in_production}
-      JWT_EXPIRES_IN:  ${JWT_EXPIRES_IN:-7d}
-      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-myportfolio.com}
-      FRONTEND_URL:    ${FRONTEND_URL:-http://localhost:80}
-      AI_API_KEY:      ${AI_API_KEY:-}
-      SMTP_HOST:       ${SMTP_HOST:-}
-      SMTP_PORT:       ${SMTP_PORT:-587}
-      SMTP_USER:       ${SMTP_USER:-}
-      SMTP_PASS:       ${SMTP_PASS:-}
+      NODE_ENV:             production
+      PORT:                 3000
+      DATABASE_URL:         postgresql://${POSTGRES_USER:-portfolio}:${POSTGRES_PASSWORD:-portfolio_secret}@postgres:5432/${POSTGRES_DB:-portfolio_db}
+      REDIS_URL:            redis://redis:6379
+      JWT_SECRET:           ${JWT_SECRET:-super_secret_change_in_production}
+      JWT_REFRESH_SECRET:   ${JWT_REFRESH_SECRET:-super_secret_refresh_change_in_production}
+      JWT_EXPIRES_IN:       ${JWT_EXPIRES_IN:-7d}
+      SESSION_SECRET:       ${SESSION_SECRET:-portfolio_session_secret_key_2024!}
+      PLATFORM_DOMAIN:      ${PLATFORM_DOMAIN:-localhost}
+      FRONTEND_URL:         ${FRONTEND_URL:-http://localhost:3080}
+      BACKEND_URL:          ${BACKEND_URL:-http://localhost:5000}
+      CORS_ORIGIN:          ${CORS_ORIGIN:-http://localhost:3080,http://localhost:5000,http://localhost:3000}
+      GOOGLE_CLIENT_ID:     ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID:     ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      AI_API_KEY:           ${AI_API_KEY:-}
+      SMTP_HOST:            ${SMTP_HOST:-}
+      SMTP_PORT:            ${SMTP_PORT:-587}
+      SMTP_USER:            ${SMTP_USER:-}
+      SMTP_PASS:            ${SMTP_PASS:-}
     volumes:
       - uploads_data:/app/uploads         # Persist uploaded CV files
     # Run migrations then start the server
@@ -83,6 +91,8 @@ services:
         npx prisma db push --schema=./prisma/schema.prisma &&
         node dist/server.js
       "
+    ports:
+      - "5000:3000"
     expose:
       - "3000"
     healthcheck:
@@ -90,7 +100,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 30s
     networks:
       - portfolio_net
 
@@ -105,7 +115,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "3080:80"
     networks:
       - portfolio_net
 

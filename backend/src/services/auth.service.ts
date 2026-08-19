@@ -452,6 +452,113 @@ export class AuthService {
     );
   }
 
+  public static async updateAccountDetails(
+    userId: string,
+    data: { fullName?: string; email?: string; desiredProfession?: string; subdomain?: string }
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { subdomains: { where: { isPrimary: true } } },
+    });
+    if (!user) throw new NotFoundError('User not found.');
+
+    const updateData: any = {};
+    if (data.fullName && data.fullName.trim()) updateData.fullName = data.fullName.trim();
+    if (data.desiredProfession !== undefined) updateData.desiredProfession = data.desiredProfession.trim();
+
+    if (data.email && data.email.toLowerCase().trim() !== user.email) {
+      const newEmail = data.email.toLowerCase().trim();
+      const existing = await prisma.user.findUnique({ where: { email: newEmail } });
+      if (existing && existing.id !== userId) throw new ConflictError('This email is already in use by another account.');
+      updateData.email = newEmail;
+    }
+
+    let updatedSubdomain = user.subdomains[0]?.slug || '';
+
+    if (data.subdomain && data.subdomain.trim() && data.subdomain.trim() !== updatedSubdomain) {
+      const newSub = normalizeSubdomain(data.subdomain);
+      const validation = validateSubdomainFormat(newSub);
+      if (!validation.isValid) throw new ValidationError(validation.reason || 'Invalid subdomain format.');
+
+      const taken = await prisma.subdomain.findUnique({ where: { slug: newSub } });
+      if (taken && taken.userId !== userId) throw new ConflictError(`Subdomain "${newSub}" is already taken.`);
+
+      await prisma.subdomain.updateMany({
+        where: { userId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+
+      const existingUserSub = await prisma.subdomain.findUnique({ where: { slug: newSub } });
+      if (existingUserSub) {
+        await prisma.subdomain.update({
+          where: { id: existingUserSub.id },
+          data: { isPrimary: true },
+        });
+      } else {
+        await prisma.subdomain.create({
+          data: { userId, slug: newSub, isPrimary: true },
+        });
+      }
+      updatedSubdomain = newSub;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        status: true,
+        desiredProfession: true,
+      },
+    });
+
+    await AuditService.log({
+      userId,
+      action: 'USER_ACCOUNT_UPDATED',
+      target: updatedUser.email,
+    });
+
+    return {
+      ...updatedUser,
+      subdomain: updatedSubdomain,
+    };
+  }
+
+  public static async changePassword(
+    userId: string,
+    data: { currentPassword?: string; newPassword: string }
+  ) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundError('User not found.');
+
+    if (user.password) {
+      if (!data.currentPassword) throw new ValidationError('Current password is required.');
+      const isMatch = await bcrypt.compare(data.currentPassword, user.password);
+      if (!isMatch) throw new UnauthorizedError('Current password is incorrect.');
+    }
+
+    if (!data.newPassword || data.newPassword.length < 8) {
+      throw new ValidationError('New password must be at least 8 characters long.');
+    }
+
+    const hashedPassword = await bcrypt.hash(data.newPassword, 12);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    await AuditService.log({
+      userId,
+      action: 'PASSWORD_CHANGED',
+      target: user.email,
+    });
+
+    return { message: 'Password updated successfully.' };
+  }
+
   private static getThemeIdForProfession(profession: string): string {
     const lower = profession.toLowerCase();
     if (lower.includes('data')) return 'data-scientist';

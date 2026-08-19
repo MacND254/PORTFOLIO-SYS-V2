@@ -140,6 +140,33 @@ export class AuthController {
     }
   }
 
+  public static async updateAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+      const updated = await AuthService.updateAccountDetails(req.user.id, req.body);
+      return sendSuccess({
+        res,
+        message: 'Account details updated successfully.',
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+      const result = await AuthService.changePassword(req.user.id, req.body);
+      return sendSuccess({
+        res,
+        message: result.message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async logout(req: Request, res: Response, next: NextFunction) {
     return sendSuccess({
       res,
