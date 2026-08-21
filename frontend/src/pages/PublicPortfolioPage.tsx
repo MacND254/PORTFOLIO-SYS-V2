@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/client';
-import { Profile } from '../types';
 import { ThemeEngine } from '../components/portfolio/ThemeEngine';
 import { QrModal } from '../components/portfolio/QrModal';
 import { ReviewModal } from '../components/portfolio/ReviewModal';
+import { VerifiedDocumentsUnlockModal } from '../components/portfolio/VerifiedDocumentsUnlockModal';
 import { Spinner } from '../components/ui/Spinner';
 import { ShieldAlert } from 'lucide-react';
 
@@ -21,8 +21,15 @@ export const PublicPortfolioPage: React.FC = () => {
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isVerifiedDocsOpen, setIsVerifiedDocsOpen] = useState(false);
+  const [verifiedDocsInitialTab, setVerifiedDocsInitialTab] = useState<'unlock' | 'request'>('unlock');
   const [isDownloadingResume, setIsDownloadingResume] = useState(false);
   const [resumeDownloadError, setResumeDownloadError] = useState('');
+
+  const handleOpenVerifiedDocs = (tab: 'unlock' | 'request' = 'unlock') => {
+    setVerifiedDocsInitialTab(tab);
+    setIsVerifiedDocsOpen(true);
+  };
 
   useEffect(() => {
     fetchPublicPortfolio();
@@ -31,7 +38,6 @@ export const PublicPortfolioPage: React.FC = () => {
   const fetchPublicPortfolio = async () => {
     setIsLoading(true);
     setError('');
-
     try {
       const res: any = await api.get(`/portfolio/public/${activeSubdomain}`);
       setPortfolioData(res.data);
@@ -51,7 +57,6 @@ export const PublicPortfolioPage: React.FC = () => {
 
   const handleDownloadPdf = async (templateStyle: string = 'modern') => {
     if (isDownloadingResume) return;
-
     setIsDownloadingResume(true);
     setResumeDownloadError('');
     try {
@@ -60,7 +65,6 @@ export const PublicPortfolioPage: React.FC = () => {
       });
       const blob = response instanceof Blob ? response : new Blob([response], { type: 'application/pdf' });
       if (blob.size === 0) throw new Error('The resume file was empty. Please try again.');
-
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -104,6 +108,7 @@ export const PublicPortfolioPage: React.FC = () => {
   }
 
   const { profile, owner, subdomain } = portfolioData;
+  const hasVerifiedDocs = (profile?.verifiedDocuments?.length ?? 0) > 0 || Boolean(profile?.hasVerifiedDocuments);
 
   return (
     <>
@@ -116,6 +121,8 @@ export const PublicPortfolioPage: React.FC = () => {
         isDownloadingResume={isDownloadingResume}
         resumeDownloadError={resumeDownloadError}
         onSendMessage={handleSendMessage}
+        onOpenVerifiedDocs={handleOpenVerifiedDocs}
+        hasVerifiedDocs={hasVerifiedDocs}
       />
 
       <QrModal
@@ -130,6 +137,15 @@ export const PublicPortfolioPage: React.FC = () => {
         onClose={() => setIsReviewOpen(false)}
         profileId={profile.id}
         fullName={owner.fullName}
+      />
+
+      <VerifiedDocumentsUnlockModal
+        isOpen={isVerifiedDocsOpen}
+        onClose={() => setIsVerifiedDocsOpen(false)}
+        subdomain={activeSubdomain}
+        ownerName={owner.fullName}
+        hasDocuments={true}
+        initialTab={verifiedDocsInitialTab}
       />
     </>
   );

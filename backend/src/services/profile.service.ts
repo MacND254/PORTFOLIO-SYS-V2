@@ -18,6 +18,8 @@ export class ProfileService {
         references: { orderBy: { orderIndex: 'asc' } },
         memberships: { orderBy: { orderIndex: 'asc' } },
         customSections: { orderBy: { orderIndex: 'asc' } },
+        verifiedDocuments: { orderBy: { orderIndex: 'asc' } },
+        documentAccessKeys: { orderBy: { createdAt: 'desc' } },
         customization: true,
         portfolioStatus: true,
         user: {
@@ -78,6 +80,54 @@ export class ProfileService {
     // Recalculate score
     const fullProfile = await this.getProfileByUserId(userId);
     return fullProfile;
+  }
+
+  public static async resetProfile(userId: string) {
+    const profile = await this.getProfileRef(userId);
+
+    await prisma.$transaction([
+      prisma.experience.deleteMany({ where: { profileId: profile.id } }),
+      prisma.education.deleteMany({ where: { profileId: profile.id } }),
+      prisma.skill.deleteMany({ where: { profileId: profile.id } }),
+      prisma.certification.deleteMany({ where: { profileId: profile.id } }),
+      prisma.award.deleteMany({ where: { profileId: profile.id } }),
+      prisma.project.deleteMany({ where: { profileId: profile.id } }),
+      prisma.publication.deleteMany({ where: { profileId: profile.id } }),
+      prisma.language.deleteMany({ where: { profileId: profile.id } }),
+      prisma.service.deleteMany({ where: { profileId: profile.id } }),
+      prisma.reference.deleteMany({ where: { profileId: profile.id } }),
+      prisma.membership.deleteMany({ where: { profileId: profile.id } }),
+      prisma.customSection.deleteMany({ where: { profileId: profile.id } }),
+      prisma.profile.update({
+        where: { id: profile.id },
+        data: {
+          title: '',
+          headline: '',
+          summary: '',
+          careerObjective: '',
+          bio: '',
+          contactEmail: '',
+          phone: '',
+          location: '',
+          address: '',
+          website: '',
+          linkedin: '',
+          github: '',
+          twitter: '',
+          behance: '',
+          dribbble: '',
+          facebook: '',
+          instagram: '',
+          youtube: '',
+          avatarUrl: null,
+          coverUrl: null,
+          logoUrl: null,
+          completenessScore: 0,
+        },
+      }),
+    ]);
+
+    return this.getProfileByUserId(userId);
   }
 
   // --- CRUD HELPERS FOR SECTIONS ---
@@ -316,4 +366,161 @@ export class ProfileService {
       recommendations,
     };
   }
+
+  // VERIFIED DOCUMENTS
+  public static async getVerifiedDocuments(userId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    return prisma.verifiedDocument.findMany({
+      where: { profileId: profile.id },
+      orderBy: { orderIndex: 'asc' },
+    });
+  }
+
+  public static async addVerifiedDocument(userId: string, data: {
+    documentType: string;
+    title: string;
+    documentNumber?: string;
+    fileUrl: string;
+    fileSize?: number;
+    mimeType?: string;
+  }) {
+    let profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) {
+      profile = await prisma.profile.create({ data: { userId, title: 'Professional' } });
+    }
+
+    const count = await prisma.verifiedDocument.count({ where: { profileId: profile.id } });
+
+    return prisma.verifiedDocument.create({
+      data: {
+        profileId: profile.id,
+        documentType: data.documentType || 'OTHER',
+        title: data.title,
+        documentNumber: data.documentNumber || null,
+        fileUrl: data.fileUrl,
+        fileSize: data.fileSize || null,
+        mimeType: data.mimeType || null,
+        orderIndex: count,
+      },
+    });
+  }
+
+  public static async deleteVerifiedDocument(userId: string, documentId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    const doc = await prisma.verifiedDocument.findUnique({ where: { id: documentId } });
+    if (!doc || doc.profileId !== profile.id) {
+      throw new NotFoundError('Verified document not found.');
+    }
+
+    await prisma.verifiedDocument.delete({ where: { id: documentId } });
+    return { message: 'Document deleted successfully.' };
+  }
+
+  // DOCUMENT ACCESS KEYS
+  public static async getDocumentAccessKeys(userId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    return prisma.documentAccessKey.findMany({
+      where: { profileId: profile.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  public static async generateDocumentAccessKey(userId: string, recipientName?: string, validityHours: number = 24) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    // Generate clean 6-character random code e.g. DOC-9A7K2X
+    const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const code = `DOC-${randomChars}`;
+
+    const expiresAt = new Date(Date.now() + (validityHours || 24) * 60 * 60 * 1000);
+
+    return prisma.documentAccessKey.create({
+      data: {
+        profileId: profile.id,
+        code,
+        recipientName: recipientName || null,
+        expiresAt,
+      },
+    });
+  }
+
+  public static async deleteDocumentAccessKey(userId: string, keyId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    const keyRecord = await prisma.documentAccessKey.findUnique({ where: { id: keyId } });
+    if (!keyRecord || keyRecord.profileId !== profile.id) {
+      throw new NotFoundError('Access key not found.');
+    }
+
+    await prisma.documentAccessKey.delete({ where: { id: keyId } });
+    return { message: 'Access key revoked successfully.' };
+  }
+
+  public static async unlockVerifiedDocumentsByPublicSubdomain(subdomain: string, keyCode: string) {
+    const normSlug = subdomain.toLowerCase().trim();
+    const subRecord: any = await prisma.subdomain.findUnique({
+      where: { slug: normSlug },
+      include: {
+        user: {
+          select: {
+            profile: {
+              include: {
+                verifiedDocuments: { orderBy: { orderIndex: 'asc' } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!subRecord || !subRecord.user || !subRecord.user.profile) {
+      throw new NotFoundError('Portfolio profile not found.');
+    }
+
+    const profileId = subRecord.user.profile.id;
+    const cleanCode = keyCode.trim().toUpperCase();
+
+    const keyRecord = await prisma.documentAccessKey.findFirst({
+      where: {
+        profileId,
+        code: cleanCode,
+      },
+    });
+
+    if (!keyRecord) {
+      throw new ValidationError('Invalid document access key. Please request a valid key from the portfolio owner.');
+    }
+
+    if (new Date() > new Date(keyRecord.expiresAt)) {
+      throw new ValidationError('This document access key has expired. Please ask the portfolio owner for a new key.');
+    }
+
+    if (keyRecord.isUsed) {
+      throw new ValidationError('This one-time access key has already been used. Please request a new key from the portfolio owner.');
+    }
+
+    // Mark key as used upon successful unlock
+    await prisma.documentAccessKey.update({
+      where: { id: keyRecord.id },
+      data: {
+        isUsed: true,
+        usedAt: new Date(),
+      },
+    });
+
+    return {
+      recipientName: keyRecord.recipientName,
+      unlockedAt: new Date(),
+      documents: subRecord.user.profile.verifiedDocuments,
+    };
+  }
 }
+

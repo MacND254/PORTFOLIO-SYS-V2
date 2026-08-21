@@ -53,4 +53,45 @@ export class MessageController {
       next(error);
     }
   }
+
+  public static async submitAccessKeyRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const subdomain = req.tenantSubdomain || (req.body.subdomain as string) || req.params.subdomain;
+      const { name, email, company, message } = req.body;
+      if (!name || !email) throw new ValidationError('Name and email are required.');
+
+      const result = await MessageService.submitAccessKeyRequest(subdomain, { name, email, company, message }, {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      return sendSuccess({
+        res,
+        statusCode: 201,
+        message: 'Access key request submitted to portfolio owner.',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async acceptKeyRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { validityHours } = req.body;
+      const result = await MessageService.acceptKeyRequest(req.params.id, req.user!.id, { validityHours: Number(validityHours) || 24 });
+      return sendSuccess({ res, message: 'Key request accepted and dispatched.', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async declineKeyRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await MessageService.declineKeyRequest(req.params.id, req.user!.id);
+      return sendSuccess({ res, message: 'Key request declined.', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

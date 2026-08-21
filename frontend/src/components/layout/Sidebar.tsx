@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../api/client';
 import {
   LayoutDashboard,
   FileUp,
@@ -26,6 +27,27 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { user, logout } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (user && !isSuperAdmin) {
+      fetchUnreadCount();
+      const interval = setInterval(fetchUnreadCount, 20000);
+      return () => clearInterval(interval);
+    }
+  }, [user, isSuperAdmin]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res: any = await api.get('/messages');
+      if (Array.isArray(res.data)) {
+        const unread = res.data.filter((m: any) => !m.isRead || m.status === 'PENDING').length;
+        setUnreadCount(unread);
+      }
+    } catch {
+      // Ignore background fetch error
+    }
+  };
 
   const tenantLinks = [
     { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -83,15 +105,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
             to={item.to}
             onClick={() => onClose?.()}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+              `flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
                 isActive
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`
             }
           >
-            <item.icon className="w-4 h-4 shrink-0" />
-            <span>{item.label}</span>
+            <div className="flex items-center gap-3">
+              <item.icon className="w-4 h-4 shrink-0" />
+              <span>{item.label}</span>
+            </div>
+            {item.to === '/admin/messages' && unreadCount > 0 && (
+              <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-rose-500 text-white shadow-sm animate-pulse">
+                {unreadCount}
+              </span>
+            )}
           </NavLink>
         ))}
 

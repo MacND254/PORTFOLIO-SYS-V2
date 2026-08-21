@@ -17,6 +17,7 @@ interface AuthContextType {
     desiredSubdomain?: string;
     desiredProfession?: string;
   }) => Promise<void>;
+  setSession: (token: string, userData?: User) => Promise<User | null>;
   register: (data: any) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -30,22 +31,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (token) {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      if (!token) setToken(storedToken);
       refreshUser().finally(() => setIsLoading(false));
     } else {
       setIsLoading(false);
     }
-  }, [token]);
+  }, []);
 
   const refreshUser = async () => {
+    const currentToken = localStorage.getItem('token') || token;
+    if (!currentToken) {
+      setUser(null);
+      setToken(null);
+      return;
+    }
     try {
-      const res: any = await api.get('/auth/me');
+      const res: any = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${currentToken}` },
+      });
       if (res.data) {
         setUser(res.data);
+        setToken(currentToken);
       }
     } catch {
       logout();
     }
+  };
+
+  const setSession = async (newToken: string, userData?: User): Promise<User | null> => {
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+
+    if (userData) {
+      setUser(userData);
+      setIsLoading(false);
+      return userData;
+    }
+
+    setIsLoading(true);
+    try {
+      const res: any = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${newToken}` },
+      });
+      if (res?.data) {
+        setUser(res.data);
+        setIsLoading(false);
+        return res.data;
+      }
+    } catch (err) {
+      logout();
+      setIsLoading(false);
+      throw err;
+    }
+    setIsLoading(false);
+    return null;
   };
 
   const login = async (email: string, password: string) => {
@@ -96,6 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         socialLogin,
+        setSession,
         register,
         logout,
         refreshUser,
@@ -111,3 +153,4 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+

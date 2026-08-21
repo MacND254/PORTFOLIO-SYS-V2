@@ -34,7 +34,14 @@ export class CVController {
 
   public static async importExtraction(req: Request, res: Response, next: NextFunction) {
     try {
-      const updatedProfile = await CVService.importExtraction(req.user!.id, req.body);
+      const { extractedData, options, importMode, selectedSections, ...rest } = req.body;
+      const data = extractedData || rest;
+      const importOptions = options || {
+        importMode: importMode || 'replace',
+        selectedSections: selectedSections || undefined,
+      };
+
+      const updatedProfile = await CVService.importExtraction(req.user!.id, data, importOptions);
       return sendSuccess({
         res,
         message: 'CV details imported into profile successfully.',

@@ -29,6 +29,15 @@ export class ProfileController {
     }
   }
 
+  public static async resetProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const reset = await ProfileService.resetProfile(req.user!.id);
+      return sendSuccess({ res, message: 'Profile reset to empty state successfully.', data: reset });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async uploadMedia(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.file) {
@@ -313,4 +322,64 @@ export class ProfileController {
       return sendSuccess({ res, message: 'Custom Section deleted.' });
     } catch (error) { next(error); }
   }
+
+  // --- VERIFIED DOCUMENTS ---
+  public static async getVerifiedDocuments(req: Request, res: Response, next: NextFunction) {
+    try {
+      const items = await ProfileService.getVerifiedDocuments(req.user!.id);
+      return sendSuccess({ res, message: 'Verified documents fetched.', data: items });
+    } catch (error) { next(error); }
+  }
+
+  public static async addVerifiedDocument(req: Request, res: Response, next: NextFunction) {
+    try {
+      const fileUrl = req.file ? `/uploads/images/${req.file.filename}` : req.body.fileUrl;
+      if (!fileUrl) throw new ValidationError('Document file or fileUrl is required.');
+
+      const item = await ProfileService.addVerifiedDocument(req.user!.id, {
+        documentType: req.body.documentType,
+        title: req.body.title,
+        documentNumber: req.body.documentNumber,
+        fileUrl,
+        fileSize: req.file?.size || req.body.fileSize,
+        mimeType: req.file?.mimetype || req.body.mimeType,
+      });
+      return sendSuccess({ res, statusCode: 201, message: 'Verified document uploaded successfully.', data: item });
+    } catch (error) { next(error); }
+  }
+
+  public static async deleteVerifiedDocument(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deleteVerifiedDocument(req.user!.id, req.params.id);
+      return sendSuccess({ res, message: 'Verified document removed.' });
+    } catch (error) { next(error); }
+  }
+
+  // --- DOCUMENT ACCESS KEYS ---
+  public static async getDocumentAccessKeys(req: Request, res: Response, next: NextFunction) {
+    try {
+      const keys = await ProfileService.getDocumentAccessKeys(req.user!.id);
+      return sendSuccess({ res, message: 'Access keys fetched.', data: keys });
+    } catch (error) { next(error); }
+  }
+
+  public static async generateDocumentAccessKey(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { recipientName, validityHours } = req.body;
+      const keyRecord = await ProfileService.generateDocumentAccessKey(
+        req.user!.id,
+        recipientName,
+        validityHours ? parseInt(validityHours, 10) : 24
+      );
+      return sendSuccess({ res, statusCode: 201, message: 'One-time document access key generated.', data: keyRecord });
+    } catch (error) { next(error); }
+  }
+
+  public static async deleteDocumentAccessKey(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProfileService.deleteDocumentAccessKey(req.user!.id, req.params.id);
+      return sendSuccess({ res, message: 'Access key revoked.' });
+    } catch (error) { next(error); }
+  }
 }
+

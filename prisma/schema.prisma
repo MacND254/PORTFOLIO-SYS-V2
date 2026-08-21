@@ -152,8 +152,10 @@ model Profile {
   services        Service[]
   references      Reference[]
   memberships     Membership[]
-  customSections  CustomSection[]
-  customization   PortfolioCustomization?
+  customSections     CustomSection[]
+  verifiedDocuments  VerifiedDocument[]
+  documentAccessKeys DocumentAccessKey[]
+  customization      PortfolioCustomization?
   portfolioStatus PortfolioStatus?
   revisions       PortfolioRevision[]
   reviews         Review[]
@@ -490,22 +492,26 @@ model Review {
 }
 
 model ContactMessage {
-  id         String   @id @default(uuid())
-  profileId  String
-  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  name       String
-  email      String
-  subject    String
-  message    String
-  isRead     Boolean  @default(false)
-  isArchived Boolean  @default(false)
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(uuid())
+  profileId    String
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name         String
+  email        String
+  subject      String
+  message      String
+  type         String   @default("GENERAL") // GENERAL, DOCUMENT_ACCESS_REQUEST
+  status       String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  generatedKey String?
+  isRead       Boolean  @default(false)
+  isArchived   Boolean  @default(false)
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([profileId])
   @@index([isRead])
+  @@index([type])
 }
 
 model AnalyticsEvent {
@@ -567,3 +573,38 @@ model SystemSetting {
 
   @@index([key])
 }
+
+model VerifiedDocument {
+  id             String   @id @default(uuid())
+  profileId      String
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  documentType   String   // GOVERNMENT_ID, KRA_PIN, GOOD_CONDUCT, SHA_CARD, NSSF_CARD, OTHER
+  title          String
+  documentNumber String?
+  fileUrl        String
+  fileSize       Int?
+  mimeType       String?
+  isVerified     Boolean  @default(true)
+  orderIndex     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([documentType])
+}
+
+model DocumentAccessKey {
+  id            String    @id @default(uuid())
+  profileId     String
+  profile       Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  code          String    @unique // e.g. DOC-9A7K2X
+  recipientName String?   // e.g. Google Recruiter
+  expiresAt     DateTime
+  isUsed        Boolean   @default(false)
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([profileId])
+  @@index([code])
+}
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../../api/client";
 import { Button } from "../../components/ui/Button";
 import { Spinner } from "../../components/ui/Spinner";
@@ -26,9 +26,18 @@ import {
   Eye,
   Lock,
   FileText,
+  ShieldCheck,
+  Key,
+  Copy,
+  Upload,
+  Clock,
+  User,
+  AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 import { ImageUploadWidget } from "../../components/ui/ImageUploadWidget";
 import { CertificateUploadWidget } from "../../components/ui/CertificateUploadWidget";
+import { VERIFIED_DOCUMENT_TYPES } from "../../types";
 
 export const ProfileEditorPage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -41,7 +50,23 @@ export const ProfileEditorPage: React.FC = () => {
     | "skills"
     | "projects"
     | "certifications"
+    | "verified-docs"
   >("general");
+
+  // Verified Documents State
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [docForm, setDocForm] = useState({ documentType: 'GOVERNMENT_ID', title: '', documentNumber: '' });
+  const [docUploading, setDocUploading] = useState(false);
+  const [docError, setDocError] = useState('');
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const docFileRef = useRef<HTMLInputElement>(null);
+
+  // Access Keys State
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [keyForm, setKeyForm] = useState({ recipientName: '', validityHours: 24 });
+  const [keyLoading, setKeyLoading] = useState(false);
+  const [newKey, setNewKey] = useState<any>(null);
+  const [keyCopied, setKeyCopied] = useState(false);
 
   // General Form State
   const [generalState, setGeneralState] = useState<any>({});
@@ -49,8 +74,41 @@ export const ProfileEditorPage: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  // AI CV Auto-Fill Modal State
+  const [isAiCvModalOpen, setIsAiCvModalOpen] = useState(false);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [isCvScanning, setIsCvScanning] = useState(false);
+  const [extractedCv, setExtractedCv] = useState<any>(null);
+  const [cvImportMode, setCvImportMode] = useState<'replace' | 'append'>('replace');
+  const [selectedCvSections, setSelectedCvSections] = useState<Record<string, boolean>>({
+    general: true,
+    contacts: true,
+    experience: true,
+    education: true,
+    skills: true,
+    projects: true,
+    certifications: true,
+  });
+  const [cvActivePreviewTab, setCvActivePreviewTab] = useState<string>('general');
+  const [isApplyingCv, setIsApplyingCv] = useState(false);
+  const [cvApplyMessage, setCvApplyMessage] = useState('');
+  const [cvScanError, setCvScanError] = useState('');
+  const cvFileInputRef = useRef<HTMLInputElement>(null);
+
+  // In-Tab AI States
+  const [isEnhancingSummary, setIsEnhancingSummary] = useState(false);
+  const [suggestedSkills, setSuggestedSkills] = useState<any[]>([]);
+  const [isSuggestingSkills, setIsSuggestingSkills] = useState(false);
+  const [isPolishingBullet, setIsPolishingBullet] = useState(false);
+
+  // Reset Profile State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   // New Item Modals
   const [isExpModalOpen, setIsExpModalOpen] = useState(false);
+  const [editingExpId, setEditingExpId] = useState<string | null>(null);
   const [newExp, setNewExp] = useState({
     company: "",
     position: "",
@@ -172,11 +230,44 @@ export const ProfileEditorPage: React.FC = () => {
     }
   };
 
-  const handleAddExperience = async (e: React.FormEvent) => {
+  const handleOpenNewExp = () => {
+    setEditingExpId(null);
+    setNewExp({
+      company: "",
+      position: "",
+      location: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
+      description: "",
+    });
+    setIsExpModalOpen(true);
+  };
+
+  const handleOpenEditExp = (exp: any) => {
+    setEditingExpId(exp.id);
+    setNewExp({
+      company: exp.company || "",
+      position: exp.position || "",
+      location: exp.location || "",
+      startDate: exp.startDate || "",
+      endDate: exp.endDate || "",
+      isCurrent: Boolean(exp.isCurrent),
+      description: exp.description || "",
+    });
+    setIsExpModalOpen(true);
+  };
+
+  const handleSaveExperience = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/profile/experiences", newExp);
+      if (editingExpId) {
+        await api.put(`/profile/experiences/${editingExpId}`, newExp);
+      } else {
+        await api.post("/profile/experiences", newExp);
+      }
       setIsExpModalOpen(false);
+      setEditingExpId(null);
       setNewExp({
         company: "",
         position: "",
@@ -189,6 +280,201 @@ export const ProfileEditorPage: React.FC = () => {
       fetchProfile();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handlePolishExpDescription = async () => {
+    if (!newExp.description) return;
+    setIsPolishingBullet(true);
+    try {
+      const res: any = await api.post('/cv/ai/rewrite-bullet', { bullet: newExp.description });
+      if (res?.data?.rewrittenBullet) {
+        setNewExp((prev) => ({ ...prev, description: res.data.rewrittenBullet }));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPolishingBullet(false);
+    }
+  };
+
+  const handleEnhanceSummary = async () => {
+    if (!generalState.summary) return;
+    setIsEnhancingSummary(true);
+    try {
+      const res: any = await api.post('/cv/ai/enhance-summary', {
+        summary: generalState.summary,
+        profession: generalState.title || profile?.title || 'Software Engineer',
+      });
+      if (res?.data?.enhancedSummary) {
+        setGeneralState((prev: any) => ({ ...prev, summary: res.data.enhancedSummary }));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsEnhancingSummary(false);
+    }
+  };
+
+  const handleSuggestSkills = async () => {
+    setIsSuggestingSkills(true);
+    try {
+      const profession = generalState.title || profile?.title || 'Software Engineer';
+      const res: any = await api.post('/cv/ai/suggest-skills', { profession });
+      if (Array.isArray(res?.data?.suggestedSkills)) {
+        setSuggestedSkills(res.data.suggestedSkills);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSuggestingSkills(false);
+    }
+  };
+
+  const handleAddSuggestedSkill = async (skill: any) => {
+    try {
+      await api.post('/profile/skills', {
+        name: typeof skill === 'string' ? skill : skill.name,
+        category: typeof skill === 'object' && skill.category ? skill.category : 'Technical',
+        proficiency: typeof skill === 'object' && skill.proficiency ? skill.proficiency : 90,
+      });
+      setSuggestedSkills((prev) => prev.filter((s) => (typeof s === 'string' ? s : s.name) !== (typeof skill === 'string' ? skill : skill.name)));
+      fetchProfile();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchLatestCvExtraction = async () => {
+    try {
+      const res: any = await api.get('/cv/extraction');
+      if (res?.data?.extractedData) {
+        setExtractedCv(res.data.extractedData);
+      }
+    } catch {
+      // No existing extraction found
+    }
+  };
+
+  const handleScanCv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cvFile) return;
+
+    setIsCvScanning(true);
+    setCvScanError('');
+    setCvApplyMessage('');
+
+    const formData = new FormData();
+    formData.append('file', cvFile);
+
+    try {
+      const res: any = await api.post('/cv/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (res?.data?.extraction?.extractedData) {
+        setExtractedCv(res.data.extraction.extractedData);
+      } else {
+        await fetchLatestCvExtraction();
+      }
+    } catch (err: any) {
+      console.error('CV Upload & Scan error:', err);
+      setCvScanError(err?.message || 'CV processing failed. Please try again.');
+    } finally {
+      setIsCvScanning(false);
+    }
+  };
+
+  const handleApplyCvToProfile = async () => {
+    if (!extractedCv) return;
+
+    setIsApplyingCv(true);
+    setCvApplyMessage('');
+    setCvScanError('');
+
+    try {
+      const selectedList = Object.keys(selectedCvSections).filter((k) => selectedCvSections[k]);
+      const res: any = await api.post('/cv/import', {
+        extractedData: extractedCv,
+        options: {
+          importMode: cvImportMode,
+          selectedSections: selectedList,
+        },
+      });
+
+      const updated = res?.data ?? res;
+      if (updated && typeof updated === 'object') {
+        setProfile(updated);
+        setGeneralState((prev: any) => ({
+          ...prev,
+          title: updated.title ?? prev.title,
+          headline: updated.headline ?? prev.headline,
+          summary: updated.summary ?? prev.summary,
+          contactEmail: updated.contactEmail ?? prev.contactEmail,
+          location: updated.location ?? prev.location,
+          phone: updated.phone ?? prev.phone,
+          address: updated.address ?? prev.address,
+          website: updated.website ?? prev.website,
+          github: updated.github ?? prev.github,
+          linkedin: updated.linkedin ?? prev.linkedin,
+          twitter: updated.twitter ?? prev.twitter,
+        }));
+      } else {
+        await fetchProfile();
+      }
+
+      setCvApplyMessage('All selected CV sections have been applied to your profile tabs!');
+      setTimeout(() => {
+        setIsAiCvModalOpen(false);
+        setCvApplyMessage('');
+      }, 1800);
+    } catch (err: any) {
+      console.error('Apply CV error:', err);
+      setCvScanError(err?.message || 'Failed to apply CV details to profile.');
+    } finally {
+      setIsApplyingCv(false);
+    }
+  };
+
+  const handleResetProfile = async () => {
+    setIsResetting(true);
+    try {
+      const res: any = await api.post('/profile/reset');
+      const updated = res?.data ?? res;
+      if (updated && typeof updated === 'object') {
+        setProfile(updated);
+        setGeneralState({
+          title: '',
+          headline: '',
+          summary: '',
+          careerObjective: '',
+          bio: '',
+          contactEmail: '',
+          phone: '',
+          location: '',
+          address: '',
+          website: '',
+          linkedin: '',
+          github: '',
+          twitter: '',
+          behance: '',
+          dribbble: '',
+          facebook: '',
+          instagram: '',
+          youtube: '',
+          avatarUrl: '',
+          coverUrl: '',
+        });
+      } else {
+        await fetchProfile();
+      }
+      setIsResetModalOpen(false);
+      setResetSuccess(true);
+      setTimeout(() => setResetSuccess(false), 3500);
+    } catch (err: any) {
+      console.error('Reset profile error:', err);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -385,6 +671,69 @@ export const ProfileEditorPage: React.FC = () => {
     }
   };
 
+  const handleUploadVerifiedDoc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docFile) {
+      setDocError('Please select a file to upload.');
+      return;
+    }
+    setDocUploading(true);
+    setDocError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', docFile);
+      formData.append('documentType', docForm.documentType);
+      formData.append(
+        'title',
+        docForm.title || VERIFIED_DOCUMENT_TYPES.find(d => d.type === docForm.documentType)?.label || 'Verified Document'
+      );
+      if (docForm.documentNumber) formData.append('documentNumber', docForm.documentNumber);
+
+      await api.post('/profile/verified-documents', formData);
+      setIsDocModalOpen(false);
+      setDocFile(null);
+      setDocError('');
+      setDocForm({ documentType: 'GOVERNMENT_ID', title: '', documentNumber: '' });
+      fetchProfile();
+    } catch (err: any) {
+      console.error('Upload document error:', err);
+      setDocError(err?.message || 'Failed to upload document. Please try again.');
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const handleDeleteVerifiedDoc = async (id: string) => {
+    if (!confirm('Remove this verified document?')) return;
+    try {
+      await api.delete(`/profile/verified-documents/${id}`);
+      fetchProfile();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleGenerateKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setKeyLoading(true);
+    try {
+      const res: any = await api.post('/profile/document-keys/generate', keyForm);
+      setNewKey(res.data);
+    } catch (e) { console.error(e); }
+    finally { setKeyLoading(false); }
+  };
+
+  const handleDeleteKey = async (id: string) => {
+    try {
+      await api.delete(`/profile/document-keys/${id}`);
+      fetchProfile();
+    } catch (e) { console.error(e); }
+  };
+
+  const copyKey = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setKeyCopied(true);
+    setTimeout(() => setKeyCopied(false), 2500);
+  };
+
   if (isLoading) {
     return (
       <div className="p-8 flex justify-center">
@@ -395,59 +744,61 @@ export const ProfileEditorPage: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-6xl mx-auto">
-      <div className="space-y-1 sm:space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Profile Data Editor
-        </h1>
-        <p className="text-slate-400 text-xs sm:text-sm">
-          Manage your bio, experience, education, skills, projects, and
-          certifications.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1 sm:space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Profile Data Editor
+          </h1>
+          <p className="text-slate-400 text-xs sm:text-sm">
+            Manage your bio, experience, education, skills, projects, and
+            certifications.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsResetModalOpen(true)}
+            className="border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            leftIcon={<RotateCcw className="w-4 h-4 text-red-400" />}
+          >
+            Reset Profile
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => {
+              setIsAiCvModalOpen(true);
+              fetchLatestCvExtraction();
+            }}
+            className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 shadow-lg shadow-indigo-500/25 border-0 text-white font-bold"
+            leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+          >
+            AI CV Auto-Fill
+          </Button>
+        </div>
       </div>
+
+      {resetSuccess && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm font-semibold flex items-center gap-2 animate-in fade-in">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Profile has been reset to an empty state. All tabs are now cleared and ready for new content.</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-slate-800 gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-slate-400 overflow-x-auto no-scrollbar scroll-smooth">
-        <button
-          onClick={() => setActiveTab("general")}
-          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "general" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
-        >
-          General Bio
-        </button>
-        <button
-          onClick={() => setActiveTab("contacts")}
-          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "contacts" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
-        >
-          Contact & Social
-        </button>
-        <button
-          onClick={() => setActiveTab("experience")}
-          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "experience" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
-        >
-          Work Experience ({profile?.experiences?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab("education")}
-          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "education" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
-        >
-          Education ({profile?.educations?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab("skills")}
-          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "skills" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
-        >
-          Skills ({profile?.skills?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab("projects")}
-          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "projects" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
-        >
-          Projects ({profile?.projects?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab("certifications")}
-          className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "certifications" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}
-        >
-          Certifications ({profile?.certifications?.length || 0})
+        <button onClick={() => setActiveTab("general")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "general" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>General Bio</button>
+        <button onClick={() => setActiveTab("contacts")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "contacts" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Contact & Social</button>
+        <button onClick={() => setActiveTab("experience")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "experience" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Work Experience ({profile?.experiences?.length || 0})</button>
+        <button onClick={() => setActiveTab("education")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "education" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Education ({profile?.educations?.length || 0})</button>
+        <button onClick={() => setActiveTab("skills")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "skills" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Skills ({profile?.skills?.length || 0})</button>
+        <button onClick={() => setActiveTab("projects")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "projects" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Projects ({profile?.projects?.length || 0})</button>
+        <button onClick={() => setActiveTab("certifications")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "certifications" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Certifications ({profile?.certifications?.length || 0})</button>
+        <button onClick={() => setActiveTab("verified-docs")} className={`pb-3 border-b-2 transition whitespace-nowrap flex items-center gap-1.5 ${activeTab === "verified-docs" ? "border-emerald-500 text-emerald-400" : "border-transparent hover:text-white"}`}>
+          <ShieldCheck className="w-3.5 h-3.5" />
+          Verified Docs ({profile?.verifiedDocuments?.length || 0})
         </button>
       </div>
 
@@ -511,9 +862,20 @@ export const ProfileEditorPage: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300">
-              Summary
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300">
+                Summary
+              </label>
+              <button
+                type="button"
+                onClick={handleEnhanceSummary}
+                disabled={isEnhancingSummary || !generalState.summary}
+                className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 disabled:opacity-50"
+              >
+                <Sparkles className="w-3 h-3 text-indigo-400" />
+                <span>{isEnhancingSummary ? 'Enhancing with AI...' : 'AI Enhance Summary'}</span>
+              </button>
+            </div>
             <textarea
               rows={4}
               value={generalState.summary}
@@ -907,11 +1269,14 @@ export const ProfileEditorPage: React.FC = () => {
       {activeTab === "experience" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-white">Work Experience</h3>
+            <div>
+              <h3 className="text-lg font-bold text-white">Work Experience</h3>
+              <p className="text-xs text-slate-400">Manage your career history, achievements, and responsibilities.</p>
+            </div>
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setIsExpModalOpen(true)}
+              onClick={handleOpenNewExp}
               leftIcon={<Plus className="w-4 h-4" />}
             >
               Add Experience
@@ -922,22 +1287,38 @@ export const ProfileEditorPage: React.FC = () => {
             {profile?.experiences?.map((exp: any) => (
               <div
                 key={exp.id}
-                className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between"
+                className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4 hover:border-slate-700 transition"
               >
-                <div>
+                <div className="space-y-1">
                   <h4 className="text-base font-bold text-white">
                     {exp.position} — {exp.company}
                   </h4>
                   <p className="text-xs text-slate-400">
-                    {exp.startDate} – {exp.isCurrent ? "Present" : exp.endDate}
+                    {exp.startDate} – {exp.isCurrent ? "Present" : exp.endDate || "Present"}
+                    {exp.location ? ` | ${exp.location}` : ""}
                   </p>
+                  {exp.description && (
+                    <p className="text-xs text-slate-300 line-clamp-2 pt-1">
+                      {exp.description}
+                    </p>
+                  )}
                 </div>
-                <button
-                  onClick={() => handleDeleteExperience(exp.id)}
-                  className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleOpenEditExp(exp)}
+                    className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                    title="Edit Experience"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteExperience(exp.id)}
+                    className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                    title="Delete Experience"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1008,17 +1389,65 @@ export const ProfileEditorPage: React.FC = () => {
       {/* Skills Tab */}
       {activeTab === "skills" && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-white">Skills</h3>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsSkillModalOpen(true)}
-              leftIcon={<Plus className="w-4 h-4" />}
-            >
-              Add Skill
-            </Button>
+          <div className="flex justify-between items-center flex-wrap gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-white">Skills & Competencies</h3>
+              <p className="text-xs text-slate-400">Highlight technical, leadership, and domain capabilities.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleSuggestSkills}
+                isLoading={isSuggestingSkills}
+                leftIcon={<Sparkles className="w-4 h-4 text-indigo-400" />}
+              >
+                AI Suggest Skills
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsSkillModalOpen(true)}
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                Add Skill
+              </Button>
+            </div>
           </div>
+
+          {/* AI Skill Suggestions Banner */}
+          {suggestedSkills.length > 0 && (
+            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 space-y-2.5 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  AI Suggested Skills for your Profile:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSuggestedSkills([])}
+                  className="text-[11px] text-slate-400 hover:text-white transition"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {suggestedSkills.map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAddSuggestedSkill(s)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition group"
+                  >
+                    <Plus className="w-3 h-3 text-indigo-400 group-hover:text-white" />
+                    <span>{s.name}</span>
+                    <span className="text-[10px] text-slate-500 group-hover:text-indigo-200">({s.proficiency}%)</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3">
             {profile?.skills?.map((skill: any) => (
@@ -1216,15 +1645,154 @@ export const ProfileEditorPage: React.FC = () => {
         </div>
       )}
 
-      {/* Experience Add Modal */}
+      {/* Verified Documents Tab */}
+      {activeTab === "verified-docs" && (
+        <div className="space-y-8">
+          {/* Info Banner */}
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-emerald-300">Secure Employee Verification Hub</p>
+              <p className="text-xs text-emerald-400/80 leading-relaxed">
+                Upload sensitive identity documents below. They are stored securely and <strong>never publicly shown</strong>.
+                When a recruiter or employer asks to view your documents, generate a one-time access key and share it with them.
+                The key expires after 24 hours and can only be used once.
+              </p>
+            </div>
+          </div>
+
+          {/* Documents Section */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Uploaded Verified Documents</h3>
+                  <p className="text-xs text-slate-400">Government & professional identity credentials stored securely.</p>
+                </div>
+              </div>
+              <Button variant="primary" size="sm" onClick={() => { setDocForm({ documentType: 'GOVERNMENT_ID', title: '', documentNumber: '' }); setDocFile(null); setIsDocModalOpen(true); }} leftIcon={<Plus className="w-4 h-4" />}>
+                Upload Document
+              </Button>
+            </div>
+
+            {!profile?.verifiedDocuments?.length ? (
+              <div className="py-10 text-center space-y-2">
+                <ShieldCheck className="w-10 h-10 text-slate-700 mx-auto" />
+                <p className="text-sm text-slate-500">No verified documents uploaded yet.</p>
+                <p className="text-xs text-slate-600">Upload your first document using the button above.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {profile.verifiedDocuments.map((doc: any) => {
+                  const typeLabel = VERIFIED_DOCUMENT_TYPES.find(d => d.type === doc.documentType)?.label || doc.documentType;
+                  return (
+                    <div key={doc.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{doc.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium">{typeLabel}</span>
+                            {doc.documentNumber && <span className="text-[10px] text-slate-500">#{doc.documentNumber}</span>}
+                            {doc.isVerified && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1"><Check className="w-2.5 h-2.5" />Verified</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {doc.fileUrl && (
+                          <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition" title="View document">
+                            <Eye className="w-4 h-4" />
+                          </a>
+                        )}
+                        <button onClick={() => handleDeleteVerifiedDoc(doc.id)} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition" title="Remove document">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Access Keys Section */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-600/20 text-amber-400 flex items-center justify-center">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">One-Time Recruiter Access Keys</h3>
+                  <p className="text-xs text-slate-400">Generate a temporary key to share with employers for secure, limited-time document access.</p>
+                </div>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => { setNewKey(null); setKeyForm({ recipientName: '', validityHours: 24 }); setIsKeyModalOpen(true); }} leftIcon={<Key className="w-4 h-4" />}>
+                Generate Key
+              </Button>
+            </div>
+
+            {!profile?.documentAccessKeys?.length ? (
+              <div className="py-8 text-center space-y-2">
+                <Key className="w-10 h-10 text-slate-700 mx-auto" />
+                <p className="text-sm text-slate-500">No access keys generated yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {profile.documentAccessKeys.map((key: any) => {
+                  const expired = new Date() > new Date(key.expiresAt);
+                  return (
+                    <div key={key.id} className={`flex items-center justify-between p-4 rounded-xl border transition ${key.isUsed ? 'bg-slate-950/60 border-slate-800/60 opacity-60' : expired ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-950 border-slate-800 hover:border-amber-500/30'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${key.isUsed ? 'bg-slate-800 text-slate-500' : expired ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                          <Key className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <code className="text-sm font-bold font-mono text-white tracking-widest">{key.code}</code>
+                            {key.isUsed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 font-bold">USED</span>}
+                            {!key.isUsed && expired && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold">EXPIRED</span>}
+                            {!key.isUsed && !expired && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">ACTIVE</span>}
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            {key.recipientName && <span className="text-[11px] text-slate-400 flex items-center gap-1"><User className="w-3 h-3" />{key.recipientName}</span>}
+                            <span className="text-[11px] text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" />Expires: {new Date(key.expiresAt).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!key.isUsed && !expired && (
+                          <button onClick={() => copyKey(key.code)} className="p-2 rounded-xl bg-slate-800 text-amber-400 hover:bg-slate-700 transition" title="Copy key">
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteKey(key.id)} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition" title="Revoke key">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Experience Add/Edit Modal */}
       <Modal
         isOpen={isExpModalOpen}
         onClose={() => setIsExpModalOpen(false)}
-        title="Add Work Experience"
+        title={editingExpId ? "Edit Work Experience" : "Add Work Experience"}
       >
-        <form onSubmit={handleAddExperience} className="space-y-4">
+        <form onSubmit={handleSaveExperience} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">Company</label>
+            <label className="text-xs text-slate-300 font-semibold">Company Name *</label>
             <input
               required
               value={newExp.company}
@@ -1232,10 +1800,11 @@ export const ProfileEditorPage: React.FC = () => {
                 setNewExp({ ...newExp, company: e.target.value })
               }
               className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="e.g. Google, Tech Solutions Inc."
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">Position</label>
+            <label className="text-xs text-slate-300 font-semibold">Position / Job Title *</label>
             <input
               required
               value={newExp.position}
@@ -1243,11 +1812,23 @@ export const ProfileEditorPage: React.FC = () => {
                 setNewExp({ ...newExp, position: e.target.value })
               }
               className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="e.g. Senior Software Architect"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Location</label>
+            <input
+              value={newExp.location}
+              onChange={(e) =>
+                setNewExp({ ...newExp, location: e.target.value })
+              }
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="e.g. San Francisco, CA (Remote)"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs text-slate-300">Start Date</label>
+              <label className="text-xs text-slate-300 font-semibold">Start Date *</label>
               <input
                 required
                 value={newExp.startDate}
@@ -1259,19 +1840,42 @@ export const ProfileEditorPage: React.FC = () => {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-slate-300">End Date</label>
+              <label className="text-xs text-slate-300 font-semibold">End Date</label>
               <input
                 value={newExp.endDate}
                 onChange={(e) =>
-                  setNewExp({ ...newExp, endDate: e.target.value })
+                  setNewExp({ ...newExp, endDate: e.target.value, isCurrent: !e.target.value })
                 }
                 className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
                 placeholder="Present"
               />
             </div>
           </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-slate-300 font-semibold">Role Description / Achievements</label>
+              <button
+                type="button"
+                onClick={handlePolishExpDescription}
+                disabled={isPolishingBullet || !newExp.description}
+                className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition px-2 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 disabled:opacity-50"
+              >
+                <Sparkles className="w-3 h-3 text-indigo-400" />
+                <span>{isPolishingBullet ? 'Polishing...' : 'AI Polish'}</span>
+              </button>
+            </div>
+            <textarea
+              rows={3}
+              value={newExp.description}
+              onChange={(e) =>
+                setNewExp({ ...newExp, description: e.target.value })
+              }
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="Key responsibilities and engineering achievements..."
+            />
+          </div>
           <Button type="submit" variant="primary" className="w-full">
-            Save Experience
+            {editingExpId ? "Update Experience" : "Save Experience"}
           </Button>
         </form>
       </Modal>
@@ -1560,6 +2164,514 @@ export const ProfileEditorPage: React.FC = () => {
           </Button>
         </form>
       </Modal>
+
+      {/* Upload Verified Document Modal */}
+      <Modal isOpen={isDocModalOpen} onClose={() => { setIsDocModalOpen(false); setDocError(''); }} title="Upload Verified Document">
+        <form onSubmit={handleUploadVerifiedDoc} className="space-y-4">
+          {docError && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p>{docError}</p>
+            </div>
+          )}
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Document Type</label>
+            <select
+              value={docForm.documentType}
+              onChange={(e) => setDocForm({ ...docForm, documentType: e.target.value, title: VERIFIED_DOCUMENT_TYPES.find(d => d.type === e.target.value)?.label || '' })}
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+            >
+              {VERIFIED_DOCUMENT_TYPES.map(d => (
+                <option key={d.type} value={d.type}>{d.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Document Title</label>
+            <input
+              required
+              value={docForm.title}
+              onChange={(e) => setDocForm({ ...docForm, title: e.target.value })}
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="e.g. National ID Card"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Document / ID Number (Optional)</label>
+            <input
+              value={docForm.documentNumber}
+              onChange={(e) => setDocForm({ ...docForm, documentNumber: e.target.value })}
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="e.g. 12345678"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Document File (PDF or Image) *</label>
+            <div
+              className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition ${
+                docFile ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-700 hover:border-slate-600'
+              }`}
+              onClick={() => docFileRef.current?.click()}
+            >
+              <input
+                ref={docFileRef}
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+              />
+              {docFile ? (
+                <div className="flex items-center justify-center gap-2 text-emerald-400">
+                  <Check className="w-5 h-5" />
+                  <span className="text-sm font-semibold">{docFile.name}</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Upload className="w-8 h-8 text-slate-600 mx-auto" />
+                  <p className="text-xs text-slate-500">Click to select a file (PDF, JPG, PNG)</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-300/80">Documents are stored securely and not publicly visible. Only recruiters with a valid one-time key can view them.</p>
+          </div>
+          <Button type="submit" variant="primary" className="w-full" isLoading={docUploading} leftIcon={<Upload className="w-4 h-4" />}>
+            Upload Document Securely
+          </Button>
+        </form>
+      </Modal>
+
+      {/* Generate Access Key Modal */}
+      <Modal isOpen={isKeyModalOpen} onClose={() => { setIsKeyModalOpen(false); setNewKey(null); }} title="Generate Recruiter Access Key">
+        {!newKey ? (
+          <form onSubmit={handleGenerateKey} className="space-y-4">
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-2">
+              <Key className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-blue-300/80">This key grants one-time access to your verified documents. It expires after the set validity period and cannot be reused once accessed.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-semibold">Recipient Name (Optional)</label>
+              <input
+                value={keyForm.recipientName}
+                onChange={(e) => setKeyForm({ ...keyForm, recipientName: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="e.g. ABC Company HR"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-semibold">Key Validity</label>
+              <select
+                value={keyForm.validityHours}
+                onChange={(e) => setKeyForm({ ...keyForm, validityHours: parseInt(e.target.value) })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              >
+                <option value={6}>6 hours</option>
+                <option value={24}>24 hours (1 day)</option>
+                <option value={48}>48 hours (2 days)</option>
+                <option value={72}>72 hours (3 days)</option>
+              </select>
+            </div>
+            <Button type="submit" variant="primary" className="w-full" isLoading={keyLoading} leftIcon={<Key className="w-4 h-4" />}>
+              Generate One-Time Key
+            </Button>
+          </form>
+        ) : (
+          <div className="space-y-5">
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
+              <Check className="w-8 h-8 text-emerald-400 mx-auto" />
+              <p className="text-sm font-bold text-emerald-300">Access Key Generated!</p>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+              <p className="text-xs text-slate-400">Share this key with the recruiter:</p>
+              <code className="text-2xl font-extrabold tracking-[0.3em] text-white font-mono block">{newKey.code}</code>
+              <div className="text-xs text-slate-500 space-y-0.5">
+                {newKey.recipientName && <p className="flex items-center justify-center gap-1"><User className="w-3 h-3" />{newKey.recipientName}</p>}
+                <p className="flex items-center justify-center gap-1"><Clock className="w-3 h-3" />Expires: {new Date(newKey.expiresAt).toLocaleString()}</p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => copyKey(newKey.code)}
+              leftIcon={keyCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            >
+              {keyCopied ? 'Copied to Clipboard!' : 'Copy Key to Clipboard'}
+            </Button>
+            <p className="text-[11px] text-center text-slate-500">Close this dialog when done. This key has been saved and will appear in your keys list above.</p>
+            <Button variant="primary" className="w-full" onClick={() => { setIsKeyModalOpen(false); fetchProfile(); setNewKey(null); }}>
+              Done
+            </Button>
+          </div>
+        )}
+      </Modal>
+
+      {/* AI CV Auto-Fill & Scan Modal */}
+      <Modal
+        isOpen={isAiCvModalOpen}
+        onClose={() => {
+          setIsAiCvModalOpen(false);
+          setCvScanError('');
+          setCvApplyMessage('');
+        }}
+        title="AI CV Scanner & Profile Auto-Fill"
+      >
+        <div className="space-y-6 max-h-[82vh] overflow-y-auto pr-1">
+          {/* Header Info */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/30 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5 text-indigo-300" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-white">Upload Your Resume & Let AI Fill Your Profile</p>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Our AI parser extracts work history, education, skills, projects, and contact info directly from your PDF, DOCX, or TXT resume and automatically populates your Profile Editor tabs.
+              </p>
+            </div>
+          </div>
+
+          {cvApplyMessage && (
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{cvApplyMessage}</span>
+            </div>
+          )}
+
+          {cvScanError && (
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2 animate-in fade-in">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{cvScanError}</span>
+            </div>
+          )}
+
+          {/* Upload Dropzone */}
+          <form onSubmit={handleScanCv} className="space-y-4">
+            <div
+              className={`relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition ${
+                cvFile ? 'border-indigo-500/60 bg-indigo-500/5' : 'border-slate-800 hover:border-indigo-500/50 bg-slate-950/60'
+              }`}
+              onClick={() => cvFileInputRef.current?.click()}
+            >
+              <input
+                ref={cvFileInputRef}
+                type="file"
+                accept=".pdf,.docx,.doc,.txt"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setCvFile(e.target.files[0]);
+                  }
+                }}
+              />
+              <div className="space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mx-auto">
+                  <Upload className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">
+                    {cvFile ? cvFile.name : 'Click or Drag & Drop CV File Here'}
+                  </p>
+                  <p className="text-xs text-slate-400">Supports PDF, Word (DOCX), or TXT (up to 10MB)</p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full bg-indigo-600 hover:bg-indigo-500"
+              isLoading={isCvScanning}
+              disabled={!cvFile || isCvScanning}
+              leftIcon={<Sparkles className="w-4 h-4" />}
+            >
+              {isCvScanning ? 'AI Scanning & Extracting Document...' : 'Scan & Extract with AI'}
+            </Button>
+          </form>
+
+          {/* Extracted Data Preview & Selection */}
+          {extractedCv && (
+            <div className="space-y-5 pt-4 border-t border-slate-800 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>AI Extracted Profile Preview</span>
+                  </h4>
+                  <p className="text-xs text-slate-400">Select which sections to apply to your Edit Profile tabs.</p>
+                </div>
+                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Ready to Apply
+                </span>
+              </div>
+
+              {/* Candidate Quick Summary Card */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-bold text-white">{extractedCv.personalInfo?.fullName || 'Extracted Candidate'}</p>
+                    <p className="text-xs text-indigo-400 font-medium">{extractedCv.personalInfo?.title || 'Professional Title'}</p>
+                  </div>
+                  {extractedCv.personalInfo?.location && (
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-slate-500" />
+                      {extractedCv.personalInfo.location}
+                    </span>
+                  )}
+                </div>
+                {extractedCv.headline && (
+                  <p className="text-xs text-slate-300 italic border-l-2 border-indigo-500/50 pl-2.5 my-1">
+                    "{extractedCv.headline}"
+                  </p>
+                )}
+              </div>
+
+              {/* Section Checkboxes */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300">Choose Sections to Auto-Fill:</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { key: 'general', label: 'General Bio & Headline' },
+                    { key: 'contacts', label: 'Contact & Socials' },
+                    { key: 'experience', label: `Experience (${extractedCv.experiences?.length || 0})` },
+                    { key: 'education', label: `Education (${extractedCv.education?.length || 0})` },
+                    { key: 'skills', label: `Skills (${extractedCv.skills?.length || 0})` },
+                    { key: 'projects', label: `Projects (${extractedCv.projects?.length || 0})` },
+                    { key: 'certifications', label: `Certifications (${extractedCv.certifications?.length || 0})` },
+                  ].map((sec) => (
+                    <label
+                      key={sec.key}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition select-none ${
+                        selectedCvSections[sec.key]
+                          ? 'bg-indigo-600/10 border-indigo-500/40 text-white'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedCvSections[sec.key])}
+                        onChange={(e) =>
+                          setSelectedCvSections({
+                            ...selectedCvSections,
+                            [sec.key]: e.target.checked,
+                          })
+                        }
+                        className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="font-medium truncate">{sec.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview Tabs inside Modal */}
+              <div className="space-y-3">
+                <div className="flex border-b border-slate-800 gap-2 text-xs font-semibold text-slate-400 overflow-x-auto pb-1">
+                  {['general', 'contacts', 'experience', 'education', 'skills', 'projects', 'certifications'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setCvActivePreviewTab(t)}
+                      className={`px-3 py-1.5 rounded-lg transition capitalize whitespace-nowrap ${
+                        cvActivePreviewTab === t
+                          ? 'bg-slate-800 text-white border border-slate-700'
+                          : 'hover:text-white hover:bg-slate-900'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-3 max-h-56 overflow-y-auto">
+                  {cvActivePreviewTab === 'general' && (
+                    <div className="space-y-2">
+                      <p><span className="text-slate-500 font-semibold">Title:</span> <span className="text-white">{extractedCv.personalInfo?.title || 'None'}</span></p>
+                      <p><span className="text-slate-500 font-semibold">Headline:</span> <span className="text-white">{extractedCv.headline || 'None'}</span></p>
+                      <p><span className="text-slate-500 font-semibold">Summary:</span> <span className="text-slate-300 block mt-1 leading-relaxed bg-slate-900 p-2.5 rounded-lg">{extractedCv.summary || 'None'}</span></p>
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'contacts' && (
+                    <div className="space-y-1.5">
+                      <p><span className="text-slate-500 font-semibold">Email:</span> <span className="text-white">{extractedCv.personalInfo?.email || 'None'}</span></p>
+                      <p><span className="text-slate-500 font-semibold">Phone:</span> <span className="text-white">{extractedCv.personalInfo?.phone || 'None'}</span></p>
+                      <p><span className="text-slate-500 font-semibold">Location:</span> <span className="text-white">{extractedCv.personalInfo?.location || 'None'}</span></p>
+                      <p><span className="text-slate-500 font-semibold">Website:</span> <span className="text-indigo-400">{extractedCv.personalInfo?.website || 'None'}</span></p>
+                      <p><span className="text-slate-500 font-semibold">LinkedIn:</span> <span className="text-indigo-400">{extractedCv.personalInfo?.linkedin || 'None'}</span></p>
+                      <p><span className="text-slate-500 font-semibold">GitHub:</span> <span className="text-indigo-400">{extractedCv.personalInfo?.github || 'None'}</span></p>
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'experience' && (
+                    <div className="space-y-2.5">
+                      {extractedCv.experiences?.map((exp: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                          <div className="flex justify-between font-bold text-white">
+                            <span>{exp.position}</span>
+                            <span className="text-slate-400 font-mono text-[11px]">{exp.startDate} – {exp.isCurrent ? 'Present' : exp.endDate || 'Present'}</span>
+                          </div>
+                          <p className="text-indigo-300">{exp.company} {exp.location ? `• ${exp.location}` : ''}</p>
+                          <p className="text-slate-400 text-[11px]">{exp.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'education' && (
+                    <div className="space-y-2.5">
+                      {extractedCv.education?.map((edu: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                          <p className="font-bold text-white">{edu.qualification} in {edu.field}</p>
+                          <p className="text-slate-400">{edu.institution} ({edu.startDate} – {edu.endDate || 'Present'})</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'skills' && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {extractedCv.skills?.map((s: any, idx: number) => (
+                        <span key={idx} className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-200">
+                          {typeof s === 'string' ? s : s.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'projects' && (
+                    <div className="space-y-2.5">
+                      {extractedCv.projects?.map((p: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                          <p className="font-bold text-white">{p.title}</p>
+                          <p className="text-slate-400 text-[11px]">{p.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'certifications' && (
+                    <div className="space-y-2.5">
+                      {extractedCv.certifications?.map((c: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                          <p className="font-bold text-white">{c.name}</p>
+                          <p className="text-slate-400">{c.issuingOrganization} ({c.issueDate})</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Import Mode Strategy */}
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <p className="text-xs font-semibold text-slate-300">Import Strategy:</p>
+                <div className="space-y-1.5 text-xs text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      value="replace"
+                      checked={cvImportMode === 'replace'}
+                      onChange={() => setCvImportMode('replace')}
+                      className="text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span><strong>Clean Replace</strong> — Replace selected profile tabs with newly scanned data (Recommended)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      value="append"
+                      checked={cvImportMode === 'append'}
+                      onChange={() => setCvImportMode('append')}
+                      className="text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span><strong>Append Mode</strong> — Add scanned items alongside existing items without overwriting</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsAiCvModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleApplyCvToProfile}
+                  isLoading={isApplyingCv}
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold px-6"
+                  leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+                >
+                  {isApplyingCv ? 'Applying to Profile...' : '✨ Apply Selected to Profile'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Reset Profile Confirmation Modal */}
+      <Modal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        title="Reset Profile to Empty State"
+      >
+        <div className="space-y-5">
+          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-2">
+            <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span>Are you sure you want to reset your profile?</span>
+            </div>
+            <p className="text-xs text-red-300/90 leading-relaxed">
+              This action will clear all your profile tabs and restore your account to an empty profile template.
+            </p>
+          </div>
+
+          <div className="space-y-2 text-xs text-slate-400 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <p className="font-semibold text-slate-300">The following will be deleted / cleared:</p>
+            <ul className="list-disc list-inside space-y-1 text-slate-400">
+              <li>General Bio, Title, Headline & Summary</li>
+              <li>Contact details & social media links</li>
+              <li>All Work Experience entries ({profile?.experiences?.length || 0})</li>
+              <li>All Education records ({profile?.educations?.length || 0})</li>
+              <li>All Skills ({profile?.skills?.length || 0})</li>
+              <li>All Projects ({profile?.projects?.length || 0})</li>
+              <li>All Certifications ({profile?.certifications?.length || 0})</li>
+              <li>Avatar & Cover banner images</li>
+            </ul>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsResetModalOpen(false)}
+              disabled={isResetting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={handleResetProfile}
+              isLoading={isResetting}
+              className="bg-red-600 hover:bg-red-500 text-white font-bold"
+              leftIcon={<RotateCcw className="w-4 h-4" />}
+            >
+              {isResetting ? 'Resetting Profile...' : 'Yes, Reset Profile'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
+
+

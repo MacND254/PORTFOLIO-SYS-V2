@@ -30,6 +30,16 @@ export class PortfolioService {
                 references: { where: { isPublic: true }, orderBy: { orderIndex: 'asc' } },
                 memberships: { orderBy: { orderIndex: 'asc' } },
                 customSections: { where: { isVisible: true }, orderBy: { orderIndex: 'asc' } },
+                verifiedDocuments: {
+                  select: {
+                    id: true,
+                    title: true,
+                    documentType: true,
+                    isVerified: true,
+                    createdAt: true,
+                  },
+                  orderBy: { orderIndex: 'asc' },
+                },
                 customization: true,
                 portfolioStatus: true,
                 reviews: {

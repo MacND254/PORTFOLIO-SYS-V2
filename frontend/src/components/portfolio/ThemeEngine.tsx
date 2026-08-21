@@ -1,7 +1,7 @@
 import React from 'react';
 import { Profile } from '../../types';
 import {
-  Download, QrCode, Mail, Linkedin, Github, Twitter, Globe, Star,
+  Download, QrCode, Key, Mail, Linkedin, Github, Twitter, Globe, Star,
   Briefcase, GraduationCap, Award as AwardIcon, Code, Terminal,
   ShieldCheck, Cpu, Layers, Database, ExternalLink, Phone, MapPin,
   CheckCircle2, Share2, Zap, BarChart2, BookOpen, Scale, TrendingUp,
@@ -18,6 +18,8 @@ interface ThemeEngineProps {
   isDownloadingResume?: boolean;
   resumeDownloadError?: string;
   onSendMessage: (data: any) => Promise<void>;
+  onOpenVerifiedDocs?: (tab?: 'unlock' | 'request') => void;
+  hasVerifiedDocs?: boolean;
 }
 
 // ─── Derive full theme config from DB record ───────────────────────────────
@@ -187,6 +189,7 @@ function getDefaultAvatarShape(themeId: string): AvatarViewShape {
 export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   profile, subdomain, onOpenQrModal, onOpenReviewModal, onDownloadPdf,
   isDownloadingResume = false, resumeDownloadError, onSendMessage,
+  onOpenVerifiedDocs, hasVerifiedDocs = false,
 }) => {
   const themeId = profile.customization?.themeId || 'software-engineer';
   const fullName = profile.user?.fullName || 'Portfolio Owner';
@@ -284,6 +287,18 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
     document.head.appendChild(link);
   }, [themeId, typography.heading, typography.body]);
 
+  // Compute dynamic nav items based on content availability to keep header compact
+  const navItems = [
+    { label: 'About', href: '#hero', show: true },
+    { label: 'Experience', href: '#experience', show: (profile.experiences?.length ?? 0) > 0 },
+    { label: 'Education', href: '#education', show: (profile.educations?.length ?? 0) > 0 },
+    { label: 'Skills', href: '#skills', show: (profile.skills?.length ?? 0) > 0 },
+    { label: 'Projects', href: '#projects', show: (profile.projects?.length ?? 0) > 0 },
+    { label: 'Certifications', href: '#certifications', show: (profile.certifications?.length ?? 0) > 0 },
+    { label: 'Testimonials', href: '#testimonials', show: (profile.reviews?.length ?? 0) > 0 },
+    { label: 'Contact', href: '#contact', show: true },
+  ].filter(item => item.show);
+
   return (
     <div
       style={{ ...cssVars, background: colors.background, color: colors.text, fontFamily: `var(--theme-font-body)` }}
@@ -304,112 +319,174 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       <header
         className="sticky top-0 z-50 backdrop-blur-lg transition-all"
         style={{
-          background: `${colors.background}e0`,
+          background: `${colors.background}e8`,
           borderBottom: `1px solid ${colors.primary}30`,
-          boxShadow: `0 1px 20px ${colors.primary}15`,
+          boxShadow: `0 2px 24px ${colors.primary}12`,
         }}
       >
-        {/* Main toolbar */}
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4">
-          {/* Logo / Name */}
-          <a href="#hero" className="flex items-center gap-2 sm:gap-3 min-w-0" onClick={() => setIsMobileMenuOpen(false)}>
+        {/* ── Main toolbar: Logo | [centred nav] | Actions ── */}
+        <div className="relative max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 py-2.5">
+
+          {/* ── LEFT: Logo / Name ── */}
+          <a href="#hero" className="flex items-center gap-2 min-w-0 shrink-0 z-10" onClick={() => setIsMobileMenuOpen(false)}>
             <div
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold text-white shadow-lg text-base sm:text-lg shrink-0"
+              className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white shadow-lg text-base shrink-0"
               style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
             >
               {fullName.charAt(0)}
             </div>
-            <div className="min-w-0">
-              <span className="font-bold text-sm sm:text-base md:text-lg tracking-tight truncate block" style={{ color: colors.text, fontFamily: `var(--theme-font-heading)` }}>
+            <div className="min-w-0 hidden xs:block">
+              <span className="font-bold text-sm tracking-tight truncate block max-w-[140px]" style={{ color: colors.text, fontFamily: `var(--theme-font-heading)` }}>
                 {fullName}
               </span>
-              <span className="block text-[10px] sm:text-xs truncate" style={{ color: colors.primary }}>{title}</span>
+              <span className="block text-[10px] truncate max-w-[140px]" style={{ color: colors.primary }}>{title}</span>
             </div>
           </a>
 
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-2.5 lg:gap-5 text-xs lg:text-sm font-medium">
-            {['About','Experience','Education','Skills','Projects','Certifications','Testimonials','Contact'].map(s => (
-              <a key={s} href={`#${s.toLowerCase()}`}
-                className="hover:opacity-100 transition whitespace-nowrap px-1 py-0.5"
+          {/* ── CENTRE: Desktop nav — absolutely centred so it never overlaps ── */}
+          <nav
+            className="hidden lg:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2"
+            style={{ maxWidth: 'calc(100% - 400px)' }}
+          >
+            {navItems.map(item => (
+              <a
+                key={item.label}
+                href={item.href}
+                className="whitespace-nowrap px-2.5 py-1.5 rounded-lg text-[11px] xl:text-xs font-semibold transition-all duration-150"
                 style={{ color: `${colors.text}80` }}
-                onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
-                onMouseLeave={e => (e.currentTarget.style.color = `${colors.text}80`)}
-              >{s}</a>
+                onMouseEnter={e => {
+                  e.currentTarget.style.color = colors.primary;
+                  e.currentTarget.style.background = `${colors.primary}18`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.color = `${colors.text}80`;
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >{item.label}</a>
             ))}
           </nav>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Medium breakpoint — scrollable compact row (md not lg) */}
+          <nav className="hidden md:flex lg:hidden items-center gap-0.5 overflow-x-auto no-scrollbar mx-4 flex-1" style={{ scrollbarWidth: 'none' }}>
+            {navItems.map(item => (
+              <a
+                key={item.label}
+                href={item.href}
+                className="whitespace-nowrap px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-150 shrink-0"
+                style={{ color: `${colors.text}80` }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.color = colors.primary;
+                  e.currentTarget.style.background = `${colors.primary}18`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.color = `${colors.text}80`;
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >{item.label}</a>
+            ))}
+          </nav>
+
+          {/* ── RIGHT: Action buttons ── */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 z-10">
             {showQrAction && (
-              <button onClick={onOpenQrModal}
-                className="hidden sm:flex p-2 rounded-lg border transition"
+              <button
+                onClick={onOpenQrModal}
+                className="hidden sm:flex p-1.5 rounded-lg border transition"
                 style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
                 title="QR Code"
-              ><QrCode className="w-4 h-4" /></button>
+              >
+                <QrCode className="w-3.5 h-3.5" />
+              </button>
             )}
-            <button onClick={() => setIsPdfModalOpen(true)} disabled={isDownloadingResume}
-              className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition whitespace-nowrap disabled:cursor-wait disabled:opacity-70"
-              style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 4px 15px ${colors.primary}40` }}
+            <button
+              onClick={() => setIsPdfModalOpen(true)}
+              disabled={isDownloadingResume}
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-white shadow-md transition whitespace-nowrap disabled:cursor-wait disabled:opacity-70"
+              style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 3px 12px ${colors.primary}40` }}
               aria-busy={isDownloadingResume}
             >
-              <Download className="w-3.5 h-3.5" /><span>{isDownloadingResume ? 'Preparing...' : 'Resume'}</span>
+              <Download className="w-3 h-3" />
+              <span>{isDownloadingResume ? 'Preparing...' : 'Resume'}</span>
             </button>
-            {/* Mobile hamburger */}
+            {hasVerifiedDocs && onOpenVerifiedDocs && (
+              <button
+                onClick={() => onOpenVerifiedDocs('unlock')}
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition whitespace-nowrap"
+                style={{ borderColor: '#10b981', color: '#10b981', background: '#10b98112' }}
+                title="View Verified Documents"
+              >
+                <ShieldCheck className="w-3 h-3" />
+                <span>Verified</span>
+              </button>
+            )}
+            {/* Hamburger: visible below lg (md nav is scrollable, sm/xs uses full drawer) */}
             <button
               onClick={() => setIsMobileMenuOpen(prev => !prev)}
               className="md:hidden p-2 rounded-xl border transition-all"
               style={{ borderColor: `${colors.primary}40`, color: colors.primary, background: `${colors.surface}80` }}
               aria-label="Toggle menu"
             >
-              {isMobileMenuOpen
-                ? <XIcon className="w-5 h-5" />
-                : <Menu className="w-5 h-5" />}
+              {isMobileMenuOpen ? <XIcon className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile slide-down nav drawer */}
+        {/* ── Mobile slide-down nav drawer ── */}
         <div
           className="md:hidden overflow-hidden transition-all duration-300 ease-in-out"
           style={{
-            maxHeight: isMobileMenuOpen ? '450px' : '0px',
+            maxHeight: isMobileMenuOpen ? '480px' : '0px',
             borderTop: isMobileMenuOpen ? `1px solid ${colors.primary}20` : 'none',
           }}
         >
-          <nav className="flex flex-col px-4 py-3 gap-1"
-               style={{ background: `${colors.background}f8` }}>
-            {['About','Experience','Education','Skills','Projects','Certifications','Testimonials','Contact'].map(s => (
+          <nav
+            className="grid grid-cols-3 xs:grid-cols-4 gap-1 px-4 pt-3 pb-2"
+            style={{ background: `${colors.background}f8` }}
+          >
+            {navItems.map(item => (
               <a
-                key={s}
-                href={`#${s.toLowerCase()}`}
+                key={item.label}
+                href={item.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all active:scale-[0.98]"
-                style={{ color: `${colors.text}90` }}
-                onMouseEnter={e => { e.currentTarget.style.background = `${colors.primary}18`; e.currentTarget.style.color = colors.primary; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = `${colors.text}90`; }}
+                className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold text-center transition-all"
+                style={{ color: `${colors.text}90`, background: `${colors.surface}60`, border: `1px solid ${colors.primary}18` }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${colors.primary}22`; e.currentTarget.style.color = colors.primary; }}
+                onMouseLeave={e => { e.currentTarget.style.background = `${colors.surface}60`; e.currentTarget.style.color = `${colors.text}90`; }}
               >
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: colors.primary }} />
-                {s}
+                {item.label}
               </a>
             ))}
-            {/* Mobile resume button */}
-            <div className="flex items-center gap-2 pt-2 pb-1 px-1">
-              <button onClick={() => { setIsPdfModalOpen(true); setIsMobileMenuOpen(false); }} disabled={isDownloadingResume}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-70"
-                style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
-                aria-busy={isDownloadingResume}
-              >
-                <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
-              </button>
-              {showQrAction && (
-                <button onClick={() => { onOpenQrModal(); setIsMobileMenuOpen(false); }}
-                  className="p-2.5 rounded-xl border transition"
-                  style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
-                ><QrCode className="w-4 h-4" /></button>
-              )}
-            </div>
           </nav>
+          {/* Mobile action row */}
+          <div className="flex items-center gap-2 px-4 pb-3 pt-1" style={{ background: `${colors.background}f8` }}>
+            <button
+              onClick={() => { setIsPdfModalOpen(true); setIsMobileMenuOpen(false); }}
+              disabled={isDownloadingResume}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-70"
+              style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
+              aria-busy={isDownloadingResume}
+            >
+              <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
+            </button>
+            {showQrAction && (
+              <button
+                onClick={() => { onOpenQrModal(); setIsMobileMenuOpen(false); }}
+                className="p-2.5 rounded-xl border transition"
+                style={{ borderColor: `${colors.primary}40`, color: colors.primary }}
+              >
+                <QrCode className="w-4 h-4" />
+              </button>
+            )}
+            {hasVerifiedDocs && onOpenVerifiedDocs && (
+              <button
+                onClick={() => { onOpenVerifiedDocs(); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition"
+                style={{ borderColor: '#10b981', color: '#10b981', background: '#10b98112' }}
+              >
+                <ShieldCheck className="w-4 h-4" /><span>Verified</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1025,6 +1102,76 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                       style={{ color: colors.primary }}>Be the first to submit a review</button>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* ── VERIFIED DOCUMENTS & CREDENTIALS SECTION ──────────────── */}
+      <section id="verified-docs" className={`theme-section ${revealCls} px-6 py-16`} style={{ background: `${colors.surface}20`, borderTop: `1px solid ${colors.primary}20` }}>
+        <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-8 lg:px-12">
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2"
+                 style={{ background: '#10b98120', color: '#10b981', border: '1px solid #10b98140' }}>
+              <ShieldCheck className="w-4 h-4" />
+              <span>Employee Identity &amp; Credentials</span>
+            </div>
+            <h2 className="text-3xl font-bold" style={{ fontFamily: `var(--theme-font-heading)`, color: colors.text }}>
+              Verified Credentials
+            </h2>
+            <p className="text-sm max-w-xl mx-auto" style={{ color: `${colors.text}80` }}>
+              Certified government and professional documents on record for employee verification &amp; background checks.
+            </p>
+          </div>
+
+          <div className={`p-8 rounded-2xl max-w-3xl mx-auto text-center space-y-6 ${cardCls}`}
+               style={{ background: `${colors.surface}60`, border: `1px solid ${colors.primary}30` }}>
+            <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center shadow-lg"
+                 style={{ background: `linear-gradient(135deg, ${colors.primary}30, #10b98130)`, border: '1px solid #10b98150' }}>
+              <Lock className="w-8 h-8" style={{ color: colors.primary }} />
+            </div>
+
+            <div className="space-y-2 max-w-lg mx-auto">
+              <h3 className="text-lg font-bold" style={{ color: colors.text }}>
+                Secure Recruiter Document Access
+              </h3>
+              <p className="text-xs leading-relaxed" style={{ color: `${colors.text}80` }}>
+                Identity credentials (Government ID, Tax PIN, Good Conduct, Health Card) are protected for security. 
+                Recruiters and employers can request a 24-hour one-time access key from <strong>{fullName}</strong> to view and verify these documents.
+              </p>
+            </div>
+
+            {hasVerifiedDocs && (
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <span className="text-[11px] font-semibold px-3 py-1 rounded-full border"
+                      style={{ background: `${colors.background}80`, borderColor: `${colors.primary}30`, color: `${colors.text}b0` }}>
+                  ✓ Government ID / Passport
+                </span>
+                <span className="text-[11px] font-semibold px-3 py-1 rounded-full border"
+                      style={{ background: `${colors.background}80`, borderColor: `${colors.primary}30`, color: `${colors.text}b0` }}>
+                  ✓ Tax Certificate (KRA PIN)
+                </span>
+                <span className="text-[11px] font-semibold px-3 py-1 rounded-full border"
+                      style={{ background: `${colors.background}80`, borderColor: `${colors.primary}30`, color: `${colors.text}b0` }}>
+                  ✓ Good Conduct / SHA / NSSF
+                </span>
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => onOpenVerifiedDocs && onOpenVerifiedDocs('unlock')}
+                className="px-8 py-3.5 rounded-xl font-bold text-sm text-white shadow-xl transition-all duration-300 inline-flex items-center gap-2.5 hover:scale-105"
+                style={{
+                  background: `linear-gradient(135deg, #10b981, ${colors.primary})`,
+                  boxShadow: `0 8px 25px #10b98140`,
+                }}
+              >
+                <ShieldCheck className="w-5 h-5" />
+                <span>Enter One-Time Key / Request Access to Documents</span>
+                <Key className="w-4 h-4 opacity-80" />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

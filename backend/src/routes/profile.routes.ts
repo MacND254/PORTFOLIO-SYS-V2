@@ -10,6 +10,7 @@ router.use(authenticate);
 
 router.get('/', ProfileController.getProfile);
 router.put('/', ProfileController.updateProfile);
+router.post('/reset', ProfileController.resetProfile);
 router.post('/upload-media', imageUpload.single('file'), ProfileController.uploadMedia);
 router.post('/upload-certificate', certificateUpload.single('file'), ProfileController.uploadCertificate);
 
@@ -62,4 +63,15 @@ router.post('/custom-sections', ProfileController.addCustomSection);
 router.put('/custom-sections/:id', ProfileController.updateCustomSection);
 router.delete('/custom-sections/:id', ProfileController.deleteCustomSection);
 
+// Verified Documents
+router.get('/verified-documents', ProfileController.getVerifiedDocuments);
+router.post('/verified-documents', certificateUpload.single('file'), ProfileController.addVerifiedDocument);
+router.delete('/verified-documents/:id', ProfileController.deleteVerifiedDocument);
+
+// Document Access Keys
+router.get('/document-keys', ProfileController.getDocumentAccessKeys);
+router.post('/document-keys/generate', ProfileController.generateDocumentAccessKey);
+router.delete('/document-keys/:id', ProfileController.deleteDocumentAccessKey);
+
 export default router;
+

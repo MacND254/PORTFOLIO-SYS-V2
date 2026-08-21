@@ -4,6 +4,7 @@ import { Globe, Briefcase, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { AVAILABLE_PROFESSIONS } from '../types';
 
 /**
  * /register/oauth
@@ -11,17 +12,17 @@ import { useAuth } from '../context/AuthContext';
  *
  * The backend redirected here with ?state=<pendingToken> after Google/GitHub OAuth.
  * The pending token encodes the verified OAuth identity (email, name, avatar).
- * This page only asks for the two missing pieces:
+ * This page asks for:
  *   - Desired subdomain slug
  *   - Primary profession
  *
  * On submit it calls POST /api/auth/social-login/complete which validates the
- * pending token and creates the full tenant account.
+ * pending token and creates the full tenant account, then redirects to /admin/dashboard.
  */
 export const OAuthOnboardingPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
+  const { setSession, refreshUser } = useAuth();
 
   const state = searchParams.get('state') || '';
 
@@ -35,7 +36,7 @@ export const OAuthOnboardingPage: React.FC = () => {
 
   useEffect(() => {
     if (!state) {
-      navigate('/register');
+      navigate('/register', { replace: true });
       return;
     }
     try {
@@ -49,9 +50,9 @@ export const OAuthOnboardingPage: React.FC = () => {
         .slice(0, 20);
       setDesiredSubdomain(slug);
     } catch {
-      navigate('/register?error=invalid_oauth_state');
+      navigate('/register?error=invalid_oauth_state', { replace: true });
     }
-  }, [state]);
+  }, [state, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,10 +65,17 @@ export const OAuthOnboardingPage: React.FC = () => {
         desiredSubdomain,
         desiredProfession: profession,
       });
-      const { token } = res.data;
-      localStorage.setItem('token', token);
-      await refreshUser();
-      navigate('/admin/dashboard');
+
+      // API interceptor returns response.data, which contains data: { token, user }
+      const token = res.data?.token || res.token;
+      const userData = res.data?.user || res.user;
+      if (token) {
+        await setSession(token, userData);
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        await refreshUser();
+        navigate('/admin/dashboard', { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to complete registration. Please try again.');
     } finally {
@@ -139,18 +147,13 @@ export const OAuthOnboardingPage: React.FC = () => {
                 <select
                   value={profession}
                   onChange={(e) => setProfession(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none appearance-none"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none appearance-none cursor-pointer"
                 >
-                  <option value="Software Engineer">Software Engineer</option>
-                  <option value="Data Scientist">Data Scientist</option>
-                  <option value="Cybersecurity">Cybersecurity Professional</option>
-                  <option value="UI/UX Designer">UI/UX Designer</option>
-                  <option value="Architect">Architect</option>
-                  <option value="Medical Professional">Medical Professional</option>
-                  <option value="Legal Professional">Lawyer / Legal</option>
-                  <option value="Finance Professional">Finance &amp; Accounting</option>
-                  <option value="Marketing Professional">Marketing Professional</option>
-                  <option value="Freelancer">Freelancer / Consultant</option>
+                  {AVAILABLE_PROFESSIONS.map((prof) => (
+                    <option key={prof} value={prof}>
+                      {prof}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

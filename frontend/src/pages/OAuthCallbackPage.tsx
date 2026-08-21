@@ -14,7 +14,7 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 export const OAuthCallbackPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
+  const { setSession } = useAuth();
   const processed = useRef(false);
 
   useEffect(() => {
@@ -27,19 +27,25 @@ export const OAuthCallbackPage: React.FC = () => {
 
     if (error) {
       // Show error briefly then redirect to register
-      setTimeout(() => navigate(`/register?error=${encodeURIComponent(error)}`), 2500);
+      setTimeout(() => navigate(`/register?error=${encodeURIComponent(error)}`, { replace: true }), 2500);
       return;
     }
 
     if (token && status === 'login') {
-      localStorage.setItem('token', token);
-      refreshUser().finally(() => navigate('/admin/dashboard'));
+      setSession(token)
+        .then(() => {
+          navigate('/admin/dashboard', { replace: true });
+        })
+        .catch((err) => {
+          console.error('[OAuthCallback] Failed to establish session:', err);
+          navigate('/login?error=auth_failed', { replace: true });
+        });
       return;
     }
 
-    // Unexpected — redirect home
-    setTimeout(() => navigate('/login'), 2000);
-  }, []);
+    // Unexpected — redirect login
+    setTimeout(() => navigate('/login', { replace: true }), 2000);
+  }, [searchParams, navigate, setSession]);
 
   const error = searchParams.get('error');
 

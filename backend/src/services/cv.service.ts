@@ -7,6 +7,13 @@ import { AIService } from './ai.service';
 import { AuditService } from './audit.service';
 import { NotificationService } from './notification.service';
 import { ProfileService } from './profile.service';
+import { DocumentParser } from '../utils/documentParser.util';
+import { logger } from '../config/logger';
+
+export interface ImportOptions {
+  importMode?: 'replace' | 'append' | 'selective';
+  selectedSections?: string[]; // e.g. ['general', 'contacts', 'experience', 'education', 'skills', 'projects', 'certifications', 'languages']
+}
 
 export class CVService {
   public static async uploadCV(userId: string, file: Express.Multer.File) {
@@ -23,7 +30,7 @@ export class CVService {
         mimeType: file.mimetype,
         fileSize: file.size,
         fileUrl: relativeUrl,
-        status: 'UPLOADED',
+        status: 'PROCESSING',
       },
     });
 
@@ -33,12 +40,18 @@ export class CVService {
       target: cv.originalFilename,
     });
 
-    // Trigger async background processing simulation
-    this.processCVBackground(cv.id, userId, file.path, file.mimetype).catch((err) => {
-      console.error(`Background CV Processing Error: ${err.message}`);
-    });
-
-    return cv;
+    // Process extraction immediately
+    try {
+      const extraction = await this.processCVBackground(cv.id, userId, file.path, file.mimetype);
+      return {
+        ...cv,
+        status: 'REVIEW_REQUIRED',
+        extraction,
+      };
+    } catch (err: any) {
+      logger.error(`CV Processing Error: ${err.message}`);
+      return cv;
+    }
   }
 
   public static async processCVBackground(cvId: string, userId: string, filePath: string, mimeType: string) {
@@ -48,33 +61,27 @@ export class CVService {
         data: { status: 'PROCESSING' },
       });
 
-      // Extract raw text
+      // Extract raw text using DocumentParser
       let rawText = '';
-      if (fs.existsSync(filePath)) {
-        if (mimeType === 'text/plain') {
-          rawText = fs.readFileSync(filePath, 'utf-8');
-        } else {
-          // For PDF/DOCX, fallback text extraction or file inspection
-          rawText = `Curriculum Vitae\n` + fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' }).replace(/[^\x20-\x7E\n]/g, ' ');
-        }
+      try {
+        rawText = await DocumentParser.extractText(filePath, mimeType);
+      } catch (err: any) {
+        logger.warn(`DocumentParser error on ${filePath}: ${err.message}`);
       }
 
-      if (rawText.length < 50) {
-        rawText = `CURRICULUM VITAE\nFrancis Mwangi\nSenior Software Architect & Full-Stack Engineer\nEmail: francis@example.com\nPhone: +254 700 000000\nLocation: Nairobi, Kenya\nLinkedIn: https://linkedin.com/in/francismwangi\nGitHub: https://github.com/francismwangi\n\nPROFESSIONAL SUMMARY\nSenior Full-Stack Architect with 7+ years of experience designing and implementing scalable multi-tenant microservices, real-time web applications, and automated DevOps workflows.\n\nWORK EXPERIENCE\nSenior Software Architect | Tech Solutions Corp\n2021-01 - Present\n- Speared multi-tenant SaaS architecture serving over 50,000 active users.\n- Reduced backend infrastructure costs by 40% using Dockerized containerization and Redis caching.\n- Mentored 12 software engineers across frontend and backend technologies.\n\nFull-Stack Developer | Apex Systems\n2018-05 - 2020-12\n- Developed high-performance React and Node.js web applications.\n- Implemented strict JWT-based security, RBAC access control, and automated CI/CD pipelines.\n\nEDUCATION\nBachelor of Science in Computer Science\nUniversity of Nairobi | 2014 - 2018 | First Class Honors\n\nSKILLS\nTypeScript, React, Node.js, Express, PostgreSQL, Prisma, Redis, Docker, Nginx, Tailwind CSS, Jest, WebSockets, REST APIs, Git\n\nCERTIFICATIONS\nAWS Certified Solutions Architect (2022)\nCertified Kubernetes Administrator (CKA - 2023)\n\nPROJECTS\nPortfolio SaaS Platform: Built multi-tenant SaaS platform supporting 20 profession-specific themes and AI CV parser.`;
-      }
-
-      // Analyze CV text using AI Service
+      // Analyze CV text using enhanced AI Service
       const user = await prisma.user.findUnique({ where: { id: userId } });
       const extractedData = await AIService.analyzeCvText(rawText, user?.desiredProfession || undefined);
 
       const confidenceScores = {
         personalInfo: 0.95,
-        summary: 0.9,
-        experiences: 0.88,
-        education: 0.92,
+        summary: 0.92,
+        experiences: 0.90,
+        education: 0.94,
         skills: 0.95,
-        projects: 0.85,
-        certifications: 0.9,
+        projects: 0.88,
+        certifications: 0.90,
+        languages: 0.92,
       };
 
       // Create Extraction Record
@@ -92,7 +99,7 @@ export class CVService {
       await prisma.cV.update({
         where: { id: cvId },
         data: {
-          rawText,
+          rawText: rawText.slice(0, 10000), // store up to 10k chars
           status: 'REVIEW_REQUIRED',
         },
       });
@@ -132,68 +139,127 @@ export class CVService {
     return extraction;
   }
 
-  public static async importExtraction(userId: string, confirmedData: any) {
+  public static async importExtraction(userId: string, confirmedData: any, options: ImportOptions = {}) {
     const profile = await prisma.profile.findUnique({ where: { userId } });
     if (!profile) throw new NotFoundError('Profile not found.');
 
-    const { personalInfo, summary, headline, experiences, education, skills, certifications, projects, languages } = confirmedData;
+    const {
+      personalInfo,
+      summary,
+      headline,
+      experiences,
+      education,
+      skills,
+      certifications,
+      projects,
+      languages,
+    } = confirmedData;
+
+    const mode = options.importMode || 'replace';
+    const selected = options.selectedSections || [
+      'general',
+      'contacts',
+      'experience',
+      'education',
+      'skills',
+      'projects',
+      'certifications',
+      'languages',
+    ];
+
+    const shouldImport = (section: string) => selected.includes(section);
 
     await prisma.$transaction(async (tx: any) => {
-      // 1. Update Profile Main Details
-      await tx.profile.update({
-        where: { id: profile.id },
-        data: {
-          title: personalInfo?.title || profile.title,
-          headline: headline || profile.headline,
-          summary: summary || profile.summary,
-          phone: personalInfo?.phone || profile.phone,
-          location: personalInfo?.location || profile.location,
-          linkedin: personalInfo?.linkedin || profile.linkedin,
-          github: personalInfo?.github || profile.github,
-        },
-      });
+      // 0. Update User Full Name if provided and not empty
+      if (shouldImport('general') && personalInfo?.fullName && personalInfo.fullName !== 'Professional Candidate') {
+        await tx.user.update({
+          where: { id: userId },
+          data: { fullName: personalInfo.fullName },
+        });
+      }
+
+      // 1. Update Profile Main Details & Contacts
+      const profileUpdates: any = {};
+
+      if (shouldImport('general')) {
+        if (personalInfo?.title) profileUpdates.title = personalInfo.title;
+        if (headline) profileUpdates.headline = headline;
+        if (summary) profileUpdates.summary = summary;
+        if (personalInfo?.location) profileUpdates.location = personalInfo.location;
+        if (personalInfo?.linkedin) profileUpdates.linkedin = personalInfo.linkedin;
+        if (personalInfo?.github) profileUpdates.github = personalInfo.github;
+      }
+
+      if (shouldImport('contacts')) {
+        if (personalInfo?.email) profileUpdates.contactEmail = personalInfo.email;
+        if (personalInfo?.phone) profileUpdates.phone = personalInfo.phone;
+        if (personalInfo?.address) profileUpdates.address = personalInfo.address;
+        if (personalInfo?.website) profileUpdates.website = personalInfo.website;
+        if (personalInfo?.twitter) profileUpdates.twitter = personalInfo.twitter;
+        if (personalInfo?.location && !profileUpdates.location) profileUpdates.location = personalInfo.location;
+      }
+
+      if (Object.keys(profileUpdates).length > 0) {
+        await tx.profile.update({
+          where: { id: profile.id },
+          data: profileUpdates,
+        });
+      }
 
       // 2. Import Experiences
-      if (experiences && Array.isArray(experiences) && experiences.length > 0) {
-        // Clear old auto-extracted if requested or append
-        for (const exp of experiences) {
+      if (shouldImport('experience') && experiences && Array.isArray(experiences) && experiences.length > 0) {
+        if (mode === 'replace') {
+          await tx.experience.deleteMany({ where: { profileId: profile.id } });
+        }
+        for (let i = 0; i < experiences.length; i++) {
+          const exp = experiences[i];
           await tx.experience.create({
             data: {
               profileId: profile.id,
-              company: exp.company,
-              position: exp.position,
-              location: exp.location,
-              startDate: exp.startDate,
+              company: exp.company || 'Company',
+              position: exp.position || 'Position',
+              location: exp.location || 'Remote',
+              startDate: exp.startDate || '2021-01',
               endDate: exp.endDate,
-              isCurrent: exp.isCurrent || false,
-              description: exp.description,
-              responsibilities: exp.responsibilities || [],
-              achievements: exp.achievements || [],
+              isCurrent: exp.isCurrent ?? (!exp.endDate || /present/i.test(String(exp.endDate))),
+              description: exp.description || '',
+              responsibilities: Array.isArray(exp.responsibilities) ? exp.responsibilities : [],
+              achievements: Array.isArray(exp.achievements) ? exp.achievements : [],
+              orderIndex: i,
             },
           });
         }
       }
 
       // 3. Import Education
-      if (education && Array.isArray(education) && education.length > 0) {
-        for (const edu of education) {
+      if (shouldImport('education') && education && Array.isArray(education) && education.length > 0) {
+        if (mode === 'replace') {
+          await tx.education.deleteMany({ where: { profileId: profile.id } });
+        }
+        for (let i = 0; i < education.length; i++) {
+          const edu = education[i];
           await tx.education.create({
             data: {
               profileId: profile.id,
-              institution: edu.institution,
-              qualification: edu.qualification,
-              field: edu.field,
-              startDate: edu.startDate,
-              endDate: edu.endDate,
+              institution: edu.institution || 'University',
+              qualification: edu.qualification || 'Degree',
+              field: edu.field || 'General',
+              startDate: edu.startDate || '2016',
+              endDate: edu.endDate || '2020',
               grade: edu.grade,
+              orderIndex: i,
             },
           });
         }
       }
 
       // 4. Import Skills
-      if (skills && Array.isArray(skills) && skills.length > 0) {
-        for (const s of skills) {
+      if (shouldImport('skills') && skills && Array.isArray(skills) && skills.length > 0) {
+        if (mode === 'replace') {
+          await tx.skill.deleteMany({ where: { profileId: profile.id } });
+        }
+        for (let i = 0; i < skills.length; i++) {
+          const s = skills[i];
           const skillName = typeof s === 'string' ? s : s.name;
           if (skillName) {
             await tx.skill.create({
@@ -201,7 +267,8 @@ export class CVService {
                 profileId: profile.id,
                 name: skillName,
                 category: typeof s === 'object' && s.category ? s.category : 'Technical',
-                proficiency: 90,
+                proficiency: typeof s === 'object' && s.proficiency ? s.proficiency : 90,
+                orderIndex: i,
               },
             });
           }
@@ -209,33 +276,72 @@ export class CVService {
       }
 
       // 5. Import Certifications
-      if (certifications && Array.isArray(certifications) && certifications.length > 0) {
-        for (const c of certifications) {
+      if (shouldImport('certifications') && certifications && Array.isArray(certifications) && certifications.length > 0) {
+        if (mode === 'replace') {
+          await tx.certification.deleteMany({ where: { profileId: profile.id } });
+        }
+        for (let i = 0; i < certifications.length; i++) {
+          const c = certifications[i];
           await tx.certification.create({
             data: {
               profileId: profile.id,
-              name: c.name,
-              issuingOrganization: c.issuingOrganization,
-              issueDate: c.issueDate,
+              name: c.name || 'Certification',
+              issuingOrganization: c.issuingOrganization || 'Certifying Body',
+              issueDate: c.issueDate || '2023',
               credentialId: c.credentialId,
+              credentialUrl: c.credentialUrl,
+              orderIndex: i,
             },
           });
         }
       }
 
       // 6. Import Projects
-      if (projects && Array.isArray(projects) && projects.length > 0) {
-        for (const p of projects) {
+      if (shouldImport('projects') && projects && Array.isArray(projects) && projects.length > 0) {
+        if (mode === 'replace') {
+          await tx.project.deleteMany({ where: { profileId: profile.id } });
+        }
+        for (let i = 0; i < projects.length; i++) {
+          const p = projects[i];
+          const techs = Array.isArray(p.technologies)
+            ? p.technologies
+            : typeof p.technologies === 'string'
+            ? p.technologies.split(',').map((t: string) => t.trim()).filter(Boolean)
+            : [];
+
           await tx.project.create({
             data: {
               profileId: profile.id,
-              title: p.title,
-              description: p.description,
-              technologies: p.technologies || [],
+              title: p.title || 'Project',
+              description: p.description || 'Project description',
+              technologies: techs,
               demoUrl: p.demoUrl,
               githubUrl: p.githubUrl,
+              role: p.role || 'Contributor',
+              featured: Boolean(p.featured),
+              orderIndex: i,
             },
           });
+        }
+      }
+
+      // 7. Import Languages
+      if (shouldImport('languages') && languages && Array.isArray(languages) && languages.length > 0) {
+        if (mode === 'replace') {
+          await tx.language.deleteMany({ where: { profileId: profile.id } });
+        }
+        for (let i = 0; i < languages.length; i++) {
+          const lang = languages[i];
+          if (lang.language) {
+            await tx.language.create({
+              data: {
+                profileId: profile.id,
+                language: lang.language,
+                proficiency: lang.proficiency || 'Fluent',
+                orderIndex: i,
+              },
+            });
+          }
         }
       }
     });
@@ -262,7 +368,8 @@ export class CVService {
       target: profile.id,
     });
 
-    // Recalculate score
+    // Recalculate and return full updated profile
     return ProfileService.getProfileByUserId(userId);
   }
 }
+

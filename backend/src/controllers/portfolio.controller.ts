@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { PortfolioService } from '../services/portfolio.service';
+import { ProfileService } from '../services/profile.service';
 import { PDFService } from '../services/pdf.service';
 import { AnalyticsService } from '../services/analytics.service';
 import { sendSuccess } from '../utils/apiResponse';
+import { ValidationError } from '../utils/errors';
 
 export class PortfolioController {
   public static async getPublicPortfolio(req: Request, res: Response, next: NextFunction) {
@@ -156,4 +158,22 @@ export class PortfolioController {
       next(error);
     }
   }
+
+  public static async unlockVerifiedDocuments(req: Request, res: Response, next: NextFunction) {
+    try {
+      const subdomain = req.tenantSubdomain || (req.params.subdomain as string);
+      const { key } = req.body;
+      if (!key) throw new ValidationError('Access key is required.');
+
+      const result = await ProfileService.unlockVerifiedDocumentsByPublicSubdomain(subdomain, key);
+      return sendSuccess({
+        res,
+        message: 'Verified documents unlocked successfully.',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

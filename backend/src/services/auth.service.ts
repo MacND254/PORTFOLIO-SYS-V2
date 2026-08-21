@@ -88,7 +88,7 @@ export class AuthService {
         await tx.portfolioCustomization.create({
           data: {
             profileId: newProfile.id,
-            themeId: 'modern-dark',
+            themeId: this.getThemeIdForProfession(profession),
             fontHeading: 'Inter',
             fontBody: 'Inter',
           },

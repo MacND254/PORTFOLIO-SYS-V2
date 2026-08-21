@@ -13,6 +13,11 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
+  // If sending FormData, delete Content-Type to let browser set boundary automatically
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   // If testing subdomains locally via query or custom header:
   const activeSubdomain = localStorage.getItem('activeSubdomain');
   if (activeSubdomain) {

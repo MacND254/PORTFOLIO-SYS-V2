@@ -8,6 +8,7 @@ const router = Router();
 // Public routes
 router.get('/public', resolveTenant, PortfolioController.getPublicPortfolio);
 router.get('/public/:subdomain', PortfolioController.getPublicPortfolio);
+router.post('/public/:subdomain/unlock-verified-documents', PortfolioController.unlockVerifiedDocuments);
 router.get('/pdf', resolveTenant, PortfolioController.downloadPdfResume);
 router.get('/qr', resolveTenant, PortfolioController.getQrCode);
 

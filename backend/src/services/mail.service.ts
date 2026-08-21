@@ -178,6 +178,65 @@ export class MailService {
   }
 
   /**
+   * Dispatch Verified Document Access Key directly to Recruiter's Email via Gateway 1: Portfolio Message Forwarder
+   */
+  public static async sendDocumentAccessKeyEmail(params: {
+    recruiterEmail: string;
+    recruiterName: string;
+    tenantName: string;
+    accessCode: string;
+    validityHours: number;
+    subdomain: string;
+  }): Promise<boolean> {
+    const { recruiterEmail, recruiterName, tenantName, accessCode, validityHours, subdomain } = params;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; background-color: #020817; color: #f8fafc; padding: 32px;">
+        <div style="max-width: 580px; margin: 0 auto; background-color: #0f172a; padding: 32px; border-radius: 16px; border: 1px solid #1e293b; text-align: left;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="display: inline-block; background-color: #10b98120; border: 1px solid #10b98150; padding: 8px 16px; border-radius: 9999px; color: #10b981; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
+              VERIFIED DOCUMENT ACCESS
+            </div>
+            <h2 style="color: #ffffff; margin: 4px 0 0 0; font-size: 22px;">Access Key Approved</h2>
+            <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Portfolio of ${tenantName}</p>
+          </div>
+
+          <p style="color: #e2e8f0; font-size: 14px;">Hi <strong>${recruiterName || 'Hiring Manager'}</strong>,</p>
+          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+            <strong>${tenantName}</strong> has granted you one-time access to view their verified identity credentials (Government ID, Tax PIN, Good Conduct, and Professional Certificates).
+          </p>
+
+          <div style="background-color: #020817; border: 2px dashed #10b981; border-radius: 14px; padding: 24px; text-align: center; margin: 24px 0;">
+            <p style="color: #94a3b8; font-size: 11px; font-weight: bold; uppercase; tracking-wider; margin: 0 0 8px 0;">YOUR ONE-TIME ACCESS KEY</p>
+            <div style="font-family: monospace; font-size: 32px; font-weight: 800; color: #10b981; letter-spacing: 6px;">${accessCode}</div>
+            <p style="color: #f59e0b; font-size: 12px; margin: 12px 0 0 0;">⏱️ Valid for <strong>${validityHours} hour${validityHours > 1 ? 's' : ''}</strong> from issuance.</p>
+          </div>
+
+          <div style="background-color: #1e293b; padding: 16px; border-radius: 12px; font-size: 13px; color: #cbd5e1; margin-bottom: 24px;">
+            <strong>How to view documents:</strong>
+            <ol style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.6;">
+              <li>Visit <strong>${tenantName}</strong>'s public portfolio.</li>
+              <li>Click <strong>"Verified Docs"</strong> or <strong>"Enter One-Time Key"</strong>.</li>
+              <li>Enter your access key <strong>${accessCode}</strong> to unlock and view the documents.</li>
+            </ol>
+          </div>
+
+          <p style="font-size: 11px; color: #64748b; text-align: center; margin-top: 24px; border-top: 1px solid #1e293b; padding-top: 16px;">
+            Dispatched via Gateway 1: Portfolio Message Forwarder.
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendMail({
+      to: recruiterEmail,
+      subject: `🔑 [Verified Documents Access Key] Granted by ${tenantName}`,
+      html,
+      gatewayType: 'portfolio',
+    });
+  }
+
+  /**
    * Dispatch Password Reset Email using the dedicated Security Gateway
    */
   public static async sendPasswordResetEmail(params: {

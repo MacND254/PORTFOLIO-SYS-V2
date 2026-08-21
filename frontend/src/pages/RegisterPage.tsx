@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Globe, User, Mail, Lock, Briefcase, AlertTriangle, Github } from 'lucide-react';
+import { Globe, User, Mail, Lock, Briefcase, AlertTriangle } from 'lucide-react';
 import api from '../api/client';
 import { PasswordStrengthIndicator } from '../components/auth/PasswordStrengthIndicator';
+import { AVAILABLE_PROFESSIONS } from '../types';
 
 export const RegisterPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -14,14 +15,20 @@ export const RegisterPage: React.FC = () => {
   const [profession, setProfession] = useState('Software Engineer');
 
   // Social Auth Override State
-  const [socialProvider, setSocialProvider] = useState<'google' | 'github' | null>(null);
+  const [socialProvider, setSocialProvider] = useState<'google' | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistrationAllowed, setIsRegistrationAllowed] = useState(true);
   const [error, setError] = useState('');
 
-  const { register, socialLogin } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, register, socialLogin } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   React.useEffect(() => {
     api.get('/public-settings')
@@ -33,7 +40,7 @@ export const RegisterPage: React.FC = () => {
       .catch(() => {});
   }, []);
 
-  const handleStartSocialSignup = (provider: 'google' | 'github') => {
+  const handleStartSocialSignup = (provider: 'google') => {
     const raw = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
     const backendBase = (raw.startsWith('http://') || raw.startsWith('https://'))
       ? raw.replace(/\/api\/?$/, '')
@@ -95,7 +102,7 @@ export const RegisterPage: React.FC = () => {
             P
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
-            {socialProvider ? `Complete ${socialProvider === 'google' ? 'Google' : 'GitHub'} Registration` : 'Create Tenant Account'}
+            {socialProvider ? 'Complete Google Registration' : 'Create Tenant Account'}
           </h1>
           <p className="text-slate-400 text-sm">
             {socialProvider
@@ -108,16 +115,12 @@ export const RegisterPage: React.FC = () => {
         {socialProvider ? (
           <form onSubmit={handleCompleteSocialSignup} className="p-8 rounded-2xl bg-slate-900 border border-indigo-500/40 space-y-5 shadow-2xl relative">
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800">
-              {socialProvider === 'google' ? (
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/>
-                  <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
-                  <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12s.7 2.3 1.9 4.7l3.7-2.9z"/>
-                  <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/>
-                </svg>
-              ) : (
-                <Github className="w-5 h-5 text-white shrink-0" />
-              )}
+              <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/>
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+                <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12s.7 2.3 1.9 4.7l3.7-2.9z"/>
+                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/>
+              </svg>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-white truncate">{fullName || `${socialProvider} User`}</p>
                 <p className="text-[11px] text-slate-400 truncate">{email || `${socialProvider}@example.com`}</p>
@@ -154,16 +157,11 @@ export const RegisterPage: React.FC = () => {
                   onChange={(e) => setProfession(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none appearance-none"
                 >
-                  <option value="Software Engineer">Software Engineer</option>
-                  <option value="Data Scientist">Data Scientist</option>
-                  <option value="Cybersecurity">Cybersecurity Professional</option>
-                  <option value="UI/UX Designer">UI/UX Designer</option>
-                  <option value="Architect">Architect</option>
-                  <option value="Medical Professional">Medical Professional</option>
-                  <option value="Legal Professional">Lawyer / Legal</option>
-                  <option value="Finance Professional">Finance & Accounting</option>
-                  <option value="Marketing Professional">Marketing Professional</option>
-                  <option value="Freelancer">Freelancer / Consultant</option>
+                  {AVAILABLE_PROFESSIONS.map((prof) => (
+                    <option key={prof} value={prof}>
+                      {prof}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -193,30 +191,19 @@ export const RegisterPage: React.FC = () => {
             {/* One-Click Social Registration Buttons */}
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block text-center">One-Click Social Registration</span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleStartSocialSignup('google')}
-                  type="button"
-                  className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-700 text-white text-xs font-semibold transition flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/>
-                    <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
-                    <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12s.7 2.3 1.9 4.7l3.7-2.9z"/>
-                    <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/>
-                  </svg>
-                  <span>Google</span>
-                </button>
-
-                <button
-                  onClick={() => handleStartSocialSignup('github')}
-                  type="button"
-                  className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold transition flex items-center justify-center gap-2"
-                >
-                  <Github className="w-4 h-4 text-white" />
-                  <span>GitHub</span>
-                </button>
-              </div>
+              <button
+                onClick={() => handleStartSocialSignup('google')}
+                type="button"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-700 text-white text-sm font-semibold transition flex items-center justify-center gap-3"
+              >
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/>
+                  <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+                  <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12s.7 2.3 1.9 4.7l3.7-2.9z"/>
+                  <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/>
+                </svg>
+                <span>Continue with Google</span>
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-8 rounded-2xl bg-slate-900 border border-slate-800 space-y-5 shadow-2xl">
@@ -289,16 +276,11 @@ export const RegisterPage: React.FC = () => {
                     onChange={(e) => setProfession(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none appearance-none"
                   >
-                    <option value="Software Engineer">Software Engineer</option>
-                    <option value="Data Scientist">Data Scientist</option>
-                    <option value="Cybersecurity">Cybersecurity Professional</option>
-                    <option value="UI/UX Designer">UI/UX Designer</option>
-                    <option value="Architect">Architect</option>
-                    <option value="Medical Professional">Medical Professional</option>
-                    <option value="Legal Professional">Lawyer / Legal</option>
-                    <option value="Finance Professional">Finance & Accounting</option>
-                    <option value="Marketing Professional">Marketing Professional</option>
-                    <option value="Freelancer">Freelancer / Consultant</option>
+                    {AVAILABLE_PROFESSIONS.map((prof) => (
+                      <option key={prof} value={prof}>
+                        {prof}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

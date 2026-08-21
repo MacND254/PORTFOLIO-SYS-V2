@@ -3,6 +3,29 @@ export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 export type CVStatus = 'UPLOADED' | 'PROCESSING' | 'ANALYZED' | 'REVIEW_REQUIRED' | 'IMPORTED' | 'FAILED';
 export type PublishStatus = 'DRAFT' | 'PUBLISHED' | 'UNPUBLISHED' | 'SUSPENDED';
 
+export const AVAILABLE_PROFESSIONS = [
+  'Software Engineer',
+  'Data Scientist',
+  'Cybersecurity Professional',
+  'Network Engineer',
+  'DevOps & Cloud Engineer',
+  'UI/UX Designer',
+  'Graphic Designer',
+  'Architect',
+  'Civil Engineer',
+  'Electrical Engineer',
+  'Mechanical Engineer',
+  'Medical Professional',
+  'Lawyer / Legal Professional',
+  'Accountant / Finance Professional',
+  'Marketing Professional',
+  'Photographer',
+  'Teacher / Educator',
+  'Researcher / Academic',
+  'Freelancer / Consultant',
+  'Creative Professional',
+] as const;
+
 export interface User {
   id: string;
   fullName: string;
@@ -11,6 +34,46 @@ export interface User {
   status: UserStatus;
   subdomain?: string;
   desiredProfession?: string;
+}
+
+export type DocumentType =
+  | 'GOVERNMENT_ID'
+  | 'KRA_PIN'
+  | 'GOOD_CONDUCT'
+  | 'SHA_CARD'
+  | 'NSSF_CARD'
+  | 'OTHER';
+
+export const VERIFIED_DOCUMENT_TYPES: { type: DocumentType; label: string }[] = [
+  { type: 'GOVERNMENT_ID', label: 'Government ID / Passport' },
+  { type: 'KRA_PIN', label: 'KRA PIN Certificate' },
+  { type: 'GOOD_CONDUCT', label: 'Certificate of Good Conduct' },
+  { type: 'SHA_CARD', label: 'SHA Card' },
+  { type: 'NSSF_CARD', label: 'NSSF Card' },
+  { type: 'OTHER', label: 'Other Verified Credential' },
+];
+
+export interface VerifiedDocument {
+  id: string;
+  profileId?: string;
+  documentType: DocumentType | string;
+  title: string;
+  documentNumber?: string;
+  fileUrl?: string;
+  fileSize?: number;
+  mimeType?: string;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+export interface DocumentAccessKey {
+  id: string;
+  code: string;
+  recipientName?: string;
+  expiresAt: string;
+  isUsed: boolean;
+  usedAt?: string;
+  createdAt: string;
 }
 
 export interface Profile {
@@ -53,6 +116,8 @@ export interface Profile {
   references?: Reference[];
   memberships?: Membership[];
   customSections?: CustomSection[];
+  verifiedDocuments?: VerifiedDocument[];
+  documentAccessKeys?: DocumentAccessKey[];
   customization?: PortfolioCustomization;
   portfolioStatus?: { isPublished: boolean; publishStatus: PublishStatus };
   reviews?: Review[];
