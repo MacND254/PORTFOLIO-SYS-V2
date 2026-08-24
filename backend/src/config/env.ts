@@ -7,6 +7,44 @@ dotenv.config(); // Fallback to current directory .env
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// JWT secrets are security-critical and must be explicitly provided in any
+// non-development environment. Silently falling back to hardcoded defaults
+// can cause tokens signed by one process/deploy to fail verification on
+// another if the environment variables are inconsistently applied (e.g. a
+// secret is configured in Railway but never actually injected into the
+// running container). Fail fast instead of masking the misconfiguration.
+function requireSecret(name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', devFallback: string): string {
+  const value = process.env[name];
+  if (value && value.trim().length > 0) {
+    return value;
+  }
+
+  if (NODE_ENV === 'production') {
+    throw new Error(
+      `Missing required environment variable "${name}". Set it in your Railway service ` +
+        'variables (Backend service) so tokens are signed and verified with a stable secret.'
+    );
+  }
+
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[config] "${name}" is not set. Falling back to an insecure development default. ` +
+      'This must never happen in production.'
+  );
+  return devFallback;
+}
+
+const JWT_SECRET = requireSecret(
+  'JWT_SECRET',
+  'super_secret_jwt_key_minimum_32_characters_long_for_security!'
+);
+const JWT_REFRESH_SECRET = requireSecret(
+  'JWT_REFRESH_SECRET',
+  'super_secret_jwt_refresh_key_minimum_32_characters!'
+);
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '5000', 10),
@@ -16,8 +54,8 @@ export const config = {
   frontendUrl: FRONTEND_URL,
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
-  jwtSecret: process.env.JWT_SECRET || 'super_secret_jwt_key_minimum_32_characters_long_for_security!',
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'super_secret_jwt_refresh_key_minimum_32_characters!',
+  jwtSecret: JWT_SECRET,
+  jwtRefreshSecret: JWT_REFRESH_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   sessionSecret: process.env.SESSION_SECRET || 'portfolio_session_secret_key_2024!',
