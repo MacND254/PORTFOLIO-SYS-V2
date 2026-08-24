@@ -32,6 +32,7 @@ declare global {
       user?: User;
       tenantSubdomain?: string;
       tenantUserId?: string;
+      cookies?: Record<string, string>;
     }
   }
 }

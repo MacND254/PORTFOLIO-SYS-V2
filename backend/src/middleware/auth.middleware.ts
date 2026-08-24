@@ -4,7 +4,7 @@ import { config } from '../config/env';
 import { prisma } from '../database/client';
 import { UnauthorizedError, ForbiddenError } from '../utils/errors';
 import { Role } from '@prisma/client';
-import type { AuthenticatedUser } from '../types/express.d';
+import type { AuthenticatedUser } from '../types/express';
 
 export type { AuthenticatedUser };
 
