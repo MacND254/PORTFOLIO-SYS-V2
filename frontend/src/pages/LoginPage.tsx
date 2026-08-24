@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck, Sparkles } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, UserCheck, Sparkles } from 'lucide-react';
 import { AuthContainer } from '../components/auth/AuthContainer';
 
 export const LoginPage: React.FC = () => {
@@ -158,10 +158,9 @@ export const LoginPage: React.FC = () => {
             variant="primary"
             size="md"
             isLoading={isLoading}
-            className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20 gap-2"
+            className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20"
           >
-            <span>Sign In to Dashboard</span>
-            <ArrowRight className="w-4 h-4" />
+            Sign In to Dashboard
           </Button>
 
           {/* Link to Register */}
