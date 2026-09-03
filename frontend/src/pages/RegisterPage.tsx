@@ -332,10 +332,9 @@ export const RegisterPage: React.FC = () => {
               size="md"
               isLoading={isLoading}
               disabled={!isRegistrationAllowed}
-              className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20 gap-2 mt-1"
+              className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20 mt-1"
             >
               <span>Create Account &amp; Subdomain</span>
-              <ArrowRight className="w-4 h-4" />
             </Button>
 
             {/* Switch to Sign In */}

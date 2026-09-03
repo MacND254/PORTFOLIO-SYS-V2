@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { config } from '../config/env';
+import { logger } from '../config/logger';
 import { configurePassport } from '../config/passport';
 import { AuthService } from '../services/auth.service';
 import { sendSuccess } from '../utils/apiResponse';
@@ -45,7 +46,9 @@ export class OAuthController {
     }
     passport.authenticate('google', { session: false, failureRedirect: `${config.frontendUrl}/register?error=google_auth_failed` }, async (err: any, oauthUser: any) => {
       if (err || !oauthUser) {
-        return res.redirect(`${config.frontendUrl}/register?error=google_auth_failed`);
+        logger.error(`Google OAuth authentication failed: ${err?.message || JSON.stringify(err) || 'No user returned'}`);
+        const errParam = err?.message ? encodeURIComponent(err.message) : 'google_auth_failed';
+        return res.redirect(`${config.frontendUrl}/register?error=${errParam}`);
       }
       await OAuthController._handleOAuthCallback(oauthUser, req, res);
     })(req, res, next);

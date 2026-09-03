@@ -15,6 +15,9 @@ import swaggerDocument from './swagger.json';
 
 const app = express();
 
+// Trust reverse proxy (Railway, Render, Nginx, Cloudflare) for SSL termination and secure cookies
+app.set('trust proxy', 1);
+
 // Security Headers
 app.use(
   helmet({
