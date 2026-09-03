@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
 import session from 'express-session';
+import connectRedis from 'connect-redis';
+import { createClient } from 'ioredis';
 import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
 import { config } from './config/env';
@@ -57,13 +59,34 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// ── Redis-backed Session Store ───────────────────────────────────────────────
+// Required for Passport OAuth state to survive across replicas and restarts.
+// Falls back gracefully to MemoryStore in environments where Redis is unavailable.
+let sessionStore: session.Store | undefined = undefined;
+
+try {
+  const RedisStore = connectRedis(session);
+  const redisClient = new createClient(config.redisUrl);
+  redisClient.on('error', (err) => logger.warn(`Redis session store error: ${err.message}. OAuth may be unstable.`));
+  sessionStore = new RedisStore({ client: redisClient as any, prefix: 'sess:' });
+  logger.info('OAuth session store: Redis');
+} catch (err: any) {
+  logger.warn(`Could not connect Redis session store: ${err.message}. Using MemoryStore (not suitable for production).`);
+}
+
 // Session middleware (required by Passport for OAuth state parameter)
 app.use(
   session({
+    store: sessionStore,
     secret: config.sessionSecret,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: config.env === 'production', maxAge: 10 * 60 * 1000 }, // 10 min
+    cookie: {
+      secure: config.env === 'production', // HTTPS only in production
+      httpOnly: true,
+      sameSite: config.env === 'production' ? 'none' : 'lax', // 'none' needed for cross-site OAuth redirects
+      maxAge: 10 * 60 * 1000, // 10 minutes
+    },
   })
 );
 
