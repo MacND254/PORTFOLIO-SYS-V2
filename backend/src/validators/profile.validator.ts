@@ -3,13 +3,14 @@ import { z } from 'zod';
 export const experienceSchema = z.object({
   company: z.string().min(1, 'Company name is required'),
   position: z.string().min(1, 'Position title is required'),
-  location: z.string().optional(),
+  location: z.string().optional().nullable(),
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().optional().nullable(),
   isCurrent: z.boolean().optional(),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   responsibilities: z.array(z.string()).optional(),
   achievements: z.array(z.string()).optional(),
+  orderIndex: z.number().int().optional(),
 });
 
 export const educationSchema = z.object({
@@ -52,3 +53,15 @@ export const certificationSchema = z.object({
   credentialUrl: z.string().optional(),
   certificateUrl: z.string().optional().nullable(),
 });
+
+export const referenceSchema = z.object({
+  name: z.string().min(1, 'Referee name is required'),
+  position: z.string().min(1, 'Position is required'),
+  organization: z.string().min(1, 'Organization is required'),
+  email: z.string().email().optional().or(z.literal('')).nullable(),
+  phone: z.string().optional().nullable(),
+  relationship: z.string().optional().nullable(),
+  isPublic: z.boolean().optional(),
+  orderIndex: z.number().int().optional(),
+});
+

@@ -183,25 +183,14 @@ export const SystemSettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 2. AI Integration & Storage Caps ── */}
+      {/* ── 2. Storage Caps ── */}
       <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6">
         <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
           <Key className="w-4 h-4 text-indigo-400" />
-          <span>AI Engine & Storage Thresholds</span>
+          <span>Storage Thresholds</span>
         </h3>
 
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300">OpenAI API Key (AI CV Parser)</label>
-            <input
-              type="password"
-              value={settings.OPENAI_API_KEY || ''}
-              onChange={(e) => handleChange('OPENAI_API_KEY', e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:border-indigo-500 focus:outline-none"
-              placeholder="sk-proj-..."
-            />
-          </div>
-
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-300">Max CV File Upload Size (MB)</label>
             <input

@@ -35,6 +35,78 @@ export const PublicPortfolioPage: React.FC = () => {
     fetchPublicPortfolio();
   }, [activeSubdomain]);
 
+  // Dynamically inject custom favicon, PWA manifest, and external analytics scripts
+  useEffect(() => {
+    if (!portfolioData) return;
+
+    const customization = portfolioData.profile?.customization;
+    const faviconUrl = customization?.faviconUrl;
+    const analyticsConfig = customization?.analyticsConfig;
+
+    // 1. Dynamic Favicon injection
+    let linkIcon: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+    const originalFaviconHref = linkIcon ? linkIcon.href : '/favicon.ico';
+    if (faviconUrl) {
+      if (!linkIcon) {
+        linkIcon = document.createElement('link');
+        linkIcon.rel = 'icon';
+        document.head.appendChild(linkIcon);
+      }
+      linkIcon.href = faviconUrl;
+    }
+
+    // 2. Dynamic PWA Web App Manifest injection
+    let manifestLink: HTMLLinkElement | null = document.querySelector("link[rel='manifest']");
+    if (!manifestLink) {
+      manifestLink = document.createElement('link');
+      manifestLink.rel = 'manifest';
+      document.head.appendChild(manifestLink);
+    }
+    manifestLink.href = `/api/portfolio/public/${activeSubdomain}/manifest.json`;
+
+    // 3. Dynamic Google Analytics 4 (gtag.js)
+    if (analyticsConfig?.googleAnalyticsId && analyticsConfig.googleAnalyticsId.trim()) {
+      const gaId = analyticsConfig.googleAnalyticsId.trim();
+      if (!document.getElementById('ga-script')) {
+        const script1 = document.createElement('script');
+        script1.id = 'ga-script';
+        script1.async = true;
+        script1.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+        document.head.appendChild(script1);
+
+        const script2 = document.createElement('script');
+        script2.id = 'ga-init';
+        script2.innerHTML = `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${gaId}');
+        `;
+        document.head.appendChild(script2);
+      }
+    }
+
+    // 4. Dynamic Plausible Analytics
+    if (analyticsConfig?.plausibleDomain && analyticsConfig.plausibleDomain.trim()) {
+      const pDomain = analyticsConfig.plausibleDomain.trim();
+      if (!document.getElementById('plausible-script')) {
+        const script = document.createElement('script');
+        script.id = 'plausible-script';
+        script.defer = true;
+        script.setAttribute('data-domain', pDomain);
+        script.src = 'https://plausible.io/js/script.js';
+        document.head.appendChild(script);
+      }
+    }
+
+    return () => {
+      // Revert favicon on page leave
+      if (linkIcon && originalFaviconHref) {
+        linkIcon.href = originalFaviconHref;
+      }
+    };
+  }, [portfolioData, activeSubdomain]);
+
   const fetchPublicPortfolio = async () => {
     setIsLoading(true);
     setError('');
@@ -59,6 +131,14 @@ export const PublicPortfolioPage: React.FC = () => {
     if (isDownloadingResume) return;
     setIsDownloadingResume(true);
     setResumeDownloadError('');
+
+    // Native tracking: record DOWNLOAD_RESUME event asynchronously
+    api.post('/analytics/track', {
+      subdomain: activeSubdomain,
+      eventType: 'DOWNLOAD_RESUME',
+      path: window.location.pathname,
+    }).catch(() => {});
+
     try {
       const response: any = await api.get(`/portfolio/pdf?subdomain=${activeSubdomain}&template=${templateStyle}`, {
         responseType: 'blob',

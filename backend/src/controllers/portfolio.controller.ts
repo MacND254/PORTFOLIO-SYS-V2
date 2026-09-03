@@ -175,5 +175,40 @@ export class PortfolioController {
       next(error);
     }
   }
+
+  public static async getSitemap(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { SeoService } = await import('../services/seo.service');
+      const xml = await SeoService.generateSitemapXml();
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      return res.send(xml);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async getRobots(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { SeoService } = await import('../services/seo.service');
+      const subdomain = req.tenantSubdomain || (req.params.subdomain as string);
+      const txt = SeoService.generateRobotsTxt(subdomain);
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      return res.send(txt);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async getManifest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { SeoService } = await import('../services/seo.service');
+      const subdomain = req.tenantSubdomain || (req.params.subdomain as string);
+      const manifest = await SeoService.generateManifestJson(subdomain);
+      res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+      return res.json(manifest);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 

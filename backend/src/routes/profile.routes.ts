@@ -56,6 +56,7 @@ router.delete('/languages/:id', ProfileController.deleteLanguage);
 
 // References
 router.post('/references', ProfileController.addReference);
+router.put('/references/:id', ProfileController.updateReference);
 router.delete('/references/:id', ProfileController.deleteReference);
 
 // Custom Sections

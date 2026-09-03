@@ -160,6 +160,9 @@ export class PortfolioService {
 
     const sectionOrder = Array.isArray(customizationData?.sectionOrder) ? customizationData.sectionOrder : undefined;
     const sectionVisibility = typeof customizationData?.sectionVisibility === 'object' ? customizationData.sectionVisibility : undefined;
+    const faviconUrl = customizationData?.faviconUrl !== undefined ? customizationData.faviconUrl : undefined;
+    const pwaManifest = customizationData?.pwaManifest !== undefined ? customizationData.pwaManifest : undefined;
+    const analyticsConfig = customizationData?.analyticsConfig !== undefined ? customizationData.analyticsConfig : undefined;
 
     const updated = await prisma.portfolioCustomization.upsert({
       where: { profileId: profile.id },
@@ -170,6 +173,9 @@ export class PortfolioService {
         colorPalette: updatedPalette,
         ...(sectionOrder !== undefined ? { sectionOrder } : {}),
         ...(sectionVisibility !== undefined ? { sectionVisibility } : {}),
+        ...(faviconUrl !== undefined ? { faviconUrl } : {}),
+        ...(pwaManifest !== undefined ? { pwaManifest } : {}),
+        ...(analyticsConfig !== undefined ? { analyticsConfig } : {}),
       },
       create: {
         profileId: profile.id,
@@ -179,6 +185,9 @@ export class PortfolioService {
         colorPalette: updatedPalette,
         ...(sectionOrder !== undefined ? { sectionOrder } : {}),
         ...(sectionVisibility !== undefined ? { sectionVisibility } : {}),
+        faviconUrl: faviconUrl || null,
+        pwaManifest: pwaManifest || null,
+        analyticsConfig: analyticsConfig || null,
       },
     });
 

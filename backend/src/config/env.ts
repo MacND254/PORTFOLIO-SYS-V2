@@ -24,8 +24,13 @@ export const config = {
   storageProvider: process.env.STORAGE_PROVIDER || 'local',
   storagePath: path.resolve(process.cwd(), process.env.STORAGE_PATH || './uploads'),
   maxCvSize: parseInt(process.env.MAX_CV_SIZE || '10485760', 10),
-  aiProvider: process.env.AI_PROVIDER || 'mock',
-  aiApiKey: process.env.AI_API_KEY || '',
+  extractionEngine: (process.env.EXTRACTION_ENGINE || 'gemini') as 'gemini' | 'heuristic',
+  aiProvider: process.env.AI_PROVIDER || (process.env.GEMINI_API_KEY || (process.env.AI_API_KEY && (process.env.AI_API_KEY.startsWith('AIza') || process.env.AI_API_KEY.startsWith('AQ.'))) ? 'gemini' : (process.env.AI_API_KEY ? 'openai' : 'mock')),
+  aiApiKey: process.env.AI_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '',
+  geminiApiKey: process.env.GEMINI_API_KEY || (process.env.AI_API_KEY && (process.env.AI_API_KEY.startsWith('AIza') || process.env.AI_API_KEY.startsWith('AQ.')) ? process.env.AI_API_KEY : ''),
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+  openaiApiKey: process.env.OPENAI_API_KEY || (process.env.AI_API_KEY && !process.env.AI_API_KEY.startsWith('AIza') && !process.env.AI_API_KEY.startsWith('AQ.') ? process.env.AI_API_KEY : ''),
+  aiModel: process.env.AI_MODEL || (process.env.GEMINI_API_KEY || (process.env.AI_API_KEY && (process.env.AI_API_KEY.startsWith('AIza') || process.env.AI_API_KEY.startsWith('AQ.'))) ? 'gemini-3.6-flash' : 'gpt-4o-mini'),
   oauth: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID || '',

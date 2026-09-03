@@ -32,6 +32,7 @@ import {
   Upload,
   Clock,
   User,
+  Users,
   AlertTriangle,
   RotateCcw,
 } from "lucide-react";
@@ -50,6 +51,7 @@ export const ProfileEditorPage: React.FC = () => {
     | "skills"
     | "projects"
     | "certifications"
+    | "references"
     | "verified-docs"
   >("general");
 
@@ -74,7 +76,7 @@ export const ProfileEditorPage: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // AI CV Auto-Fill Modal State
+  // OCR CV scan and profile import state
   const [isAiCvModalOpen, setIsAiCvModalOpen] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [isCvScanning, setIsCvScanning] = useState(false);
@@ -86,20 +88,16 @@ export const ProfileEditorPage: React.FC = () => {
     experience: true,
     education: true,
     skills: true,
-    projects: true,
     certifications: true,
+    languages: true,
+    references: true,
   });
   const [cvActivePreviewTab, setCvActivePreviewTab] = useState<string>('general');
   const [isApplyingCv, setIsApplyingCv] = useState(false);
   const [cvApplyMessage, setCvApplyMessage] = useState('');
   const [cvScanError, setCvScanError] = useState('');
+  const [isCvResetting, setIsCvResetting] = useState(false);
   const cvFileInputRef = useRef<HTMLInputElement>(null);
-
-  // In-Tab AI States
-  const [isEnhancingSummary, setIsEnhancingSummary] = useState(false);
-  const [suggestedSkills, setSuggestedSkills] = useState<any[]>([]);
-  const [isSuggestingSkills, setIsSuggestingSkills] = useState(false);
-  const [isPolishingBullet, setIsPolishingBullet] = useState(false);
 
   // Reset Profile State
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -109,6 +107,8 @@ export const ProfileEditorPage: React.FC = () => {
   // New Item Modals
   const [isExpModalOpen, setIsExpModalOpen] = useState(false);
   const [editingExpId, setEditingExpId] = useState<string | null>(null);
+  const [isSavingExp, setIsSavingExp] = useState(false);
+  const [expError, setExpError] = useState('');
   const [newExp, setNewExp] = useState({
     company: "",
     position: "",
@@ -132,10 +132,9 @@ export const ProfileEditorPage: React.FC = () => {
   });
 
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
-  const [newSkill, setNewSkill] = useState({
+  const [newSkill, setNewSkill] = useState<{ name: string; category: 'Technical' | 'Soft' }>({
     name: "",
     category: "Technical",
-    proficiency: 90,
   });
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -161,6 +160,21 @@ export const ProfileEditorPage: React.FC = () => {
     credentialUrl: "",
     certificateUrl: "",
   });
+
+  // References State
+  const [isRefModalOpen, setIsRefModalOpen] = useState(false);
+  const [editingRefId, setEditingRefId] = useState<string | null>(null);
+  const [refForm, setRefForm] = useState({
+    name: "",
+    position: "",
+    organization: "",
+    email: "",
+    phone: "",
+    relationship: "",
+    isPublic: false,
+  });
+  const [isSavingRef, setIsSavingRef] = useState(false);
+  const [refError, setRefError] = useState("");
 
   useEffect(() => {
     fetchProfile();
@@ -207,13 +221,10 @@ export const ProfileEditorPage: React.FC = () => {
     setSaveSuccess(false);
     setSaveError('');
     try {
-      // api interceptor returns response.data (the envelope):
-      // { success: true, message: '...', data: <full profile object> }
       const envelope: any = await api.put('/profile', generalState);
       const updated = envelope?.data ?? envelope;
       if (updated && typeof updated === 'object') {
         setProfile(updated);
-        // Sync image URLs back in case they were updated server-side
         setGeneralState((prev: any) => ({
           ...prev,
           avatarUrl: updated.avatarUrl ?? prev.avatarUrl,
@@ -232,6 +243,7 @@ export const ProfileEditorPage: React.FC = () => {
 
   const handleOpenNewExp = () => {
     setEditingExpId(null);
+    setExpError('');
     setNewExp({
       company: "",
       position: "",
@@ -246,25 +258,47 @@ export const ProfileEditorPage: React.FC = () => {
 
   const handleOpenEditExp = (exp: any) => {
     setEditingExpId(exp.id);
+    setExpError('');
+    const descriptionText = exp.description || (Array.isArray(exp.responsibilities) && exp.responsibilities.length > 0 ? exp.responsibilities.join('\n') : "");
     setNewExp({
       company: exp.company || "",
       position: exp.position || "",
       location: exp.location || "",
       startDate: exp.startDate || "",
-      endDate: exp.endDate || "",
+      endDate: exp.isCurrent ? "" : (exp.endDate || ""),
       isCurrent: Boolean(exp.isCurrent),
-      description: exp.description || "",
+      description: descriptionText,
     });
     setIsExpModalOpen(true);
   };
 
   const handleSaveExperience = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSavingExp(true);
+    setExpError('');
+
     try {
+      const payload: any = {
+        company: newExp.company.trim(),
+        position: newExp.position.trim(),
+        location: newExp.location?.trim() || null,
+        startDate: newExp.startDate.trim(),
+        endDate: newExp.isCurrent ? null : (newExp.endDate?.trim() || null),
+        isCurrent: Boolean(newExp.isCurrent),
+        description: newExp.description?.trim() || null,
+      };
+
+      if (newExp.description) {
+        const lines = newExp.description.split('\n').map((l: string) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+        if (lines.length > 1) {
+          payload.responsibilities = lines;
+        }
+      }
+
       if (editingExpId) {
-        await api.put(`/profile/experiences/${editingExpId}`, newExp);
+        await api.put(`/profile/experiences/${editingExpId}`, payload);
       } else {
-        await api.post("/profile/experiences", newExp);
+        await api.post("/profile/experiences", payload);
       }
       setIsExpModalOpen(false);
       setEditingExpId(null);
@@ -277,71 +311,12 @@ export const ProfileEditorPage: React.FC = () => {
         isCurrent: false,
         description: "",
       });
-      fetchProfile();
-    } catch (e) {
+      await fetchProfile();
+    } catch (e: any) {
       console.error(e);
-    }
-  };
-
-  const handlePolishExpDescription = async () => {
-    if (!newExp.description) return;
-    setIsPolishingBullet(true);
-    try {
-      const res: any = await api.post('/cv/ai/rewrite-bullet', { bullet: newExp.description });
-      if (res?.data?.rewrittenBullet) {
-        setNewExp((prev) => ({ ...prev, description: res.data.rewrittenBullet }));
-      }
-    } catch (e) {
-      console.error(e);
+      setExpError(e?.message || 'Failed to save experience.');
     } finally {
-      setIsPolishingBullet(false);
-    }
-  };
-
-  const handleEnhanceSummary = async () => {
-    if (!generalState.summary) return;
-    setIsEnhancingSummary(true);
-    try {
-      const res: any = await api.post('/cv/ai/enhance-summary', {
-        summary: generalState.summary,
-        profession: generalState.title || profile?.title || 'Software Engineer',
-      });
-      if (res?.data?.enhancedSummary) {
-        setGeneralState((prev: any) => ({ ...prev, summary: res.data.enhancedSummary }));
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsEnhancingSummary(false);
-    }
-  };
-
-  const handleSuggestSkills = async () => {
-    setIsSuggestingSkills(true);
-    try {
-      const profession = generalState.title || profile?.title || 'Software Engineer';
-      const res: any = await api.post('/cv/ai/suggest-skills', { profession });
-      if (Array.isArray(res?.data?.suggestedSkills)) {
-        setSuggestedSkills(res.data.suggestedSkills);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSuggestingSkills(false);
-    }
-  };
-
-  const handleAddSuggestedSkill = async (skill: any) => {
-    try {
-      await api.post('/profile/skills', {
-        name: typeof skill === 'string' ? skill : skill.name,
-        category: typeof skill === 'object' && skill.category ? skill.category : 'Technical',
-        proficiency: typeof skill === 'object' && skill.proficiency ? skill.proficiency : 90,
-      });
-      setSuggestedSkills((prev) => prev.filter((s) => (typeof s === 'string' ? s : s.name) !== (typeof skill === 'string' ? skill : skill.name)));
-      fetchProfile();
-    } catch (e) {
-      console.error(e);
+      setIsSavingExp(false);
     }
   };
 
@@ -436,6 +411,22 @@ export const ProfileEditorPage: React.FC = () => {
     }
   };
 
+  const handleResetCvScanner = async () => {
+    setIsCvResetting(true);
+    setCvScanError('');
+    setCvApplyMessage('');
+    try {
+      await api.delete('/cv/extraction');
+    } catch {
+      // Ignore if no saved extraction
+    } finally {
+      setCvFile(null);
+      setExtractedCv(null);
+      setIsCvResetting(false);
+      if (cvFileInputRef.current) cvFileInputRef.current.value = '';
+    }
+  };
+
   const handleResetProfile = async () => {
     setIsResetting(true);
     try {
@@ -443,31 +434,29 @@ export const ProfileEditorPage: React.FC = () => {
       const updated = res?.data ?? res;
       if (updated && typeof updated === 'object') {
         setProfile(updated);
-        setGeneralState({
-          title: '',
-          headline: '',
-          summary: '',
-          careerObjective: '',
-          bio: '',
-          contactEmail: '',
-          phone: '',
-          location: '',
-          address: '',
-          website: '',
-          linkedin: '',
-          github: '',
-          twitter: '',
-          behance: '',
-          dribbble: '',
-          facebook: '',
-          instagram: '',
-          youtube: '',
-          avatarUrl: '',
-          coverUrl: '',
-        });
-      } else {
-        await fetchProfile();
       }
+      setGeneralState({
+        title: '',
+        headline: '',
+        summary: '',
+        careerObjective: '',
+        bio: '',
+        contactEmail: '',
+        phone: '',
+        location: '',
+        address: '',
+        website: '',
+        linkedin: '',
+        github: '',
+        twitter: '',
+        behance: '',
+        dribbble: '',
+        facebook: '',
+        instagram: '',
+        youtube: '',
+        avatarUrl: '',
+        coverUrl: '',
+      });
       setIsResetModalOpen(false);
       setResetSuccess(true);
       setTimeout(() => setResetSuccess(false), 3500);
@@ -484,6 +473,87 @@ export const ProfileEditorPage: React.FC = () => {
       fetchProfile();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleDeleteCertification = async (id: string) => {
+    try {
+      await api.delete(`/profile/certifications/${id}`);
+      fetchProfile();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOpenNewRef = () => {
+    setEditingRefId(null);
+    setRefForm({
+      name: "",
+      position: "",
+      organization: "",
+      email: "",
+      phone: "",
+      relationship: "",
+      isPublic: false,
+    });
+    setRefError("");
+    setIsRefModalOpen(true);
+  };
+
+  const handleOpenEditRef = (refItem: any) => {
+    setEditingRefId(refItem.id);
+    setRefForm({
+      name: refItem.name || "",
+      position: refItem.position || "",
+      organization: refItem.organization || "",
+      email: refItem.email || "",
+      phone: refItem.phone || "",
+      relationship: refItem.relationship || "",
+      isPublic: Boolean(refItem.isPublic),
+    });
+    setRefError("");
+    setIsRefModalOpen(true);
+  };
+
+  const handleSaveReference = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingRef(true);
+    setRefError("");
+
+    try {
+      const payload = {
+        name: refForm.name.trim(),
+        position: refForm.position.trim(),
+        organization: refForm.organization.trim(),
+        email: refForm.email.trim() || null,
+        phone: refForm.phone.trim() || null,
+        relationship: refForm.relationship.trim() || null,
+        isPublic: refForm.isPublic,
+      };
+
+      if (editingRefId) {
+        await api.put(`/profile/references/${editingRefId}`, payload);
+      } else {
+        await api.post("/profile/references", payload);
+      }
+
+      setIsRefModalOpen(false);
+      await fetchProfile();
+    } catch (err: any) {
+      console.error("Failed to save reference:", err);
+      setRefError(err?.message || "Failed to save referee.");
+    } finally {
+      setIsSavingRef(false);
+    }
+  };
+
+  const handleDeleteReference = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this referee?")) return;
+    try {
+      await api.delete(`/profile/references/${id}`);
+      await fetchProfile();
+    } catch (e) {
+      console.error("Failed to delete referee:", e);
     }
   };
 
@@ -541,9 +611,14 @@ export const ProfileEditorPage: React.FC = () => {
 
   const handleAddSkill = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newSkill.name.trim()) return;
     try {
-      await api.post("/profile/skills", newSkill);
+      await api.post("/profile/skills", {
+        name: newSkill.name.trim(),
+        category: newSkill.category || 'Technical',
+      });
       setIsSkillModalOpen(false);
+      setNewSkill({ name: "", category: "Technical" });
       fetchProfile();
     } catch (e) {
       console.error(e);
@@ -662,15 +737,6 @@ export const ProfileEditorPage: React.FC = () => {
     }
   };
 
-  const handleDeleteCertification = async (id: string) => {
-    try {
-      await api.delete(`/profile/certifications/${id}`);
-      fetchProfile();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const handleUploadVerifiedDoc = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!docFile) {
@@ -775,7 +841,7 @@ export const ProfileEditorPage: React.FC = () => {
             className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 shadow-lg shadow-indigo-500/25 border-0 text-white font-bold"
             leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
           >
-            AI CV Auto-Fill
+            Scan CV with OCR
           </Button>
         </div>
       </div>
@@ -790,12 +856,16 @@ export const ProfileEditorPage: React.FC = () => {
       {/* Tabs */}
       <div className="flex border-b border-slate-800 gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-slate-400 overflow-x-auto no-scrollbar scroll-smooth">
         <button onClick={() => setActiveTab("general")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "general" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>General Bio</button>
-        <button onClick={() => setActiveTab("contacts")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "contacts" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Contact & Social</button>
+        <button onClick={() => setActiveTab("contacts")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "contacts" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Contact &amp; Social</button>
         <button onClick={() => setActiveTab("experience")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "experience" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Work Experience ({profile?.experiences?.length || 0})</button>
         <button onClick={() => setActiveTab("education")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "education" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Education ({profile?.educations?.length || 0})</button>
         <button onClick={() => setActiveTab("skills")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "skills" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Skills ({profile?.skills?.length || 0})</button>
         <button onClick={() => setActiveTab("projects")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "projects" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Projects ({profile?.projects?.length || 0})</button>
         <button onClick={() => setActiveTab("certifications")} className={`pb-3 border-b-2 transition whitespace-nowrap ${activeTab === "certifications" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>Certifications ({profile?.certifications?.length || 0})</button>
+        <button onClick={() => setActiveTab("references")} className={`pb-3 border-b-2 transition whitespace-nowrap flex items-center gap-1.5 ${activeTab === "references" ? "border-indigo-500 text-white" : "border-transparent hover:text-white"}`}>
+          <Users className="w-3.5 h-3.5 text-indigo-400" />
+          Referees ({profile?.references?.length || 0})
+        </button>
         <button onClick={() => setActiveTab("verified-docs")} className={`pb-3 border-b-2 transition whitespace-nowrap flex items-center gap-1.5 ${activeTab === "verified-docs" ? "border-emerald-500 text-emerald-400" : "border-transparent hover:text-white"}`}>
           <ShieldCheck className="w-3.5 h-3.5" />
           Verified Docs ({profile?.verifiedDocuments?.length || 0})
@@ -866,15 +936,6 @@ export const ProfileEditorPage: React.FC = () => {
               <label className="text-xs font-semibold text-slate-300">
                 Summary
               </label>
-              <button
-                type="button"
-                onClick={handleEnhanceSummary}
-                disabled={isEnhancingSummary || !generalState.summary}
-                className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 disabled:opacity-50"
-              >
-                <Sparkles className="w-3 h-3 text-indigo-400" />
-                <span>{isEnhancingSummary ? 'Enhancing with AI...' : 'AI Enhance Summary'}</span>
-              </button>
             </div>
             <textarea
               rows={4}
@@ -970,7 +1031,7 @@ export const ProfileEditorPage: React.FC = () => {
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Portfolio Message Forwarding & Email</h3>
+                <h3 className="text-base font-bold text-white">Portfolio Message Forwarding &amp; Email</h3>
                 <p className="text-xs text-slate-400">
                   Configure where visitor inquiries submitted through your portfolio's contact form will be emailed.
                 </p>
@@ -1010,7 +1071,7 @@ export const ProfileEditorPage: React.FC = () => {
                 />
                 <label htmlFor="isPublicEmail" className="text-xs text-slate-300 font-medium cursor-pointer flex items-center gap-2">
                   <Eye className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Display contact email address publicly on portfolio footer & contact section</span>
+                  <span>Display contact email address publicly on portfolio footer &amp; contact section</span>
                 </label>
               </div>
             </div>
@@ -1023,7 +1084,7 @@ export const ProfileEditorPage: React.FC = () => {
                 <Phone className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Phone & Location Details</h3>
+                <h3 className="text-base font-bold text-white">Phone &amp; Location Details</h3>
                 <p className="text-xs text-slate-400">Manage phone number, city, and physical work location.</p>
               </div>
             </div>
@@ -1105,8 +1166,8 @@ export const ProfileEditorPage: React.FC = () => {
                   <Share2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Social Media & Portfolio Links</h3>
-                  <p className="text-xs text-slate-400">Connect your public developer & professional profiles.</p>
+                  <h3 className="text-base font-bold text-white">Social Media &amp; Portfolio Links</h3>
+                  <p className="text-xs text-slate-400">Connect your public developer &amp; professional profiles.</p>
                 </div>
               </div>
 
@@ -1284,6 +1345,41 @@ export const ProfileEditorPage: React.FC = () => {
           </div>
 
           <div className="space-y-4">
+            {(!profile?.experiences || profile.experiences.length === 0) && (
+              <div className="p-8 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+                  <Briefcase className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white">No Experience Entries Yet</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Add your past roles manually or let AI extract them automatically from your CV.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setIsAiCvModalOpen(true);
+                      fetchLatestCvExtraction();
+                    }}
+                    leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+                  >
+                    Auto-Fill from CV
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleOpenNewExp}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Add Experience Manually
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {profile?.experiences?.map((exp: any) => (
               <div
                 key={exp.id}
@@ -1343,6 +1439,41 @@ export const ProfileEditorPage: React.FC = () => {
           </div>
 
           <div className="space-y-4">
+            {(!profile?.educations || profile.educations.length === 0) && (
+              <div className="p-8 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white">No Education Records Yet</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Add your degrees and institutions manually or scan them directly from your resume.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setIsAiCvModalOpen(true);
+                      fetchLatestCvExtraction();
+                    }}
+                    leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+                  >
+                    Auto-Fill from CV
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleOpenNewEdu}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Add Education Manually
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {profile?.educations?.map((edu: any) => (
               <div
                 key={edu.id}
@@ -1387,88 +1518,188 @@ export const ProfileEditorPage: React.FC = () => {
       )}
 
       {/* Skills Tab */}
-      {activeTab === "skills" && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center flex-wrap gap-3">
-            <div>
-              <h3 className="text-lg font-bold text-white">Skills & Competencies</h3>
-              <p className="text-xs text-slate-400">Highlight technical, leadership, and domain capabilities.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleSuggestSkills}
-                isLoading={isSuggestingSkills}
-                leftIcon={<Sparkles className="w-4 h-4 text-indigo-400" />}
-              >
-                AI Suggest Skills
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsSkillModalOpen(true)}
-                leftIcon={<Plus className="w-4 h-4" />}
-              >
-                Add Skill
-              </Button>
-            </div>
-          </div>
+      {activeTab === "skills" && (() => {
+        const technicalSkills = profile?.skills?.filter((s: any) => s.category !== 'Soft') || [];
+        const softSkills = profile?.skills?.filter((s: any) => s.category === 'Soft') || [];
 
-          {/* AI Skill Suggestions Banner */}
-          {suggestedSkills.length > 0 && (
-            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 space-y-2.5 animate-in fade-in">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  AI Suggested Skills for your Profile:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSuggestedSkills([])}
-                  className="text-[11px] text-slate-400 hover:text-white transition"
-                >
-                  Dismiss
-                </button>
+        const openSkillModal = (cat: 'Technical' | 'Soft' = 'Technical') => {
+          setNewSkill({ name: '', category: cat });
+          setIsSkillModalOpen(true);
+        };
+
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-white">Skills &amp; Competencies</h3>
+                <p className="text-xs text-slate-400">Manage technical stack and soft interpersonal capabilities.</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {suggestedSkills.map((s, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleAddSuggestedSkill(s)}
-                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition group"
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openSkillModal('Technical')}
+                  leftIcon={<Plus className="w-4 h-4 text-indigo-400" />}
+                >
+                  Add Technical Skill
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => openSkillModal('Soft')}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Add Soft Skill
+                </Button>
+              </div>
+            </div>
+
+            {(!profile?.skills || profile.skills.length === 0) && (
+              <div className="p-8 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+                  <Code className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white">No Skills Added Yet</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Quickly populate your skillset by scanning your CV or adding skills manually.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setIsAiCvModalOpen(true);
+                      fetchLatestCvExtraction();
+                    }}
+                    leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
                   >
-                    <Plus className="w-3 h-3 text-indigo-400 group-hover:text-white" />
-                    <span>{s.name}</span>
-                    <span className="text-[10px] text-slate-500 group-hover:text-indigo-200">({s.proficiency}%)</span>
+                    Auto-Fill from CV
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => openSkillModal('Technical')}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Add Manually
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Categorized Skills Cards */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Technical Skills Card */}
+              <div className="p-5 rounded-2xl bg-slate-900/90 border border-indigo-500/20 space-y-4 shadow-sm">
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400">
+                      <Code className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>Technical Skills &amp; Stack</span>
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          {technicalSkills.length}
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">Languages, frameworks, databases &amp; dev tools</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openSkillModal('Technical')}
+                    className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition text-xs flex items-center gap-1 font-medium"
+                    title="Add technical skill"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
                   </button>
-                ))}
+                </div>
+
+                {technicalSkills.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic py-3 text-center">No technical skills added yet.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {technicalSkills.map((skill: any) => (
+                      <div
+                        key={skill.id}
+                        className="px-3 py-1.5 rounded-xl bg-slate-950 border border-indigo-500/30 flex items-center gap-2 text-xs font-semibold text-slate-200 group hover:border-indigo-400 transition"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                        <span>{skill.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSkill(skill.id)}
+                          className="text-slate-500 hover:text-red-400 transition ml-1"
+                          title={`Remove ${skill.name}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Soft Skills Card */}
+              <div className="p-5 rounded-2xl bg-slate-900/90 border border-emerald-500/20 space-y-4 shadow-sm">
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>Soft Skills &amp; Interpersonal</span>
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {softSkills.length}
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">Leadership, collaboration, communication &amp; agility</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openSkillModal('Soft')}
+                    className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition text-xs flex items-center gap-1 font-medium"
+                    title="Add soft skill"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
+
+                {softSkills.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic py-3 text-center">No soft skills added yet.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {softSkills.map((skill: any) => (
+                      <div
+                        key={skill.id}
+                        className="px-3 py-1.5 rounded-xl bg-slate-950 border border-emerald-500/30 flex items-center gap-2 text-xs font-semibold text-slate-200 group hover:border-emerald-400 transition"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>{skill.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSkill(skill.id)}
+                          className="text-slate-500 hover:text-red-400 transition ml-1"
+                          title={`Remove ${skill.name}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          )}
-
-          <div className="flex flex-wrap gap-3">
-            {profile?.skills?.map((skill: any) => (
-              <div
-                key={skill.id}
-                className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3 text-sm text-white"
-              >
-                <span>
-                  {skill.name} ({skill.proficiency}%)
-                </span>
-                <button
-                  onClick={() => handleDeleteSkill(skill.id)}
-                  className="text-red-400 hover:text-red-300"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Projects Tab */}
       {activeTab === "projects" && (
@@ -1490,6 +1721,41 @@ export const ProfileEditorPage: React.FC = () => {
               Add New Project
             </Button>
           </div>
+
+          {(!profile?.projects || profile.projects.length === 0) && (
+            <div className="p-8 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+                <Layers className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-white">No Projects Added Yet</p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Showcase your key projects, code repositories, and demo applications.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setIsAiCvModalOpen(true);
+                    fetchLatestCvExtraction();
+                  }}
+                  leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+                >
+                  Auto-Fill from CV
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleOpenNewProject}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Add Project Manually
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {profile?.projects?.map((proj: any) => (
@@ -1603,6 +1869,41 @@ export const ProfileEditorPage: React.FC = () => {
           </div>
 
           <div className="space-y-4">
+            {(!profile?.certifications || profile.certifications.length === 0) && (
+              <div className="p-8 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white">No Certifications Yet</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Add industry certifications and credentials to enhance credibility.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setIsAiCvModalOpen(true);
+                      fetchLatestCvExtraction();
+                    }}
+                    leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+                  >
+                    Auto-Fill from CV
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleOpenNewCert}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Add Certification
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {profile?.certifications?.map((cert: any) => (
               <div
                 key={cert.id}
@@ -1641,6 +1942,134 @@ export const ProfileEditorPage: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Referees Tab */}
+      {activeTab === "references" && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-indigo-400" />
+                <span>Professional Referees &amp; References</span>
+              </h3>
+              <p className="text-xs text-slate-400">Manage individuals who can endorse your career experience and credentials.</p>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleOpenNewRef}
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              Add Referee
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {(!profile?.references || profile.references.length === 0) && (
+              <div className="p-8 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+                  <Users className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white">No Referees Added Yet</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Add former managers, mentors, or academic advisors. You can choose whether they appear on your public portfolio.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setIsAiCvModalOpen(true);
+                      fetchLatestCvExtraction();
+                    }}
+                    leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+                  >
+                    Auto-Fill from CV
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleOpenNewRef}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Add Referee Manually
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {profile?.references?.map((refItem: any) => (
+                <div
+                  key={refItem.id}
+                  className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col justify-between hover:border-slate-700 transition"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-base font-bold text-white flex items-center gap-2">
+                          <span>{refItem.name}</span>
+                          {refItem.isPublic ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              Public
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                              On Request
+                            </span>
+                          )}
+                        </h4>
+                        <p className="text-xs text-indigo-400 font-semibold">
+                          {refItem.position} &mdash; {refItem.organization}
+                        </p>
+                        {refItem.relationship && (
+                          <p className="text-[11px] text-slate-400 italic pt-0.5">
+                            Relationship: {refItem.relationship}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleOpenEditRef(refItem)}
+                          className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                          title="Edit Referee"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteReference(refItem.id)}
+                          className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                          title="Delete Referee"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex flex-wrap gap-3 text-xs text-slate-300">
+                      {refItem.email && (
+                        <a href={`mailto:${refItem.email}`} className="flex items-center gap-1 text-slate-400 hover:text-indigo-400 transition">
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>{refItem.email}</span>
+                        </a>
+                      )}
+                      {refItem.phone && (
+                        <a href={`tel:${refItem.phone}`} className="flex items-center gap-1 text-slate-400 hover:text-indigo-400 transition">
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>{refItem.phone}</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1783,7 +2212,6 @@ export const ProfileEditorPage: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Experience Add/Edit Modal */}
       <Modal
         isOpen={isExpModalOpen}
@@ -1791,6 +2219,12 @@ export const ProfileEditorPage: React.FC = () => {
         title={editingExpId ? "Edit Work Experience" : "Add Work Experience"}
       >
         <form onSubmit={handleSaveExperience} className="space-y-4">
+          {expError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{expError}</span>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-xs text-slate-300 font-semibold">Company Name *</label>
             <input
@@ -1842,27 +2276,33 @@ export const ProfileEditorPage: React.FC = () => {
             <div className="space-y-1">
               <label className="text-xs text-slate-300 font-semibold">End Date</label>
               <input
-                value={newExp.endDate}
+                disabled={newExp.isCurrent}
+                value={newExp.isCurrent ? "Present" : newExp.endDate}
                 onChange={(e) =>
-                  setNewExp({ ...newExp, endDate: e.target.value, isCurrent: !e.target.value })
+                  setNewExp({ ...newExp, endDate: e.target.value })
                 }
-                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
-                placeholder="Present"
+                className={`w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm ${newExp.isCurrent ? 'opacity-50 cursor-not-allowed' : ''}`}
+                placeholder="2024-05"
               />
             </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="isCurrentExp"
+              checked={newExp.isCurrent}
+              onChange={(e) =>
+                setNewExp({ ...newExp, isCurrent: e.target.checked, endDate: e.target.checked ? "" : newExp.endDate })
+              }
+              className="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+            />
+            <label htmlFor="isCurrentExp" className="text-xs text-slate-300 cursor-pointer select-none">
+              I currently work here (Present)
+            </label>
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="text-xs text-slate-300 font-semibold">Role Description / Achievements</label>
-              <button
-                type="button"
-                onClick={handlePolishExpDescription}
-                disabled={isPolishingBullet || !newExp.description}
-                className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition px-2 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 disabled:opacity-50"
-              >
-                <Sparkles className="w-3 h-3 text-indigo-400" />
-                <span>{isPolishingBullet ? 'Polishing...' : 'AI Polish'}</span>
-              </button>
             </div>
             <textarea
               rows={3}
@@ -1874,7 +2314,7 @@ export const ProfileEditorPage: React.FC = () => {
               placeholder="Key responsibilities and engineering achievements..."
             />
           </div>
-          <Button type="submit" variant="primary" className="w-full">
+          <Button type="submit" variant="primary" className="w-full" isLoading={isSavingExp}>
             {editingExpId ? "Update Experience" : "Save Experience"}
           </Button>
         </form>
@@ -1971,19 +2411,33 @@ export const ProfileEditorPage: React.FC = () => {
       <Modal
         isOpen={isSkillModalOpen}
         onClose={() => setIsSkillModalOpen(false)}
-        title="Add Skill"
+        title={newSkill.category === 'Soft' ? 'Add Soft Skill' : 'Add Technical Skill'}
       >
         <form onSubmit={handleAddSkill} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">Skill Name</label>
+            <label className="text-xs text-slate-300 font-semibold">Skill Name *</label>
             <input
               required
               value={newSkill.name}
               onChange={(e) =>
                 setNewSkill({ ...newSkill, name: e.target.value })
               }
-              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder={newSkill.category === 'Soft' ? 'e.g. Critical Thinking, Leadership...' : 'e.g. React, TypeScript, Docker, PostgreSQL'}
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm focus:border-indigo-500 focus:outline-none"
             />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Skill Category *</label>
+            <select
+              value={newSkill.category}
+              onChange={(e) =>
+                setNewSkill({ ...newSkill, category: e.target.value as 'Technical' | 'Soft' })
+              }
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="Technical">Technical Skill / Tool</option>
+              <option value="Soft">Soft Skill / Interpersonal</option>
+            </select>
           </div>
           <Button type="submit" variant="primary" className="w-full">
             Save Skill
@@ -2307,7 +2761,101 @@ export const ProfileEditorPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* AI CV Auto-Fill & Scan Modal */}
+      {/* Add / Edit Referee Modal */}
+      <Modal
+        isOpen={isRefModalOpen}
+        onClose={() => setIsRefModalOpen(false)}
+        title={editingRefId ? "Edit Referee" : "Add Referee"}
+      >
+        <form onSubmit={handleSaveReference} className="space-y-4">
+          {refError && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {refError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-semibold">Full Name *</label>
+              <input
+                required
+                value={refForm.name}
+                onChange={(e) => setRefForm({ ...refForm, name: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="e.g. Jane Smith"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-semibold">Job Title / Position</label>
+              <input
+                value={refForm.position}
+                onChange={(e) => setRefForm({ ...refForm, position: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="e.g. Senior Manager"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Organization / Company</label>
+            <input
+              value={refForm.organization}
+              onChange={(e) => setRefForm({ ...refForm, organization: e.target.value })}
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="e.g. Acme Corp Ltd"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-semibold">Email Address</label>
+              <input
+                type="email"
+                value={refForm.email}
+                onChange={(e) => setRefForm({ ...refForm, email: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="jane@company.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-semibold">Phone Number</label>
+              <input
+                type="tel"
+                value={refForm.phone}
+                onChange={(e) => setRefForm({ ...refForm, phone: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="+254 700 000000"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-300 font-semibold">Relationship / Context</label>
+            <input
+              value={refForm.relationship}
+              onChange={(e) => setRefForm({ ...refForm, relationship: e.target.value })}
+              className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+              placeholder="e.g. Former Supervisor, Academic Advisor"
+            />
+          </div>
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+            <input
+              type="checkbox"
+              id="refIsPublic"
+              checked={refForm.isPublic}
+              onChange={(e) => setRefForm({ ...refForm, isPublic: e.target.checked })}
+              className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-indigo-600"
+            />
+            <label htmlFor="refIsPublic" className="text-xs text-slate-300 font-medium cursor-pointer flex items-center gap-2">
+              <Eye className="w-3.5 h-3.5 text-indigo-400" />
+              Show referee details on my public portfolio
+            </label>
+          </div>
+          <Button type="submit" variant="primary" className="w-full" isLoading={isSavingRef} leftIcon={<Check className="w-4 h-4" />}>
+            {editingRefId ? "Update Referee" : "Save Referee"}
+          </Button>
+        </form>
+      </Modal>
+
+      {/* OCR CV scan and profile import modal */}
       <Modal
         isOpen={isAiCvModalOpen}
         onClose={() => {
@@ -2315,7 +2863,7 @@ export const ProfileEditorPage: React.FC = () => {
           setCvScanError('');
           setCvApplyMessage('');
         }}
-        title="AI CV Scanner & Profile Auto-Fill"
+        title="CV OCR Scanner & Profile Auto-Fill"
       >
         <div className="space-y-6 max-h-[82vh] overflow-y-auto pr-1">
           {/* Header Info */}
@@ -2324,9 +2872,9 @@ export const ProfileEditorPage: React.FC = () => {
               <Sparkles className="w-5 h-5 text-indigo-300" />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-bold text-white">Upload Your Resume & Let AI Fill Your Profile</p>
+              <p className="text-sm font-bold text-white">Upload Your Resume & Fill Your Profile</p>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Our AI parser extracts work history, education, skills, projects, and contact info directly from your PDF, DOCX, or TXT resume and automatically populates your Profile Editor tabs.
+                The local CV parser reads PDF files (including scanned PDFs through OCR), Word DOC/DOCX, and TXT resumes, then extracts work history, education, skills, projects, and contact details into your Profile Editor tabs.
               </p>
             </div>
           </div>
@@ -2372,7 +2920,7 @@ export const ProfileEditorPage: React.FC = () => {
                   <p className="text-sm font-bold text-white">
                     {cvFile ? cvFile.name : 'Click or Drag & Drop CV File Here'}
                   </p>
-                  <p className="text-xs text-slate-400">Supports PDF, Word (DOCX), or TXT (up to 10MB)</p>
+                  <p className="text-xs text-slate-400">Supports PDF (including scans), Word (DOC/DOCX), or TXT (up to 10MB)</p>
                 </div>
               </div>
             </div>
@@ -2385,24 +2933,58 @@ export const ProfileEditorPage: React.FC = () => {
               disabled={!cvFile || isCvScanning}
               leftIcon={<Sparkles className="w-4 h-4" />}
             >
-              {isCvScanning ? 'AI Scanning & Extracting Document...' : 'Scan & Extract with AI'}
+              {isCvScanning ? 'Scanning & Extracting Document...' : 'Scan & Extract'}
             </Button>
           </form>
 
           {/* Extracted Data Preview & Selection */}
           {extractedCv && (
             <div className="space-y-5 pt-4 border-t border-slate-800 animate-in fade-in">
-              <div className="flex items-center justify-between">
+              {/* Accuracy Disclaimer Banner */}
+              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-amber-300 uppercase tracking-wider">AI Extraction — Verify Before Applying</p>
+                  <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                    Extracted data is not always 100% accurate. Please review and verify all fields below before applying to your profile.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
                     <Check className="w-4 h-4 text-emerald-400" />
-                    <span>AI Extracted Profile Preview</span>
+                    <span>OCR Extracted Profile Preview</span>
                   </h4>
                   <p className="text-xs text-slate-400">Select which sections to apply to your Edit Profile tabs.</p>
                 </div>
-                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Ready to Apply
-                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleResetCvScanner}
+                    isLoading={isCvResetting}
+                    leftIcon={<RotateCcw className="w-3.5 h-3.5 text-red-400" />}
+                    className="border-red-500/30 hover:border-red-500/60 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs py-1.5 px-3 h-auto"
+                  >
+                    Reset Scanner
+                  </Button>
+                  {extractedCv?.structuredResume?.meta?.engineUsed === 'gemini' ? (
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-emerald-400" />
+                      Gemini Flash
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      Heuristic Engine
+                    </span>
+                  )}
+                  <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Ready to Apply
+                  </span>
+                </div>
               </div>
 
               {/* Candidate Quick Summary Card */}
@@ -2428,7 +3010,44 @@ export const ProfileEditorPage: React.FC = () => {
 
               {/* Section Checkboxes */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300">Choose Sections to Auto-Fill:</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300">Choose Sections to Auto-Fill:</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCvSections({
+                        general: true,
+                        contacts: true,
+                        experience: true,
+                        education: true,
+                        skills: true,
+                        certifications: true,
+                        languages: true,
+                        references: true,
+                      })}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-slate-600 text-xs">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCvSections({
+                        general: false,
+                        contacts: false,
+                        experience: false,
+                        education: false,
+                        skills: false,
+                        certifications: false,
+                        languages: false,
+                        references: false,
+                      })}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 font-medium"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {[
                     { key: 'general', label: 'General Bio & Headline' },
@@ -2436,8 +3055,9 @@ export const ProfileEditorPage: React.FC = () => {
                     { key: 'experience', label: `Experience (${extractedCv.experiences?.length || 0})` },
                     { key: 'education', label: `Education (${extractedCv.education?.length || 0})` },
                     { key: 'skills', label: `Skills (${extractedCv.skills?.length || 0})` },
-                    { key: 'projects', label: `Projects (${extractedCv.projects?.length || 0})` },
                     { key: 'certifications', label: `Certifications (${extractedCv.certifications?.length || 0})` },
+                    { key: 'languages', label: `Languages (${extractedCv.languages?.length || 0})` },
+                    { key: 'references', label: `Referees (${extractedCv.references?.length || 0})` },
                   ].map((sec) => (
                     <label
                       key={sec.key}
@@ -2467,15 +3087,15 @@ export const ProfileEditorPage: React.FC = () => {
               {/* Preview Tabs inside Modal */}
               <div className="space-y-3">
                 <div className="flex border-b border-slate-800 gap-2 text-xs font-semibold text-slate-400 overflow-x-auto pb-1">
-                  {['general', 'contacts', 'experience', 'education', 'skills', 'projects', 'certifications'].map((t) => (
+                  {['general', 'contacts', 'experience', 'education', 'skills', 'certifications', 'languages', 'references'].map((t) => (
                     <button
                       key={t}
                       type="button"
                       onClick={() => setCvActivePreviewTab(t)}
-                      className={`px-3 py-1.5 rounded-lg transition capitalize whitespace-nowrap ${
+                      className={`capitalize whitespace-nowrap pb-1 border-b-2 transition ${
                         cvActivePreviewTab === t
-                          ? 'bg-slate-800 text-white border border-slate-700'
-                          : 'hover:text-white hover:bg-slate-900'
+                          ? 'border-indigo-500 text-indigo-400'
+                          : 'border-transparent hover:text-slate-200'
                       }`}
                     >
                       {t}
@@ -2483,9 +3103,10 @@ export const ProfileEditorPage: React.FC = () => {
                   ))}
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-3 max-h-56 overflow-y-auto">
+                {/* Tab Panel Content */}
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-1.5 max-h-48 overflow-y-auto">
                   {cvActivePreviewTab === 'general' && (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <p><span className="text-slate-500 font-semibold">Title:</span> <span className="text-white">{extractedCv.personalInfo?.title || 'None'}</span></p>
                       <p><span className="text-slate-500 font-semibold">Headline:</span> <span className="text-white">{extractedCv.headline || 'None'}</span></p>
                       <p><span className="text-slate-500 font-semibold">Summary:</span> <span className="text-slate-300 block mt-1 leading-relaxed bg-slate-900 p-2.5 rounded-lg">{extractedCv.summary || 'None'}</span></p>
@@ -2529,26 +3150,51 @@ export const ProfileEditorPage: React.FC = () => {
                     </div>
                   )}
 
-                  {cvActivePreviewTab === 'skills' && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {extractedCv.skills?.map((s: any, idx: number) => (
-                        <span key={idx} className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-200">
-                          {typeof s === 'string' ? s : s.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {cvActivePreviewTab === 'projects' && (
-                    <div className="space-y-2.5">
-                      {extractedCv.projects?.map((p: any, idx: number) => (
-                        <div key={idx} className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
-                          <p className="font-bold text-white">{p.title}</p>
-                          <p className="text-slate-400 text-[11px]">{p.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {cvActivePreviewTab === 'skills' && (() => {
+                    const allSkills = extractedCv.skills || [];
+                    const techSkills = allSkills.filter((s: any) => {
+                      const cat = typeof s === 'string' ? 'Technical' : (s.category || 'Technical');
+                      return cat !== 'Soft';
+                    });
+                    const softSkills = allSkills.filter((s: any) => {
+                      const cat = typeof s === 'string' ? 'Technical' : (s.category || 'Technical');
+                      return cat === 'Soft';
+                    });
+                    const renderSkill = (s: any, idx: number, accent: string) => (
+                      <span key={idx} className={`px-2.5 py-1 rounded-md bg-slate-950 border ${accent} text-slate-200 text-xs font-medium`}>
+                        {typeof s === 'string' ? s : s.name}
+                      </span>
+                    );
+                    return (
+                      <div className="space-y-4">
+                        {techSkills.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                              <span className="w-1 h-3 rounded-full bg-indigo-400 inline-block" />
+                              Technical Skills &amp; Stack
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {techSkills.map((s: any, idx: number) => renderSkill(s, idx, 'border-indigo-500/30'))}
+                            </div>
+                          </div>
+                        )}
+                        {softSkills.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                              <span className="w-1 h-3 rounded-full bg-emerald-400 inline-block" />
+                              Soft Skills &amp; Interpersonal
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {softSkills.map((s: any, idx: number) => renderSkill(s, idx, 'border-emerald-500/30'))}
+                            </div>
+                          </div>
+                        )}
+                        {allSkills.length === 0 && (
+                          <p className="text-xs text-slate-500 italic">No skills extracted from CV.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {cvActivePreviewTab === 'certifications' && (
                     <div className="space-y-2.5">
@@ -2558,6 +3204,29 @@ export const ProfileEditorPage: React.FC = () => {
                           <p className="text-slate-400">{c.issuingOrganization} ({c.issueDate})</p>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'languages' && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {extractedCv.languages?.length ? extractedCv.languages.map((lang: any, idx: number) => (
+                        <span key={idx} className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-200">
+                          {lang.language}{lang.proficiency ? ` · ${lang.proficiency}` : ''}
+                        </span>
+                      )) : <p className="text-slate-500">No languages detected in this resume.</p>}
+                    </div>
+                  )}
+
+                  {cvActivePreviewTab === 'references' && (
+                    <div className="space-y-2.5">
+                      {extractedCv.references?.length ? extractedCv.references.map((ref: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-0.5">
+                          <p className="font-bold text-white">{ref.name}</p>
+                          <p className="text-indigo-400">{ref.position} — {ref.organization}</p>
+                          {ref.email && <p className="text-slate-400">{ref.email}</p>}
+                          {ref.phone && <p className="text-slate-400">{ref.phone}</p>}
+                        </div>
+                      )) : <p className="text-slate-500">No referees detected in this resume.</p>}
                     </div>
                   )}
                 </div>
@@ -2637,14 +3306,14 @@ export const ProfileEditorPage: React.FC = () => {
           <div className="space-y-2 text-xs text-slate-400 bg-slate-950 p-4 rounded-xl border border-slate-800">
             <p className="font-semibold text-slate-300">The following will be deleted / cleared:</p>
             <ul className="list-disc list-inside space-y-1 text-slate-400">
-              <li>General Bio, Title, Headline & Summary</li>
-              <li>Contact details & social media links</li>
+              <li>General Bio, Title, Headline &amp; Summary</li>
+              <li>Contact details &amp; social media links</li>
               <li>All Work Experience entries ({profile?.experiences?.length || 0})</li>
               <li>All Education records ({profile?.educations?.length || 0})</li>
               <li>All Skills ({profile?.skills?.length || 0})</li>
               <li>All Projects ({profile?.projects?.length || 0})</li>
               <li>All Certifications ({profile?.certifications?.length || 0})</li>
-              <li>Avatar & Cover banner images</li>
+              <li>Avatar &amp; Cover banner images</li>
             </ul>
           </div>
 
@@ -2673,5 +3342,3 @@ export const ProfileEditorPage: React.FC = () => {
     </div>
   );
 };
-
-

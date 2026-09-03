@@ -439,6 +439,9 @@ model PortfolioCustomization {
   showQrInPdf       Boolean        @default(true)
   showSocialLinks   Boolean        @default(true)
   layoutVariant     String         @default("standard")
+  faviconUrl        String?
+  pwaManifest       Json? // { name, shortName, themeColor, backgroundColor, display }
+  analyticsConfig   Json? // { googleAnalyticsId, plausibleDomain }
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 }

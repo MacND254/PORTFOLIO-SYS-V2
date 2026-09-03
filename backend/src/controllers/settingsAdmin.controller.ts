@@ -8,7 +8,6 @@ const DEFAULT_SETTINGS = [
   { key: 'MAINTENANCE_MODE', value: 'false', description: 'Enable platform maintenance mode (block non-admin traffic).' },
   { key: 'ALLOW_REGISTRATION', value: 'true', description: 'Allow new tenant user registrations.' },
   { key: 'MAX_CV_UPLOAD_MB', value: '10', description: 'Maximum file size allowed for CV uploads in megabytes.' },
-  { key: 'OPENAI_API_KEY', value: 'sk-proj-demo-key-portfolio-saas', description: 'API Key for AI CV Parsing Service.' },
   // 1. Portfolio Messages Forwarding Gateway
   { key: 'SMTP_HOST', value: 'smtp.gmail.com', description: 'Portfolio Gateway: Host' },
   { key: 'SMTP_PORT', value: '587', description: 'Portfolio Gateway: Port' },

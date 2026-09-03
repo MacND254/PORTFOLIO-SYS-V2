@@ -5,7 +5,7 @@
 # ── Stage 1: Builder ─────────────────────────────────────────
 FROM node:20-slim AS builder
 
-RUN apt-get update -y && apt-get install -y openssl
+RUN apt-get update -y && apt-get install -y openssl poppler-utils
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY backend/package*.json ./backend/
 
 # Install backend deps inside ./backend
 WORKDIR /app/backend
-RUN npm ci
+RUN npm install
 
 # Copy backend source and tsconfig
 COPY backend/src ./src
@@ -33,7 +33,7 @@ RUN cp ./src/swagger.json ./dist/swagger.json
 # ── Stage 2: Production runner ────────────────────────────────
 FROM node:20-slim AS runner
 
-RUN apt-get update -y && apt-get install -y openssl dumb-init && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y openssl dumb-init poppler-utils && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

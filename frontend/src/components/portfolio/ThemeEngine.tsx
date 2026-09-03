@@ -810,7 +810,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                       </div>
                       <span className="px-3 py-1 rounded-full text-xs font-semibold"
                             style={{ background: `${colors.primary}20`, color: colors.primary }}>
-                        {exp.startDate} – {exp.isCurrent ? 'Present' : exp.endDate || ''}
+                        {exp.startDate} – {exp.isCurrent ? 'Present' : exp.endDate || 'Present'}
                       </span>
                     </div>
                     {exp.description && <p className="text-sm" style={{ color: `${colors.text}cc` }}>{exp.description}</p>}
@@ -883,34 +883,107 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       )}
 
       {/* ── SKILLS ────────────────────────────────────────────────── */}
-      {profile.skills && profile.skills.length > 0 && (
-        <section id="skills" className={`theme-section ${revealCls} px-6 py-16`} style={{ background: `${colors.surface}60`, borderTop: `1px solid ${colors.primary}20`, borderBottom: `1px solid ${colors.primary}20` }}>
-          <div className="max-w-7xl mx-auto space-y-10 px-4 sm:px-8 lg:px-12">
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Skills & Expertise</h2>
-              <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
+      {profile.skills && profile.skills.length > 0 && (() => {
+        const technicalSkills = profile.skills.filter((s: any) => s.category !== 'Soft');
+        const softSkills = profile.skills.filter((s: any) => s.category === 'Soft');
+
+        return (
+          <section id="skills" className={`theme-section ${revealCls} px-6 py-16`} style={{ background: `${colors.surface}60`, borderTop: `1px solid ${colors.primary}20`, borderBottom: `1px solid ${colors.primary}20` }}>
+            <div className="max-w-7xl mx-auto space-y-10 px-4 sm:px-8 lg:px-12">
+              <div className="text-center space-y-2">
+                <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Skills &amp; Expertise</h2>
+                <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
+              </div>
+
+              <div className={`grid gap-8 ${technicalSkills.length > 0 && softSkills.length > 0 ? 'md:grid-cols-2' : 'max-w-3xl mx-auto'}`}>
+                {/* Technical Skills Column */}
+                {technicalSkills.length > 0 && (
+                  <div
+                    className={`p-6 rounded-2xl ${cardCls} space-y-4`}
+                    style={{
+                      background: `${colors.surface}95`,
+                      border: `1px solid ${colors.primary}35`,
+                      boxShadow: cardStyle === 'neon' ? `0 0 20px ${colors.primary}20` : undefined,
+                    }}
+                  >
+                    <div className="flex items-center gap-3 pb-3 border-b" style={{ borderColor: `${colors.primary}25` }}>
+                      <div className="p-2.5 rounded-xl" style={{ background: `${colors.primary}20`, color: colors.primary }}>
+                        <Code className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold" style={{ fontFamily: `var(--theme-font-heading)`, color: colors.text }}>
+                          Technical Skills &amp; Stack
+                        </h3>
+                        <p className="text-xs" style={{ color: `${colors.text}80` }}>
+                          Engineering technologies, frameworks, tools &amp; architectures
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2.5 pt-1">
+                      {technicalSkills.map((skill) => (
+                        <div
+                          key={skill.id}
+                          className="px-3.5 py-1.5 rounded-xl text-sm font-medium flex items-center gap-2 transition hover:scale-105 cursor-default shadow-sm"
+                          style={{
+                            background: `${colors.primary}18`,
+                            border: `1px solid ${colors.primary}40`,
+                            color: colors.text,
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: colors.primary }} />
+                          <span style={{ fontFamily: `var(--theme-font-body)` }}>{skill.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Soft Skills Column */}
+                {softSkills.length > 0 && (
+                  <div
+                    className={`p-6 rounded-2xl ${cardCls} space-y-4`}
+                    style={{
+                      background: `${colors.surface}95`,
+                      border: `1px solid ${colors.accent}35`,
+                      boxShadow: cardStyle === 'neon' ? `0 0 20px ${colors.accent}20` : undefined,
+                    }}
+                  >
+                    <div className="flex items-center gap-3 pb-3 border-b" style={{ borderColor: `${colors.accent}25` }}>
+                      <div className="p-2.5 rounded-xl" style={{ background: `${colors.accent}20`, color: colors.accent }}>
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold" style={{ fontFamily: `var(--theme-font-heading)`, color: colors.text }}>
+                          Soft Skills &amp; Interpersonal
+                        </h3>
+                        <p className="text-xs" style={{ color: `${colors.text}80` }}>
+                          Leadership, team collaboration, communication &amp; problem solving
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2.5 pt-1">
+                      {softSkills.map((skill) => (
+                        <div
+                          key={skill.id}
+                          className="px-3.5 py-1.5 rounded-xl text-sm font-medium flex items-center gap-2 transition hover:scale-105 cursor-default shadow-sm"
+                          style={{
+                            background: `${colors.accent}18`,
+                            border: `1px solid ${colors.accent}40`,
+                            color: colors.text,
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: colors.accent }} />
+                          <span style={{ fontFamily: `var(--theme-font-body)` }}>{skill.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex flex-wrap justify-center gap-3">
-              {profile.skills.map((skill) => (
-                <div key={skill.id}
-                     className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition hover:scale-105 cursor-default"
-                       style={{
-                         background: `${colors.primary}15`,
-                         border: `1px solid ${colors.primary}40`,
-                         color: colors.text,
-                       }}>
-                   {showCodeBadges ? <Code className="w-3.5 h-3.5" style={{ color: colors.primary }} /> : null}
-                   <span className="w-2 h-2 rounded-full" style={{ background: colors.accent }} />
-                  <span style={{ fontFamily:`var(--theme-font-body)` }}>{skill.name}</span>
-                  {skill.proficiency && (
-                    <span className="text-xs" style={{ color: `${colors.text}60` }}>({skill.proficiency}%)</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       {/* ── PROJECTS ──────────────────────────────────────────────── */}
       {profile.projects && profile.projects.length > 0 && (

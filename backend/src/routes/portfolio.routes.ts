@@ -5,7 +5,13 @@ import { resolveTenant } from '../middleware/tenant.middleware';
 
 const router = Router();
 
-// Public routes
+// Public SEO & PWA Discovery routes
+router.get('/sitemap.xml', PortfolioController.getSitemap);
+router.get('/robots.txt', PortfolioController.getRobots);
+router.get('/public/:subdomain/manifest.json', PortfolioController.getManifest);
+router.get('/manifest.json', resolveTenant, PortfolioController.getManifest);
+
+// Public Portfolio routes
 router.get('/public', resolveTenant, PortfolioController.getPublicPortfolio);
 router.get('/public/:subdomain', PortfolioController.getPublicPortfolio);
 router.post('/public/:subdomain/unlock-verified-documents', PortfolioController.unlockVerifiedDocuments);

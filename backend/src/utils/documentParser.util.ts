@@ -1,11 +1,26 @@
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
+import os from 'os';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { logger } from '../config/logger';
+
+const execFileAsync = promisify(execFile);
+const mammoth: any = require('mammoth');
+const pdfParse: any = require('pdf-parse');
+const WordExtractor: any = require('word-extractor');
+
+export interface ParsedDocumentResult {
+  text: string;
+  isScannedOrImage: boolean;
+  pageCount?: number;
+  mimeType?: string;
+}
 
 export class DocumentParser {
   /**
-   * Extract plain text from an uploaded CV file (.txt, .pdf, .docx, .doc)
+   * Extract layout-aware plain text from an uploaded CV file (.txt, .pdf, .docx, .doc)
    */
   public static async extractText(filePath: string, mimeType?: string): Promise<string> {
     if (!fs.existsSync(filePath)) {
@@ -23,47 +38,222 @@ export class DocumentParser {
       }
 
       if (ext === '.docx' || mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        const text = this.parseDocx(buffer);
-        if (text && text.trim().length > 30) return text;
+        return await this.extractDocx(buffer);
       }
 
       if (ext === '.pdf' || mimeType === 'application/pdf') {
-        const text = this.parsePdf(buffer);
-        if (text && text.trim().length > 30) return text;
+        return await this.extractPdf(buffer);
       }
 
-      // Generic fallback: inspect buffer for ASCII / UTF-8 printable strings
-      const fallbackText = this.extractPrintableStrings(buffer);
-      if (fallbackText && fallbackText.trim().length > 50) {
-        return fallbackText;
+      if (ext === '.doc' || mimeType === 'application/msword') {
+        return await this.extractLegacyDoc(filePath, buffer);
       }
 
-      return this.parseTxt(buffer);
+      // Check if file is readable UTF-8 text before attempting binary parsing
+      const rawUtf8 = buffer.toString('utf-8');
+      if (this.isReadableText(rawUtf8)) {
+        return this.normalizeText(rawUtf8);
+      }
+
+      return '';
     } catch (err: any) {
-      logger.warn(`Error during document text extraction: ${err.message}. Falling back to string scan.`);
-      return this.extractPrintableStrings(buffer) || '';
+      logger.warn(`Error during document text extraction: ${err.message}`);
+      return '';
     }
+  }
+
+  /**
+   * PDF Extraction with spatial layout analysis to prevent column interleaving
+   */
+  private static async extractPdf(buffer: Buffer): Promise<string> {
+    try {
+      // Custom pagerender to cluster text by vertical and horizontal positioning
+      const customPageRender = async (pageData: any) => {
+        const textContent = await pageData.getTextContent({
+          normalizeWhitespace: true,
+          disableCombineTextItems: false,
+        });
+
+        if (!textContent || !textContent.items || textContent.items.length === 0) {
+          return '';
+        }
+
+        const items = textContent.items.map((item: any) => ({
+          text: item.str || '',
+          x: item.transform ? item.transform[4] : 0,
+          y: item.transform ? item.transform[5] : 0,
+          width: item.width || 0,
+          height: item.height || 0,
+        })).filter((item: any) => item.text.trim().length > 0);
+
+        if (items.length === 0) return '';
+
+        // Detect if the page has multiple columns (e.g. 2-column resume layout)
+        const pageWidth = pageData.view ? pageData.view[2] : 600;
+        const columnThreshold = pageWidth * 0.45;
+
+        // Check if there are distinct left and right clusters
+        const leftItems = items.filter((it: any) => it.x < columnThreshold);
+        const rightItems = items.filter((it: any) => it.x >= columnThreshold);
+
+        const isTwoColumn = leftItems.length >= 10 && rightItems.length >= 10;
+
+        const sortItemsByFlow = (itemList: any[]) => {
+          // Sort items by Y descending (top-to-bottom) then X ascending (left-to-right)
+          return itemList.sort((a, b) => {
+            const yDiff = Math.abs(a.y - b.y);
+            // If items are on approximately the same line (within 4px)
+            if (yDiff <= 4) {
+              return a.x - b.x;
+            }
+            return b.y - a.y; // Top to bottom
+          });
+        };
+
+        const buildTextFromItems = (itemList: any[]) => {
+          const sorted = sortItemsByFlow(itemList);
+          const lines: string[] = [];
+          let currentLine = '';
+          let lastY = -1;
+
+          for (const item of sorted) {
+            if (lastY === -1) {
+              currentLine = item.text;
+              lastY = item.y;
+            } else if (Math.abs(item.y - lastY) <= 4) {
+              currentLine += ' ' + item.text;
+            } else {
+              if (currentLine.trim()) lines.push(currentLine.trim());
+              currentLine = item.text;
+              lastY = item.y;
+            }
+          }
+          if (currentLine.trim()) lines.push(currentLine.trim());
+          return lines.join('\n');
+        };
+
+        if (isTwoColumn) {
+          // Process left column first, then right column to preserve section continuity
+          const leftText = buildTextFromItems(leftItems);
+          const rightText = buildTextFromItems(rightItems);
+          return `${leftText}\n\n${rightText}`;
+        } else {
+          return buildTextFromItems(items);
+        }
+      };
+
+      const options = {
+        pagerender: customPageRender,
+      };
+
+      const result = await pdfParse(buffer, options);
+      if (result.text && result.text.trim().length > 30) {
+        return this.normalizeText(result.text);
+      }
+
+      // Fallback to internal PDF decompressor if standard parser produced minimal text
+      const decompressedText = this.parsePdfStreams(buffer);
+      if (decompressedText && decompressedText.trim().length > 30) {
+        return this.normalizeText(decompressedText);
+      }
+
+      return '';
+    } catch (e: any) {
+      logger.warn(`PDF parser library error: ${e.message}. Trying stream parser.`);
+      const decompressedText = this.parsePdfStreams(buffer);
+      return decompressedText ? this.normalizeText(decompressedText) : '';
+    }
+  }
+
+  /**
+   * DOCX Extraction preserving headings, tables and list bullets
+   */
+  private static async extractDocx(buffer: Buffer): Promise<string> {
+    try {
+      const result = await mammoth.extractRawText({ buffer });
+      if (result.value && result.value.trim().length > 30) {
+        return this.normalizeText(result.value);
+      }
+    } catch {
+      // Mammoth fallback
+    }
+
+    const xmlText = this.parseDocxXml(buffer);
+    if (xmlText && xmlText.trim().length > 30) {
+      return this.normalizeText(xmlText);
+    }
+
+    return '';
+  }
+
+  /**
+   * Legacy .doc binary extraction
+   */
+  private static async extractLegacyDoc(filePath: string, buffer: Buffer): Promise<string> {
+    try {
+      const document = await new WordExtractor().extract(filePath);
+      const text = document.getBody?.() || '';
+      if (text.trim().length > 30) {
+        return this.normalizeText(text);
+      }
+    } catch (error: any) {
+      logger.warn(`Native .doc extraction failed: ${error.message}`);
+    }
+
+    const libreText = await this.convertLegacyWordToText(filePath);
+    if (libreText.trim().length > 30) {
+      return libreText;
+    }
+
+    return '';
   }
 
   /**
    * Parse plain UTF-8 text file
    */
   private static parseTxt(buffer: Buffer): string {
-    return buffer.toString('utf-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    return this.normalizeText(buffer.toString('utf-8'));
   }
 
   /**
-   * Parse DOCX by extracting and decompressing word/document.xml from the ZIP container
+   * Normalizes line breaks, whitespace and unicode formatting artifacts
    */
-  private static parseDocx(buffer: Buffer): string {
+  public static normalizeText(text: string): string {
+    return text
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/\u0000/g, '')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '') // Zero-width spaces
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  /**
+   * Checks if string has high readable ASCII / text character density
+   */
+  private static isReadableText(str: string): boolean {
+    if (!str || str.length < 30) return false;
+    let readableCount = 0;
+    for (let i = 0; i < Math.min(str.length, 1000); i++) {
+      const code = str.charCodeAt(i);
+      if ((code >= 32 && code <= 126) || code === 10 || code === 13 || code === 9) {
+        readableCount++;
+      }
+    }
+    return readableCount / Math.min(str.length, 1000) > 0.85;
+  }
+
+  /**
+   * Parse DOCX XML directly from zip container
+   */
+  private static parseDocxXml(buffer: Buffer): string {
     try {
-      // Find word/document.xml in ZIP binary
       const targetName = 'word/document.xml';
       let offset = 0;
       let documentXml = '';
 
       while (offset < buffer.length - 30) {
-        // Look for Local File Header signature: PK\x03\x04 (0x04034b50)
         if (buffer[offset] === 0x50 && buffer[offset + 1] === 0x4b && buffer[offset + 2] === 0x03 && buffer[offset + 3] === 0x04) {
           const compressionMethod = buffer.readUInt16LE(offset + 8);
           const compressedSize = buffer.readUInt32LE(offset + 18);
@@ -80,16 +270,13 @@ export class DocumentParser {
           if (fileName === targetName && dataEnd <= buffer.length) {
             const compressedData = buffer.slice(dataStart, dataEnd);
             if (compressionMethod === 8) {
-              // Deflate compression
               const decompressed = zlib.inflateRawSync(compressedData);
               documentXml = decompressed.toString('utf-8');
             } else if (compressionMethod === 0) {
-              // Stored (no compression)
               documentXml = compressedData.toString('utf-8');
             }
             break;
           }
-
           offset = dataEnd;
         } else {
           offset++;
@@ -97,13 +284,11 @@ export class DocumentParser {
       }
 
       if (!documentXml) {
-        // Try searching for uncompressed XML snippets in buffer
         const match = buffer.toString('binary').match(/<w:document[\s\S]*?<\/w:document>/);
         if (match) documentXml = match[0];
       }
 
       if (documentXml) {
-        // Convert <w:p> to newlines and extract all <w:t> text nodes
         return documentXml
           .replace(/<w:p[^>]*>/gi, '\n')
           .replace(/<w:br[^>]*>/gi, '\n')
@@ -126,15 +311,13 @@ export class DocumentParser {
   }
 
   /**
-   * Parse PDF text by decompressing stream objects and decoding text operators
+   * Parse PDF text by decompressing stream objects
    */
-  private static parsePdf(buffer: Buffer): string {
+  private static parsePdfStreams(buffer: Buffer): string {
     const extractedLines: string[] = [];
 
     try {
       const pdfString = buffer.toString('binary');
-
-      // Find all stream ... endstream blocks
       const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
       let match: RegExpExecArray | null;
 
@@ -142,7 +325,6 @@ export class DocumentParser {
         const streamRaw = match[1];
         let streamContent = streamRaw;
 
-        // Check if stream is Flate compressed
         try {
           const streamBuffer = Buffer.from(streamRaw, 'binary');
           const decompressed = zlib.inflateSync(streamBuffer);
@@ -153,12 +335,10 @@ export class DocumentParser {
             const decompressed = zlib.inflateRawSync(streamBuffer);
             streamContent = decompressed.toString('latin1');
           } catch {
-            // Not compressed or raw stream
             streamContent = streamRaw;
           }
         }
 
-        // Extract text from BT ... ET blocks
         const btRegex = /BT([\s\S]*?)ET/g;
         let btMatch: RegExpExecArray | null;
 
@@ -166,7 +346,6 @@ export class DocumentParser {
           const block = btMatch[1];
           let blockText = '';
 
-          // 1. Array strings: [(Hello) 10 (World)] TJ
           const tjArrayRegex = /\[(.*?)\]\s*TJ/g;
           let tjArrMatch: RegExpExecArray | null;
           while ((tjArrMatch = tjArrayRegex.exec(block)) !== null) {
@@ -180,7 +359,6 @@ export class DocumentParser {
             }
           }
 
-          // 2. Simple string operators: (Text) Tj or (Text) ' or (Text) "
           const tjRegex = /\(((?:[^()\\]|\\.)*)\)\s*(?:Tj|'|")/g;
           let tjMatch: RegExpExecArray | null;
           while ((tjMatch = tjRegex.exec(block)) !== null) {
@@ -197,31 +375,32 @@ export class DocumentParser {
       if (extractedLines.length > 0) {
         return extractedLines.join('\n');
       }
-
-      // Fallback: search for parenthesized strings throughout the PDF
-      const simpleStrings = pdfString.match(/\([A-Za-z0-9\s.,;:_@\-\/]{3,}\)/g);
-      if (simpleStrings && simpleStrings.length > 10) {
-        return simpleStrings.map((s) => s.slice(1, -1)).join('\n');
-      }
     } catch (e: any) {
-      logger.warn(`PDF parser error: ${e.message}`);
+      logger.warn(`PDF stream parser error: ${e.message}`);
     }
 
     return '';
   }
 
   /**
-   * Extract contiguous printable ASCII & UTF-8 character sequences from binary
+   * LibreOffice conversion fallback
    */
-  private static extractPrintableStrings(buffer: Buffer): string {
-    const raw = buffer.toString('latin1');
-    // Match contiguous sequences of letters, numbers, spaces, and punctuation
-    const matches = raw.match(/[A-Za-z0-9\s.,!?:;@#%&*()_\-+=/<>'"[\]{}]{4,}/g);
-    if (!matches) return '';
-
-    return matches
-      .map((s) => s.trim())
-      .filter((s) => s.length >= 3 && !/^[0-9a-fA-F]{16,}$/.test(s))
-      .join('\n');
+  private static async convertLegacyWordToText(filePath: string): Promise<string> {
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'portfolio-cv-'));
+    try {
+      const commands = process.platform === 'win32' ? ['soffice.exe', 'soffice'] : ['soffice', 'libreoffice'];
+      for (const command of commands) {
+        try {
+          await execFileAsync(command, ['--headless', '--convert-to', 'txt:Text', '--outdir', outDir, filePath], { windowsHide: true, timeout: 30000 });
+          const output = path.join(outDir, `${path.basename(filePath, path.extname(filePath))}.txt`);
+          if (fs.existsSync(output)) return this.normalizeText(fs.readFileSync(output, 'utf8'));
+        } catch {
+          // continue
+        }
+      }
+      return '';
+    } finally {
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
   }
 }

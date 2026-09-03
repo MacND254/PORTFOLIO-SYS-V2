@@ -126,9 +126,9 @@ export const LandingPage: React.FC = () => {
   const features = [
     {
       id: 'ai',
-      title: 'AI CV Parsing Engine',
-      subtitle: 'Upload PDF / DOCX ➔ Complete Profile in 10 Seconds',
-      description: 'Our GPT-4o powered AI engine parses raw resumes, automatically categorizing your work experiences, skills, education, awards, and projects with 98% accuracy.',
+      title: 'CV OCR & Parsing Engine',
+      subtitle: 'Upload PDF / DOCX ➔ Complete Profile Draft',
+      description: 'Our local OCR and document parser reads resumes, extracts work experience, skills, education, awards, and projects, then prepares a profile draft for review.',
       icon: Cpu,
       color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
       highlights: [
@@ -198,8 +198,8 @@ export const LandingPage: React.FC = () => {
 
   const faqs = [
     {
-      q: 'How does the AI CV extraction work?',
-      a: 'Simply upload your existing resume in PDF or DOCX format. Our AI service scans the document, parses sections like Work Experience, Education, Skills, and Projects, and creates a pre-populated profile draft for you to review and customize.',
+      q: 'How does CV extraction work?',
+      a: 'Upload a PDF, DOCX, DOC, or TXT resume. The local parser reads document text and uses OCR for scanned PDFs, then creates a pre-populated profile draft for you to review and customize.',
     },
     {
       q: 'Can I pick a custom subdomain for my portfolio?',
@@ -376,7 +376,7 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60">
             <div className="text-3xl font-extrabold text-emerald-400">&lt; 10s</div>
-            <div className="text-xs text-slate-400 font-medium mt-1">AI CV Extraction Time</div>
+            <div className="text-xs text-slate-400 font-medium mt-1">CV OCR Extraction Time</div>
           </div>
           <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60">
             <div className="text-3xl font-extrabold text-purple-400">PDF + QR</div>

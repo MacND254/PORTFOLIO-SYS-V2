@@ -74,16 +74,37 @@ app.use('/uploads', express.static(config.storagePath));
 
 // Global Rate Limiter
 app.use('/api', globalRateLimiter);
+app.use('/api/v1', globalRateLimiter);
 
 // OpenAPI Swagger Docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// Primary API Router
+// Primary API Router (supports both /api and /api/v1 prefixes)
 app.use('/api', apiRouter);
+app.use('/api/v1', apiRouter);
 
 // Health check root alias
 app.get('/health', (_req, res) => {
   res.redirect('/api/health');
+});
+
+// Root SEO & PWA Discovery routes
+app.get('/sitemap.xml', async (_req, res, next) => {
+  try {
+    const { SeoService } = await import('./services/seo.service');
+    const xml = await SeoService.generateSitemapXml();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    return res.send(xml);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/robots.txt', async (req, res) => {
+  const { SeoService } = await import('./services/seo.service');
+  const txt = SeoService.generateRobotsTxt(req.hostname.split('.')[0]);
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  return res.send(txt);
 });
 
 // Root route
@@ -93,6 +114,8 @@ app.get('/', (_req, res) => {
     version: '1.0.0',
     documentation: '/api-docs',
     health: '/api/health',
+    sitemap: '/sitemap.xml',
+    robots: '/robots.txt',
   });
 });
 

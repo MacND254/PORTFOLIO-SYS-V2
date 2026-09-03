@@ -6,7 +6,9 @@ import {
   Palette, CheckCircle2, Globe, Eye, Save, Check,
   Sparkles, ExternalLink, RefreshCw, Layers, ShieldCheck,
   ArrowUp, ArrowDown, EyeOff, Plus, FileText, Trash2, Edit3,
+  Smartphone, BarChart2, Compass, Bookmark,
 } from 'lucide-react';
+import { ImageUploadWidget } from '../../components/ui/ImageUploadWidget';
 
 const DEFAULT_SECTIONS = [
   { id: 'about', label: 'About & Bio' },
@@ -71,6 +73,18 @@ export const CustomizerPage: React.FC = () => {
           cardStyle: cust.cardStyle || colorPal.cardStyle,
           animationStyle: cust.animationStyle || colorPal.animationStyle,
           avatarStyle: cust.avatarStyle || colorPal.avatarStyle,
+          faviconUrl: cust.faviconUrl || '',
+          pwaManifest: (cust.pwaManifest as Record<string, any>) || {
+            name: '',
+            shortName: '',
+            themeColor: '#4f46e5',
+            backgroundColor: '#0f172a',
+            display: 'standalone',
+          },
+          analyticsConfig: (cust.analyticsConfig as Record<string, any>) || {
+            googleAnalyticsId: '',
+            plausibleDomain: '',
+          },
         });
 
         if (Array.isArray(cust.sectionOrder) && cust.sectionOrder.length > 0) {
@@ -170,6 +184,9 @@ export const CustomizerPage: React.FC = () => {
         avatarStyle: customization.avatarStyle,
         sectionOrder,
         sectionVisibility,
+        faviconUrl: customization.faviconUrl || undefined,
+        pwaManifest: customization.pwaManifest || undefined,
+        analyticsConfig: customization.analyticsConfig || undefined,
       });
       if (res.data) {
         const cust = res.data;
@@ -179,6 +196,9 @@ export const CustomizerPage: React.FC = () => {
           cardStyle: cust.cardStyle || colorPal.cardStyle,
           animationStyle: cust.animationStyle || colorPal.animationStyle,
           avatarStyle: cust.avatarStyle || colorPal.avatarStyle,
+          faviconUrl: cust.faviconUrl || '',
+          pwaManifest: (cust.pwaManifest as Record<string, any>) || customization.pwaManifest,
+          analyticsConfig: (cust.analyticsConfig as Record<string, any>) || customization.analyticsConfig,
         });
       }
       setSaveSuccess(true);
@@ -507,6 +527,201 @@ export const CustomizerPage: React.FC = () => {
         </div>
 
         {subdomainMessage && <p className="text-xs font-semibold text-indigo-400">{subdomainMessage}</p>}
+      </div>
+
+      {/* Favicon, PWA & External Analytics Manager */}
+      <div className="p-4 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6">
+        <div>
+          <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <Bookmark className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span>Favicon, Web Manifest (PWA) &amp; Analytics</span>
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">Configure mobile installability, browser tab favicon, and external analytics measurement IDs.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* Favicon Upload */}
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Compass className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Custom Browser Favicon</span>
+              </span>
+              {customization.faviconUrl ? (
+                <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] text-slate-400">Preview:</span>
+                  <img src={customization.faviconUrl} alt="Favicon" className="w-4 h-4 rounded object-contain" />
+                </div>
+              ) : (
+                <span className="text-[10px] text-slate-500 font-mono">Default icon active</span>
+              )}
+            </div>
+            <ImageUploadWidget
+              label="Upload Favicon (.ico, .png, .svg)"
+              fieldName="favicon"
+              value={customization.faviconUrl || ''}
+              onChange={(url) => setCustomization({ ...customization, faviconUrl: url })}
+              aspectRatio="square"
+            />
+            <p className="text-[11px] text-slate-500">Square 1:1 image recommended (32x32, 64x64, or SVG). Displayed in browser tabs and bookmarks.</p>
+          </div>
+
+          {/* Web App Manifest (PWA) Settings */}
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Web App Manifest (PWA)</span>
+              </span>
+              <a
+                href={`/api/portfolio/public/${subdomain}/manifest.json`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
+              >
+                <span>View manifest.json</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="space-y-2.5">
+              <div className="space-y-1">
+                <label className="text-[11px] text-slate-400 font-medium">PWA App Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe — Senior Engineer"
+                  value={customization.pwaManifest?.name || ''}
+                  onChange={(e) =>
+                    setCustomization({
+                      ...customization,
+                      pwaManifest: { ...customization.pwaManifest, name: e.target.value },
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-slate-400 font-medium">Short Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John"
+                    value={customization.pwaManifest?.shortName || ''}
+                    onChange={(e) =>
+                      setCustomization({
+                        ...customization,
+                        pwaManifest: { ...customization.pwaManifest, shortName: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-slate-400 font-medium">Display Mode</label>
+                  <select
+                    value={customization.pwaManifest?.display || 'standalone'}
+                    onChange={(e) =>
+                      setCustomization({
+                        ...customization,
+                        pwaManifest: { ...customization.pwaManifest, display: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                  >
+                    <option value="standalone">Standalone (App-like)</option>
+                    <option value="minimal-ui">Minimal UI</option>
+                    <option value="browser">Standard Browser</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-slate-400 font-medium">Theme Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={customization.pwaManifest?.themeColor || '#4f46e5'}
+                      onChange={(e) =>
+                        setCustomization({
+                          ...customization,
+                          pwaManifest: { ...customization.pwaManifest, themeColor: e.target.value },
+                        })
+                      }
+                      className="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer p-0"
+                    />
+                    <span className="text-[11px] font-mono text-slate-300">{customization.pwaManifest?.themeColor || '#4f46e5'}</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-slate-400 font-medium">Splash Background</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={customization.pwaManifest?.backgroundColor || '#0f172a'}
+                      onChange={(e) =>
+                        setCustomization({
+                          ...customization,
+                          pwaManifest: { ...customization.pwaManifest, backgroundColor: e.target.value },
+                        })
+                      }
+                      className="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer p-0"
+                    />
+                    <span className="text-[11px] font-mono text-slate-300">{customization.pwaManifest?.backgroundColor || '#0f172a'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* External Analytics Measurement IDs */}
+        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+              <BarChart2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>External Analytics Measurement IDs</span>
+            </span>
+            <span className="text-[10px] text-slate-500">Runs alongside native analytics</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[11px] text-slate-400 font-medium">Google Analytics 4 (GA4 Measurement ID)</label>
+              <input
+                type="text"
+                placeholder="G-XXXXXXXXXX"
+                value={customization.analyticsConfig?.googleAnalyticsId || ''}
+                onChange={(e) =>
+                  setCustomization({
+                    ...customization,
+                    analyticsConfig: { ...customization.analyticsConfig, googleAnalyticsId: e.target.value },
+                  })
+                }
+                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+              />
+              <p className="text-[10px] text-slate-500">Automatically embeds Google Analytics gtag.js on public visits.</p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] text-slate-400 font-medium">Plausible Analytics Custom Domain</label>
+              <input
+                type="text"
+                placeholder="e.g. yourname.com"
+                value={customization.analyticsConfig?.plausibleDomain || ''}
+                onChange={(e) =>
+                  setCustomization({
+                    ...customization,
+                    analyticsConfig: { ...customization.analyticsConfig, plausibleDomain: e.target.value },
+                  })
+                }
+                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+              />
+              <p className="text-[10px] text-slate-500">Privacy-focused, cookie-free lightweight tracking via Plausible script.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 20 Profession Themes Grid */}

@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
   const tenantLinks = [
     { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/admin/cv-import', label: 'CV Upload & AI', icon: FileUp },
+    { to: '/admin/cv-import', label: 'CV Scanner', icon: FileUp },
     { to: '/admin/customizer', label: 'Theme Builder', icon: Palette },
     { to: '/admin/profile', label: 'Edit Profile', icon: UserCheck },
     { to: '/admin/reviews', label: 'Testimonials', icon: Star },

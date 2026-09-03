@@ -9,9 +9,7 @@ router.use(authenticate);
 
 router.post('/upload', cvUpload.single('file'), CVController.upload);
 router.get('/extraction', CVController.getLatestExtraction);
+router.delete('/extraction', CVController.resetExtraction);
 router.post('/import', CVController.importExtraction);
-router.post('/ai/enhance-summary', CVController.enhanceSummaryWithAi);
-router.post('/ai/rewrite-bullet', CVController.rewriteBulletWithAi);
-router.post('/ai/suggest-skills', CVController.suggestSkillsWithAi);
 
 export default router;

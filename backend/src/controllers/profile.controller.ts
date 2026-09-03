@@ -7,6 +7,7 @@ import {
   skillSchema,
   projectSchema,
   certificationSchema,
+  referenceSchema,
 } from '../validators/profile.validator';
 import { ValidationError } from '../utils/errors';
 
@@ -292,8 +293,18 @@ export class ProfileController {
   // --- REFERENCES ---
   public static async addReference(req: Request, res: Response, next: NextFunction) {
     try {
-      const item = await ProfileService.addReference(req.user!.id, req.body);
+      const parsed = referenceSchema.safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid reference data', parsed.error.errors);
+      const item = await ProfileService.addReference(req.user!.id, parsed.data);
       return sendSuccess({ res, statusCode: 201, message: 'Reference added.', data: item });
+    } catch (error) { next(error); }
+  }
+  public static async updateReference(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = referenceSchema.partial().safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid reference data', parsed.error.errors);
+      const item = await ProfileService.updateReference(req.params.id, req.user!.id, parsed.data);
+      return sendSuccess({ res, message: 'Reference updated.', data: item });
     } catch (error) { next(error); }
   }
   public static async deleteReference(req: Request, res: Response, next: NextFunction) {

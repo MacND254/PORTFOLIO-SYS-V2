@@ -133,77 +133,199 @@ export class ProfileService {
   // --- CRUD HELPERS FOR SECTIONS ---
   public static async addExperience(userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.experience.create({ data: { ...data, profileId: profile.id } });
+    const cleanData: any = {
+      profileId: profile.id,
+      company: data.company,
+      position: data.position,
+      location: data.location || null,
+      startDate: data.startDate,
+      endDate: data.isCurrent ? null : (data.endDate || null),
+      isCurrent: Boolean(data.isCurrent),
+      description: data.description || null,
+      responsibilities: Array.isArray(data.responsibilities) ? data.responsibilities : [],
+      achievements: Array.isArray(data.achievements) ? data.achievements : [],
+      orderIndex: typeof data.orderIndex === 'number' ? data.orderIndex : 0,
+    };
+    const created = await prisma.experience.create({ data: cleanData });
+    await this.updateProfileCompleteness(profile.id);
+    return created;
   }
 
   public static async updateExperience(id: string, userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.experience.updateMany({ where: { id, profileId: profile.id }, data });
+    const existing = await prisma.experience.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Experience entry not found.');
+
+    const cleanData: any = {};
+    if (data.company !== undefined) cleanData.company = data.company;
+    if (data.position !== undefined) cleanData.position = data.position;
+    if (data.location !== undefined) cleanData.location = data.location || null;
+    if (data.startDate !== undefined) cleanData.startDate = data.startDate;
+    if (data.endDate !== undefined || data.isCurrent !== undefined) {
+      const isCurrent = data.isCurrent !== undefined ? Boolean(data.isCurrent) : existing.isCurrent;
+      cleanData.isCurrent = isCurrent;
+      cleanData.endDate = isCurrent ? null : (data.endDate || null);
+    }
+    if (data.description !== undefined) cleanData.description = data.description || null;
+    if (data.responsibilities !== undefined) {
+      cleanData.responsibilities = Array.isArray(data.responsibilities) ? data.responsibilities : [];
+    } else if (data.description) {
+      const lines = data.description.split('\n').map((l: string) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+      if (lines.length > 1) {
+        cleanData.responsibilities = lines;
+      }
+    }
+    if (data.achievements !== undefined) cleanData.achievements = Array.isArray(data.achievements) ? data.achievements : [];
+    if (data.orderIndex !== undefined) cleanData.orderIndex = data.orderIndex;
+
+    const updated = await prisma.experience.update({
+      where: { id: existing.id },
+      data: cleanData,
+    });
+    await this.updateProfileCompleteness(profile.id);
+    return updated;
   }
 
   public static async deleteExperience(id: string, userId: string) {
     const profile = await this.getProfileRef(userId);
-    return prisma.experience.deleteMany({ where: { id, profileId: profile.id } });
+    const existing = await prisma.experience.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Experience entry not found.');
+    const deleted = await prisma.experience.delete({ where: { id: existing.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return deleted;
+  }
+
+  private static async updateProfileCompleteness(profileId: string) {
+    try {
+      const fullProfile = await prisma.profile.findUnique({
+        where: { id: profileId },
+        include: {
+          experiences: true,
+          educations: true,
+          skills: true,
+          projects: true,
+          certifications: true,
+          awards: true,
+          publications: true,
+          languages: true,
+          services: true,
+          references: true,
+          memberships: true,
+          customSections: true,
+        },
+      });
+      if (fullProfile) {
+        const scoreDetails = this.calculateCompletenessScore(fullProfile);
+        if (fullProfile.completenessScore !== scoreDetails.totalScore) {
+          await prisma.profile.update({
+            where: { id: profileId },
+            data: { completenessScore: scoreDetails.totalScore },
+          });
+        }
+      }
+    } catch {
+      // Non-fatal score refresh
+    }
   }
 
   public static async addEducation(userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.education.create({ data: { ...data, profileId: profile.id } });
+    const created = await prisma.education.create({ data: { ...data, profileId: profile.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return created;
   }
 
   public static async updateEducation(id: string, userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.education.updateMany({ where: { id, profileId: profile.id }, data });
+    const existing = await prisma.education.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Education entry not found.');
+    const updated = await prisma.education.update({ where: { id: existing.id }, data });
+    await this.updateProfileCompleteness(profile.id);
+    return updated;
   }
 
   public static async deleteEducation(id: string, userId: string) {
     const profile = await this.getProfileRef(userId);
-    return prisma.education.deleteMany({ where: { id, profileId: profile.id } });
+    const existing = await prisma.education.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Education entry not found.');
+    const deleted = await prisma.education.delete({ where: { id: existing.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return deleted;
   }
 
   public static async addSkill(userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.skill.create({ data: { ...data, profileId: profile.id } });
+    const created = await prisma.skill.create({ data: { ...data, profileId: profile.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return created;
   }
 
   public static async updateSkill(id: string, userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.skill.updateMany({ where: { id, profileId: profile.id }, data });
+    const existing = await prisma.skill.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Skill entry not found.');
+    const updated = await prisma.skill.update({ where: { id: existing.id }, data });
+    await this.updateProfileCompleteness(profile.id);
+    return updated;
   }
 
   public static async deleteSkill(id: string, userId: string) {
     const profile = await this.getProfileRef(userId);
-    return prisma.skill.deleteMany({ where: { id, profileId: profile.id } });
+    const existing = await prisma.skill.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Skill entry not found.');
+    const deleted = await prisma.skill.delete({ where: { id: existing.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return deleted;
   }
 
   public static async addProject(userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.project.create({ data: { ...data, profileId: profile.id } });
+    const created = await prisma.project.create({ data: { ...data, profileId: profile.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return created;
   }
 
   public static async updateProject(id: string, userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.project.updateMany({ where: { id, profileId: profile.id }, data });
+    const existing = await prisma.project.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Project entry not found.');
+    const updated = await prisma.project.update({ where: { id: existing.id }, data });
+    await this.updateProfileCompleteness(profile.id);
+    return updated;
   }
 
   public static async deleteProject(id: string, userId: string) {
     const profile = await this.getProfileRef(userId);
-    return prisma.project.deleteMany({ where: { id, profileId: profile.id } });
+    const existing = await prisma.project.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Project entry not found.');
+    const deleted = await prisma.project.delete({ where: { id: existing.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return deleted;
   }
 
   public static async addCertification(userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.certification.create({ data: { ...data, profileId: profile.id } });
+    const created = await prisma.certification.create({ data: { ...data, profileId: profile.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return created;
   }
 
   public static async updateCertification(id: string, userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.certification.updateMany({ where: { id, profileId: profile.id }, data });
+    const existing = await prisma.certification.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Certification entry not found.');
+    const updated = await prisma.certification.update({ where: { id: existing.id }, data });
+    await this.updateProfileCompleteness(profile.id);
+    return updated;
   }
 
   public static async deleteCertification(id: string, userId: string) {
     const profile = await this.getProfileRef(userId);
-    return prisma.certification.deleteMany({ where: { id, profileId: profile.id } });
+    const existing = await prisma.certification.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Certification entry not found.');
+    const deleted = await prisma.certification.delete({ where: { id: existing.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return deleted;
   }
 
   // --- SERVICES ---
@@ -265,15 +387,27 @@ export class ProfileService {
   // --- REFERENCES ---
   public static async addReference(userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.reference.create({ data: { ...data, profileId: profile.id } });
+    const created = await prisma.reference.create({ data: { ...data, profileId: profile.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return created;
   }
+
   public static async updateReference(id: string, userId: string, data: any) {
     const profile = await this.getProfileRef(userId);
-    return prisma.reference.updateMany({ where: { id, profileId: profile.id }, data });
+    const existing = await prisma.reference.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Reference entry not found.');
+    const updated = await prisma.reference.update({ where: { id: existing.id }, data });
+    await this.updateProfileCompleteness(profile.id);
+    return updated;
   }
+
   public static async deleteReference(id: string, userId: string) {
     const profile = await this.getProfileRef(userId);
-    return prisma.reference.deleteMany({ where: { id, profileId: profile.id } });
+    const existing = await prisma.reference.findFirst({ where: { id, profileId: profile.id } });
+    if (!existing) throw new NotFoundError('Reference entry not found.');
+    const deleted = await prisma.reference.delete({ where: { id: existing.id } });
+    await this.updateProfileCompleteness(profile.id);
+    return deleted;
   }
 
   // --- CUSTOM SECTIONS ---
