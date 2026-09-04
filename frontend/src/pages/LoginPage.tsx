@@ -48,13 +48,9 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleGoogleLogin = () => {
-    // VITE_BACKEND_URL must be set to the full backend service URL (e.g. https://xxx.up.railway.app)
-    // This ensures the OAuth flow starts and ends on the same backend domain, preserving session cookies.
-    const backendUrl = import.meta.env.VITE_BACKEND_URL ||
-      (import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '')) ||
-      (import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, '')) ||
-      '';
-    window.location.href = `${backendUrl}/api/auth/google`;
+    const raw = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+    const base = (raw.startsWith('http://') || raw.startsWith('https://')) ? raw.replace(/\/api\/?$/, '') : '';
+    window.location.href = `${base}/api/auth/google`;
   };
 
   return (

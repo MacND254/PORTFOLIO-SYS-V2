@@ -52,8 +52,8 @@ services:
   # ── Backend (Express API) ─────────────────────────────────
   backend:
     build:
-      context: .                          # Repo root (gives access to /prisma)
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: portfolio_backend
     restart: unless-stopped
     depends_on:
@@ -92,7 +92,7 @@ services:
     # Run migrations then start the server
     command: >
       sh -c "
-        npx prisma db push --schema=./prisma/schema.prisma &&
+        npx prisma db push &&
         node dist/server.js
       "
     ports:

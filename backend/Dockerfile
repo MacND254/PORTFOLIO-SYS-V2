@@ -1,5 +1,5 @@
 # =============================================================
-# Build context: REPO ROOT  (docker build -f backend/Dockerfile .)
+# Build context: backend directory (Railway Root Directory: /backend)
 # =============================================================
 
 # ── Stage 1: Builder ─────────────────────────────────────────
@@ -9,24 +9,22 @@ RUN apt-get update -y && apt-get install -y openssl poppler-utils
 
 WORKDIR /app
 
-# Copy Prisma schema (it lives at repo root)
-COPY prisma ./prisma
+# Copy package manifests and Prisma schema
+COPY package*.json ./
+COPY prisma ./prisma/
 
-# Copy backend package manifests
-COPY backend/package*.json ./backend/
-
-# Install backend deps inside ./backend
-WORKDIR /app/backend
+# Install dependencies (includes devDependencies required for build & tsc)
 RUN npm install
 
-# Copy backend source and tsconfig
-COPY backend/src ./src
-COPY backend/tsconfig.json ./tsconfig.json
+# Copy source and tsconfig
+COPY tsconfig.json ./
+COPY src ./src
 
 # Fallback DATABASE_URL so prisma generate succeeds during build without live DB
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 
-# Build backend (prebuild runs prisma generate --schema=../prisma/schema.prisma, then tsc compiles to ./dist)
+# Generate Prisma Client & compile TypeScript to ./dist
+RUN npx prisma generate
 RUN npm run build
 RUN cp ./src/swagger.json ./dist/swagger.json
 
@@ -40,13 +38,10 @@ WORKDIR /app
 # Copy prisma schema so runtime commands (like prisma db push / migrate) work
 COPY --from=builder /app/prisma ./prisma
 
-# Copy compiled artefacts and runtime deps to /app
-COPY --from=builder /app/backend/dist          ./dist
-COPY --from=builder /app/backend/node_modules  ./node_modules
-COPY --from=builder /app/backend/package.json  ./package.json
-
-# Symlink /app/backend/node_modules -> /app/node_modules for prisma schema output resolution
-RUN mkdir -p /app/backend && ln -s /app/node_modules /app/backend/node_modules
+# Copy compiled artifacts and runtime dependencies
+COPY --from=builder /app/dist          ./dist
+COPY --from=builder /app/node_modules  ./node_modules
+COPY --from=builder /app/package.json  ./package.json
 
 # Writable volume for uploaded files
 RUN mkdir -p uploads && chown -R node:node /app
@@ -59,4 +54,3 @@ ENV NODE_ENV=production
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/server.js"]
-
