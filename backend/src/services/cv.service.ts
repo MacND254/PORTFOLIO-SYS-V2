@@ -202,6 +202,7 @@ export class CVService {
         title: 'CV Processing Complete!',
         message: 'Your CV has been scanned. Review the matched fields before applying to your profile.',
         type: 'SUCCESS',
+        category: 'PORTFOLIO',
         link: '/admin/cv-import',
       });
 

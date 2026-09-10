@@ -5,23 +5,28 @@ import { ThemeEngine } from '../components/portfolio/ThemeEngine';
 import { QrModal } from '../components/portfolio/QrModal';
 import { ReviewModal } from '../components/portfolio/ReviewModal';
 import { VerifiedDocumentsUnlockModal } from '../components/portfolio/VerifiedDocumentsUnlockModal';
+import { ScheduleMeetingModal } from '../components/portfolio/ScheduleMeetingModal';
 import { Spinner } from '../components/ui/Spinner';
 import { ShieldAlert } from 'lucide-react';
+import { extractSubdomainFromHostname, getPublicPortfolioDisplay, getPublicPortfolioUrl } from '../utils/url';
 
 export const PublicPortfolioPage: React.FC = () => {
   const { subdomain: paramSubdomain } = useParams<{ subdomain: string }>();
 
-  // Resolve subdomain from URL path or hostname
-  const hostSubdomain = window.location.hostname.split('.')[0];
-  const activeSubdomain = paramSubdomain || (hostSubdomain !== 'localhost' && hostSubdomain !== '127' ? hostSubdomain : 'francis');
+  // Resolve subdomain from URL path or hostname (*.localhost or production domain)
+  const hostSubdomain = extractSubdomainFromHostname(window.location.hostname);
+  const activeSubdomain = paramSubdomain || hostSubdomain || 'francis';
 
   const [portfolioData, setPortfolioData] = useState<any>(null);
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isVerifiedDocsOpen, setIsVerifiedDocsOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [scheduleModalMode, setScheduleModalMode] = useState<'all' | 'call'>('all');
   const [verifiedDocsInitialTab, setVerifiedDocsInitialTab] = useState<'unlock' | 'request'>('unlock');
   const [isDownloadingResume, setIsDownloadingResume] = useState(false);
   const [resumeDownloadError, setResumeDownloadError] = useState('');
@@ -33,6 +38,9 @@ export const PublicPortfolioPage: React.FC = () => {
 
   useEffect(() => {
     fetchPublicPortfolio();
+    api.get('/public-settings')
+      .then((res: any) => setGlobalSettings(res.data?.data || res.data))
+      .catch(() => {});
   }, [activeSubdomain]);
 
   // Dynamically inject custom favicon, PWA manifest, and external analytics scripts
@@ -40,8 +48,10 @@ export const PublicPortfolioPage: React.FC = () => {
     if (!portfolioData) return;
 
     const customization = portfolioData.profile?.customization;
-    const faviconUrl = customization?.faviconUrl;
+    const faviconUrl = customization?.faviconUrl || globalSettings?.defaultFaviconUrl;
     const analyticsConfig = customization?.analyticsConfig;
+    const gaId = analyticsConfig?.googleAnalyticsId?.trim() || globalSettings?.ga4MeasurementId?.trim();
+    const pDomain = analyticsConfig?.plausibleDomain?.trim() || globalSettings?.plausibleDomain?.trim();
 
     // 1. Dynamic Favicon injection
     let linkIcon: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
@@ -65,8 +75,7 @@ export const PublicPortfolioPage: React.FC = () => {
     manifestLink.href = `/api/portfolio/public/${activeSubdomain}/manifest.json`;
 
     // 3. Dynamic Google Analytics 4 (gtag.js)
-    if (analyticsConfig?.googleAnalyticsId && analyticsConfig.googleAnalyticsId.trim()) {
-      const gaId = analyticsConfig.googleAnalyticsId.trim();
+    if (gaId) {
       if (!document.getElementById('ga-script')) {
         const script1 = document.createElement('script');
         script1.id = 'ga-script';
@@ -87,8 +96,7 @@ export const PublicPortfolioPage: React.FC = () => {
     }
 
     // 4. Dynamic Plausible Analytics
-    if (analyticsConfig?.plausibleDomain && analyticsConfig.plausibleDomain.trim()) {
-      const pDomain = analyticsConfig.plausibleDomain.trim();
+    if (pDomain) {
       if (!document.getElementById('plausible-script')) {
         const script = document.createElement('script');
         script.id = 'plausible-script';
@@ -105,7 +113,7 @@ export const PublicPortfolioPage: React.FC = () => {
         linkIcon.href = originalFaviconHref;
       }
     };
-  }, [portfolioData, activeSubdomain]);
+  }, [portfolioData, globalSettings, activeSubdomain]);
 
   const fetchPublicPortfolio = async () => {
     setIsLoading(true);
@@ -131,13 +139,6 @@ export const PublicPortfolioPage: React.FC = () => {
     if (isDownloadingResume) return;
     setIsDownloadingResume(true);
     setResumeDownloadError('');
-
-    // Native tracking: record DOWNLOAD_RESUME event asynchronously
-    api.post('/analytics/track', {
-      subdomain: activeSubdomain,
-      eventType: 'DOWNLOAD_RESUME',
-      path: window.location.pathname,
-    }).catch(() => {});
 
     try {
       const response: any = await api.get(`/portfolio/pdf?subdomain=${activeSubdomain}&template=${templateStyle}`, {
@@ -167,7 +168,7 @@ export const PublicPortfolioPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
         <Spinner size="lg" />
-        <p className="text-slate-400 text-sm animate-pulse">Loading portfolio for {activeSubdomain}.myportfolio.com...</p>
+        <p className="text-slate-400 text-sm animate-pulse">Loading portfolio for {getPublicPortfolioDisplay(activeSubdomain)}...</p>
       </div>
     );
   }
@@ -203,12 +204,20 @@ export const PublicPortfolioPage: React.FC = () => {
         onSendMessage={handleSendMessage}
         onOpenVerifiedDocs={handleOpenVerifiedDocs}
         hasVerifiedDocs={hasVerifiedDocs}
+        onOpenScheduleModal={() => {
+          setScheduleModalMode('all');
+          setIsScheduleModalOpen(true);
+        }}
+        onOpenCallModal={() => {
+          setScheduleModalMode('call');
+          setIsScheduleModalOpen(true);
+        }}
       />
 
       <QrModal
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
-        portfolioUrl={`http://${subdomain}.myportfolio.com:5000`}
+        portfolioUrl={getPublicPortfolioUrl(subdomain)}
         fullName={owner.fullName}
       />
 
@@ -226,6 +235,15 @@ export const PublicPortfolioPage: React.FC = () => {
         ownerName={owner.fullName}
         hasDocuments={true}
         initialTab={verifiedDocsInitialTab}
+      />
+
+      <ScheduleMeetingModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        subdomain={subdomain || activeSubdomain}
+        candidateName={owner.fullName}
+        candidateTitle={profile?.title}
+        mode={scheduleModalMode}
       />
     </>
   );

@@ -149,7 +149,7 @@ export const UserManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto selection:bg-indigo-500 selection:text-white">
+    <div className="p-4 sm:p-6 space-y-4 max-w-7xl mx-auto pb-10 selection:bg-indigo-500 selection:text-white">
       {/* Toast Notification */}
       {notification && (
         <div
@@ -165,35 +165,37 @@ export const UserManagementPage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-            <Users className="w-8 h-8 text-indigo-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <Users className="w-4 h-4" />
+            </div>
             <span>Tenant Account Management</span>
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-400 text-xs mt-0.5">
             Monitor, inspect, suspend, activate, and manage platform tenant accounts.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            <span>{totalUsers} Registered Tenants</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5" />
+            <span>{totalUsers} Tenants</span>
           </div>
           <button
             onClick={fetchUsers}
-            className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition"
+            className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition"
             title="Refresh List"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+      <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full md:w-72">
+          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
           <input
             type="text"
             value={search}
@@ -202,13 +204,13 @@ export const UserManagementPage: React.FC = () => {
               setPage(1);
             }}
             placeholder="Search name, email, or subdomain…"
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none transition"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3 h-3 text-slate-400" />
             <span className="text-xs font-semibold text-slate-400">Status:</span>
             <select
               value={statusFilter}
@@ -216,7 +218,7 @@ export const UserManagementPage: React.FC = () => {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="py-1.5 px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 focus:border-indigo-500 focus:outline-none"
+              className="py-1 px-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 focus:border-indigo-500 focus:outline-none"
             >
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">ACTIVE</option>
@@ -225,8 +227,8 @@ export const UserManagementPage: React.FC = () => {
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Shield className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5">
+            <Shield className="w-3 h-3 text-slate-400" />
             <span className="text-xs font-semibold text-slate-400">Role:</span>
             <select
               value={roleFilter}
@@ -234,7 +236,7 @@ export const UserManagementPage: React.FC = () => {
                 setRoleFilter(e.target.value);
                 setPage(1);
               }}
-              className="py-1.5 px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 focus:border-indigo-500 focus:outline-none"
+              className="py-1 px-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 focus:border-indigo-500 focus:outline-none"
             >
               <option value="ALL">All Roles</option>
               <option value="ADMIN">ADMIN</option>
@@ -245,28 +247,28 @@ export const UserManagementPage: React.FC = () => {
       </div>
 
       {/* Users Table */}
-      <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl">
+      <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shadow-md">
         {isLoading ? (
-          <div className="p-12 flex justify-center">
+          <div className="p-10 flex justify-center">
             <Spinner size="lg" />
           </div>
         ) : users.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <UserX className="w-10 h-10 text-slate-600 mx-auto" />
-            <p className="text-slate-400 text-sm font-semibold">No tenant accounts found.</p>
-            <p className="text-xs text-slate-500">Try adjusting your search query or filters.</p>
+          <div className="p-10 text-center space-y-2">
+            <UserX className="w-8 h-8 text-slate-600 mx-auto" />
+            <p className="text-slate-400 text-xs font-semibold">No tenant accounts found.</p>
+            <p className="text-[11px] text-slate-500">Try adjusting your search query or filters.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  <th className="p-4">Tenant User</th>
-                  <th className="p-4">Subdomain Slug</th>
-                  <th className="p-4">Profession</th>
-                  <th className="p-4">Role</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4 text-right">Actions</th>
+                  <th className="py-2.5 px-3">Tenant User</th>
+                  <th className="py-2.5 px-3">Subdomain</th>
+                  <th className="py-2.5 px-3">Profession</th>
+                  <th className="py-2.5 px-3">Role</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs">
@@ -277,29 +279,28 @@ export const UserManagementPage: React.FC = () => {
 
                   return (
                     <tr key={u.id} className="hover:bg-slate-800/40 transition group">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-0.5 shrink-0 shadow-md">
-                            <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center font-bold text-white text-xs">
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-0.5 shrink-0">
+                            <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center font-bold text-white text-[11px]">
                               {u.fullName?.charAt(0) || 'U'}
                             </div>
                           </div>
                           <div className="min-w-0">
-                            <p className="font-bold text-white group-hover:text-indigo-400 transition truncate">
+                            <p className="font-semibold text-white group-hover:text-indigo-400 transition truncate text-xs">
                               {u.fullName}
                             </p>
                             <p className="text-[11px] text-slate-400 truncate font-mono">{u.email}</p>
                           </div>
                         </div>
                       </td>
-
-                      <td className="p-4 font-mono text-indigo-400">
+                      <td className="py-2.5 px-3 font-mono text-indigo-400 text-[11px]">
                         {u.subdomain ? (
                           <a
                             href={`/p/${u.subdomain}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="hover:underline flex items-center gap-1.5"
+                            className="hover:underline flex items-center gap-1"
                           >
                             <span>{u.subdomain}</span>
                             <ExternalLink className="w-3 h-3 text-slate-500" />
@@ -309,13 +310,13 @@ export const UserManagementPage: React.FC = () => {
                         )}
                       </td>
 
-                      <td className="p-4 text-slate-300">
+                      <td className="py-2.5 px-3 text-slate-300 text-xs">
                         {u.desiredProfession || u.profile?.title || 'General'}
                       </td>
 
-                      <td className="p-4">
+                      <td className="py-2.5 px-3">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
                             isSuperAdmin
                               ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
                               : 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20'
@@ -326,7 +327,7 @@ export const UserManagementPage: React.FC = () => {
                         </span>
                       </td>
 
-                      <td className="p-4">
+                      <td className="py-2.5 px-3">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                             isActive
@@ -340,14 +341,14 @@ export const UserManagementPage: React.FC = () => {
                         </span>
                       </td>
 
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => fetchUserDetails(u.id)}
                             className="p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-400 border border-slate-700 hover:border-indigo-500/30 transition"
                             title="View Tenant Details"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-3.5 h-3.5" />
                           </button>
 
                           <button
@@ -359,7 +360,7 @@ export const UserManagementPage: React.FC = () => {
                             className="p-1.5 rounded-lg bg-slate-800 hover:bg-amber-600/20 text-slate-300 hover:text-amber-400 border border-slate-700 hover:border-amber-500/30 transition"
                             title="Force Reset Password"
                           >
-                            <KeyRound className="w-4 h-4" />
+                            <KeyRound className="w-3.5 h-3.5" />
                           </button>
 
                           {!isSuperAdmin && (
@@ -367,19 +368,19 @@ export const UserManagementPage: React.FC = () => {
                               {isActive ? (
                                 <button
                                   onClick={() => handleUpdateStatus(u.id, 'SUSPENDED')}
-                                  className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition text-xs font-semibold flex items-center gap-1"
+                                  className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition text-[11px] font-semibold flex items-center gap-1"
                                   title="Suspend Tenant Account"
                                 >
-                                  <UserX className="w-3.5 h-3.5" />
+                                  <UserX className="w-3 h-3" />
                                   <span>Suspend</span>
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => handleUpdateStatus(u.id, 'ACTIVE')}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition text-xs font-semibold flex items-center gap-1"
+                                  className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition text-[11px] font-semibold flex items-center gap-1"
                                   title="Activate Tenant Account"
                                 >
-                                  <UserCheck className="w-3.5 h-3.5" />
+                                  <UserCheck className="w-3 h-3" />
                                   <span>Activate</span>
                                 </button>
                               )}
@@ -424,16 +425,16 @@ export const UserManagementPage: React.FC = () => {
       {/* USER DETAILS SLIDE-OVER MODAL */}
       {selectedUserId && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl bg-slate-900 border-l border-slate-800 h-full overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-0.5">
-                  <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-full max-w-2xl bg-slate-900 border-l border-slate-800 h-full overflow-y-auto p-4 sm:p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-0.5">
+                  <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-white font-bold text-xs">
                     {userDetails?.fullName?.charAt(0) || 'U'}
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">{userDetails?.fullName}</h3>
+                  <h3 className="text-base font-bold text-white">{userDetails?.fullName}</h3>
                   <p className="text-xs text-slate-400 font-mono">{userDetails?.email}</p>
                 </div>
               </div>

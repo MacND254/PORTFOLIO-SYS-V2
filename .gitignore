@@ -7,3 +7,5 @@ build/
 uploads/
 coverage/
 .DS_Store
+powershell.cmd
+

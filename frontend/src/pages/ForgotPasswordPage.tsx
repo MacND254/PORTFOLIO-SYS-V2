@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { Button } from '../components/ui/Button';
-import { Mail, ArrowLeft, CheckCircle, AlertTriangle, KeyRound, ArrowRight } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle, AlertTriangle, KeyRound } from 'lucide-react';
 
 export const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -85,10 +85,9 @@ export const ForgotPasswordPage: React.FC = () => {
             variant="primary"
             size="md"
             isLoading={isLoading}
-            className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20 gap-2"
+            className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20"
           >
             <span>Send Reset Link</span>
-            <ArrowRight className="w-4 h-4" />
           </Button>
         </form>
 

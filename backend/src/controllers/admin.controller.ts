@@ -68,6 +68,16 @@ export class AdminController {
     }
   }
 
+  public static async getPlatformTraffic(req: Request, res: Response, next: NextFunction) {
+    try {
+      const timeRange = (req.query.timeRange as '7d' | '30d' | '90d' | 'all') || '30d';
+      const data = await AnalyticsService.getSuperAdminPlatformTraffic(timeRange);
+      return sendSuccess({ res, message: 'Platform traffic analytics fetched.', data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async getAuditLogs(req: Request, res: Response, next: NextFunction) {
     try {
       const logs = await AuditService.getLogs({

@@ -376,11 +376,12 @@ export class ProfileController {
 
   public static async generateDocumentAccessKey(req: Request, res: Response, next: NextFunction) {
     try {
-      const { recipientName, validityHours } = req.body;
+      const { recipientName, validityHours, recipientEmail } = req.body;
       const keyRecord = await ProfileService.generateDocumentAccessKey(
         req.user!.id,
         recipientName,
-        validityHours ? parseInt(validityHours, 10) : 24
+        validityHours ? parseInt(validityHours, 10) : 24,
+        recipientEmail
       );
       return sendSuccess({ res, statusCode: 201, message: 'One-time document access key generated.', data: keyRecord });
     } catch (error) { next(error); }

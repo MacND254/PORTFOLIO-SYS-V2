@@ -17,6 +17,7 @@ router.put('/users/:id/role', AdminController.updateUserRole);
 router.post('/users/:id/reset-password', AdminController.forceResetPassword);
 
 router.get('/analytics', AdminController.getPlatformAnalytics);
+router.get('/platform-traffic', AdminController.getPlatformTraffic);
 router.get('/audit-logs', AdminController.getAuditLogs);
 router.get('/system-health', AdminController.getSystemHealth);
 

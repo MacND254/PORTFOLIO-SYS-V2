@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Globe, Briefcase, AlertTriangle, Loader2, ArrowRight } from 'lucide-react';
+import { Globe, Briefcase, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -150,17 +150,14 @@ export const OAuthOnboardingPage: React.FC = () => {
             variant="primary"
             size="md"
             isLoading={isLoading}
-            className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20 gap-2"
+            className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20"
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Launching…
               </span>
             ) : (
-              <>
-                <span>Launch My Portfolio</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
+              <span>Launch My Portfolio</span>
             )}
           </Button>
         </form>

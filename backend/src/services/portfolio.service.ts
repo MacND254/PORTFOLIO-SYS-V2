@@ -2,6 +2,7 @@ import { prisma } from '../database/client';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/errors';
 import { validateSubdomainFormat, normalizeSubdomain } from '../utils/slug';
 import { AuditService } from './audit.service';
+import { NotificationService } from './notification.service';
 import { config } from '../config/env';
 
 export class PortfolioService {
@@ -221,6 +222,44 @@ export class PortfolioService {
       action: publish ? 'PORTFOLIO_PUBLISHED' : 'PORTFOLIO_UNPUBLISHED',
       target: profile.id,
     });
+
+    // Notify tenant and SuperAdmins
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { subdomains: { where: { isPrimary: true } } },
+      });
+      const subSlug = user?.subdomains?.[0]?.slug || 'portfolio';
+
+      if (publish) {
+        await NotificationService.create({
+          userId,
+          title: 'Portfolio Published Online!',
+          message: 'Your portfolio is now live and accessible to recruiters and visitors worldwide.',
+          type: 'SUCCESS',
+          category: 'PORTFOLIO',
+          link: `/p/${subSlug}`,
+        });
+
+        await NotificationService.notifySuperAdmins({
+          title: 'Tenant Portfolio Published',
+          message: `${user?.fullName || 'A tenant'} published their live portfolio (${subSlug})`,
+          type: 'SUCCESS',
+          link: '/superadmin/users',
+        });
+      } else {
+        await NotificationService.create({
+          userId,
+          title: 'Portfolio Unpublished',
+          message: 'Your portfolio is now set to private draft mode.',
+          type: 'WARNING',
+          category: 'PORTFOLIO',
+          link: '/admin/dashboard',
+        });
+      }
+    } catch (notifErr: any) {
+      console.error('[publishPortfolio] Failed to deliver notifications:', notifErr.message);
+    }
 
     return status;
   }

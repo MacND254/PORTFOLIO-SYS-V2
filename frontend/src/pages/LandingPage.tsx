@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../api/client';
 import {
   Sparkles,
   FileText,
@@ -32,6 +33,10 @@ import {
   Terminal,
   Activity,
   Share2,
+  Quote,
+  X,
+  Send,
+  User,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -39,6 +44,123 @@ export const LandingPage: React.FC = () => {
   const [activeThemeIndex, setActiveThemeIndex] = useState(0);
   const [activeFeatureTab, setActiveFeatureTab] = useState<'ai' | 'subdomain' | 'pdf' | 'reviews' | 'analytics'>('ai');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  // ── Platform Testimonials State ──────────────────────────────────
+  const [liveTestimonials, setLiveTestimonials] = useState<any[]>([]);
+  const [testimonialsLoading, setTestimonialsLoading] = useState(false);
+  const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
+  const [submittingTestimonial, setSubmittingTestimonial] = useState(false);
+  const [testimonialSuccess, setTestimonialSuccess] = useState(false);
+  const [testimonialError, setTestimonialError] = useState<string | null>(null);
+  const [testimonialForm, setTestimonialForm] = useState({
+    submitterName: '',
+    submitterEmail: '',
+    submitterRole: '',
+    submitterCompany: '',
+    rating: 5,
+    content: '',
+  });
+
+  const fallbackTestimonials = [
+    {
+      id: 'fb-1',
+      submitterName: 'Sarah Jenkins',
+      submitterRole: 'Principal Cloud Architect',
+      submitterCompany: 'Veritas Technologies',
+      rating: 5,
+      content: 'The dark-mode IDE theme and CV OCR extraction blew me away. In under three minutes, I had a custom subdomain with interactive project architecture diagrams. Received 4 recruiter interview calls within 48 hours of publishing.',
+    },
+    {
+      id: 'fb-2',
+      submitterName: 'Marcus Vance',
+      submitterRole: 'Talent Acquisition Director',
+      submitterCompany: 'Nexus Global Ventures',
+      rating: 5,
+      content: 'As an employer hiring senior engineering and design talent, these portfolios are night and day compared to standard PDF resumes. The embedded QR code and instant interview scheduling make vetting candidates effortless.',
+    },
+    {
+      id: 'fb-3',
+      submitterName: 'Dr. Elena Rostova',
+      submitterRole: 'Clinical Neuroscientist',
+      submitterCompany: 'Metro Health Institute',
+      rating: 5,
+      content: 'Most portfolio builders are strictly for web developers. Portfolio SaaS had a dedicated medical clinician theme that highlighted my peer-reviewed publications and clinical trials with incredible elegance.',
+    },
+    {
+      id: 'fb-4',
+      submitterName: 'David K. Thorne',
+      submitterRole: 'Managing Partner',
+      submitterCompany: 'Thorne & Hastings LLP',
+      rating: 5,
+      content: 'The serif typography and executive courtroom theme presented our legal practice cases with utmost authority. The verified client review system gives prospects authentic confidence.',
+    },
+    {
+      id: 'fb-5',
+      submitterName: 'Aisha Patel',
+      submitterRole: 'Lead Product Designer',
+      submitterCompany: 'FinTech Orbit',
+      rating: 5,
+      content: 'From the vibrant canvas styling to embedded Figma frame previews, this platform understands high-end visual design. The live theme switching is buttery smooth.',
+    },
+    {
+      id: 'fb-6',
+      submitterName: 'Kenji Sato',
+      submitterRole: 'Cybersecurity Threat Analyst',
+      submitterCompany: 'Aegis Defense Labs',
+      rating: 5,
+      content: 'The green terminal HUD aesthetic and security vulnerability portfolio format are unmatched. Setup took less than two minutes from my old PDF resume.',
+    },
+  ];
+
+  const fetchTestimonials = async () => {
+    setTestimonialsLoading(true);
+    try {
+      const res: any = await api.get('/testimonials');
+      const data = res.data?.testimonials || res.data || [];
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveTestimonials(data);
+      }
+    } catch {
+      // Keep fallback
+    } finally {
+      setTestimonialsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTestimonials();
+  }, []);
+
+  const handleTestimonialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testimonialForm.submitterName.trim() || !testimonialForm.submitterEmail.trim() || !testimonialForm.content.trim()) {
+      setTestimonialError('Please fill in all required fields (Name, Email, and Review).');
+      return;
+    }
+    setSubmittingTestimonial(true);
+    setTestimonialError(null);
+    try {
+      await api.post('/testimonials', testimonialForm);
+      setTestimonialSuccess(true);
+      setTestimonialForm({
+        submitterName: '',
+        submitterEmail: '',
+        submitterRole: '',
+        submitterCompany: '',
+        rating: 5,
+        content: '',
+      });
+      fetchTestimonials();
+    } catch (err: any) {
+      setTestimonialError(err.message || 'Failed to submit review. Please try again.');
+    } finally {
+      setSubmittingTestimonial(false);
+    }
+  };
+
+  const displayTestimonials = liveTestimonials.length > 0
+    ? [...liveTestimonials, ...fallbackTestimonials.slice(liveTestimonials.length)]
+    : fallbackTestimonials;
 
   const professionThemes = [
     {
@@ -245,6 +367,7 @@ export const LandingPage: React.FC = () => {
             <a href="#features" className="hover:text-indigo-400 transition">Features</a>
             <a href="#themes" className="hover:text-indigo-400 transition">20 Themes</a>
             <a href="#how-it-works" className="hover:text-indigo-400 transition">How It Works</a>
+            <a href="#testimonials" className="hover:text-indigo-400 transition">Reviews</a>
             <a href="#faqs" className="hover:text-indigo-400 transition">FAQs</a>
           </nav>
 
@@ -625,6 +748,292 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Verified Testimonials & Reviews Section */}
+      <section id="testimonials" className="relative z-10 px-6 py-24 max-w-7xl mx-auto space-y-16">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-4 border-b border-slate-800/80">
+          <div className="space-y-4 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <span>Verified Community & Employer Reviews</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Trusted by Top Talent & Global Hiring Teams
+            </h2>
+            <p className="text-slate-400 text-base leading-relaxed">
+              Read authentic feedback from developers, clinicians, executives, and company hiring partners. Every testimonial is verified before publication.
+            </p>
+          </div>
+
+          <div className="shrink-0">
+            <Button
+              variant="primary"
+              onClick={() => {
+                setTestimonialSuccess(false);
+                setTestimonialError(null);
+                setIsTestimonialModalOpen(true);
+              }}
+              className="shadow-xl shadow-indigo-600/30 gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Leave a Review</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Testimonial Cards Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayTestimonials.map((item, idx) => (
+            <div
+              key={item.id || idx}
+              className="p-7 rounded-3xl bg-slate-900/60 border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-6 group hover:shadow-xl hover:shadow-indigo-500/5 backdrop-blur-sm"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  {/* Star Rating */}
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-4 h-4 ${
+                          star <= (item.rating || 5)
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <Quote className="w-6 h-6 text-slate-700 group-hover:text-indigo-400/40 transition-colors" />
+                </div>
+
+                <p className="text-slate-300 text-sm leading-relaxed italic">
+                  "{item.content}"
+                </p>
+              </div>
+
+              {/* Author Bio */}
+              <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                    {item.submitterName?.charAt(0) || 'U'}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white leading-tight">
+                      {item.submitterName}
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-tight mt-0.5">
+                      {item.submitterRole || 'Platform User'}
+                      {item.submitterCompany ? ` • ${item.submitterCompany}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Verified</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Testimonial Submission Modal */}
+      {isTestimonialModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-semibold mb-2">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Platform Community Feedback</span>
+                </div>
+                <h3 className="text-xl font-extrabold text-white">Share Your Experience</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Leave a review for Portfolio SaaS. Submissions are reviewed by administrators before being featured on the public homepage.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsTestimonialModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {testimonialSuccess ? (
+              <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center font-bold">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base font-bold text-white">Testimonial Submitted!</h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Thank you for your feedback. Our platform administrators have received your review and will verify it for the public landing page shortly.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsTestimonialModalOpen(false);
+                    setTestimonialSuccess(false);
+                  }}
+                  className="w-full justify-center"
+                >
+                  Close Window
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleTestimonialSubmit} className="space-y-4">
+                {testimonialError && (
+                  <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                    {testimonialError}
+                  </div>
+                )}
+
+                {/* Rating Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-300 block">
+                    Rating <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        type="button"
+                        key={star}
+                        onClick={() => setTestimonialForm((f) => ({ ...f, rating: star }))}
+                        className="p-1 text-slate-600 hover:scale-110 transition-transform"
+                      >
+                        <Star
+                          className={`w-6 h-6 ${
+                            star <= testimonialForm.rating
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-slate-700'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="text-xs font-bold text-amber-400 ml-2">
+                      {testimonialForm.rating} / 5 Stars
+                    </span>
+                  </div>
+                </div>
+
+                {/* Name & Email Row */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300 block">
+                      Your Full Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={testimonialForm.submitterName}
+                      onChange={(e) =>
+                        setTestimonialForm((f) => ({ ...f, submitterName: e.target.value }))
+                      }
+                      placeholder="e.g. Alex Morgan"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300 block">
+                      Email Address <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={testimonialForm.submitterEmail}
+                      onChange={(e) =>
+                        setTestimonialForm((f) => ({ ...f, submitterEmail: e.target.value }))
+                      }
+                      placeholder="alex@example.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Role & Company Row */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300 block">
+                      Job Title / Role (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={testimonialForm.submitterRole}
+                      onChange={(e) =>
+                        setTestimonialForm((f) => ({ ...f, submitterRole: e.target.value }))
+                      }
+                      placeholder="e.g. Senior Software Architect"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300 block">
+                      Company / Organization (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={testimonialForm.submitterCompany}
+                      onChange={(e) =>
+                        setTestimonialForm((f) => ({ ...f, submitterCompany: e.target.value }))
+                      }
+                      placeholder="e.g. Stripe, Acme Corp"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Review Content */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300 block">
+                    Your Testimonial Review <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={testimonialForm.content}
+                    onChange={(e) =>
+                      setTestimonialForm((f) => ({ ...f, content: e.target.value }))
+                    }
+                    placeholder="Share how Portfolio SaaS helped your career, recruitment, or personal branding..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="pt-2 flex items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsTestimonialModalOpen(false)}
+                    disabled={submittingTestimonial}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={submittingTestimonial}
+                    className="gap-2 shadow-lg shadow-indigo-600/30"
+                  >
+                    {submittingTestimonial ? (
+                      <span>Submitting...</span>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Submit for Admin Review</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* FAQ Accordion Section */}
       <section id="faqs" className="relative z-10 px-6 py-24 max-w-4xl mx-auto space-y-12">

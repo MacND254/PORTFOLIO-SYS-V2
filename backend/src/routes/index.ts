@@ -9,6 +9,9 @@ import messageRoutes from './message.routes';
 import analyticsRoutes from './analytics.routes';
 import adminRoutes from './admin.routes';
 import notificationRoutes from './notification.routes';
+import interviewRoutes from './interview.routes';
+import companyRoutes from './company.routes';
+import testimonialRoutes from './testimonial.routes';
 import { HealthController } from '../controllers/health.controller';
 import { SettingsAdminController } from '../controllers/settingsAdmin.controller';
 import { checkMaintenanceMode } from '../middleware/maintenance.middleware';
@@ -28,9 +31,12 @@ router.use('/themes', themeRoutes);
 router.use('/portfolio', portfolioRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/messages', messageRoutes);
+router.use('/interviews', interviewRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/admin', adminRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/companies', companyRoutes);
+router.use('/testimonials', testimonialRoutes);
 
 // Health check endpoint
 router.get('/health', HealthController.getHealth);

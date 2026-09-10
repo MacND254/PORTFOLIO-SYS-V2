@@ -69,11 +69,21 @@ This document outlines all platform capabilities, completed milestones, and pend
 * **Database Schema**: Add `discordWebhookUrl String?` and `slackWebhookUrl String?` to `Profile` model.
 * **Notification Payload**: Embed card containing sender name, sender email, subject, message preview, and a direct link to reply or view in the admin dashboard.
 
-### 2.3 Interactive Appointment Booking Embed (Calendly / Cal.com)
-* **Status**: ⏳ Pending
-* **Specification**: Embed scheduling widgets directly on the public portfolio page for recruiter interviews or client consultations.
-* **Settings UI**: `CustomizerPage.tsx` or `UserSettingsPage.tsx` (field: `bookingUrl`).
-* **Display**: A floating or inline `"Schedule a Call"` card in the public portfolio with native popup modal supporting Calendly, Cal.com, or Google Calendar appointment links.
+### 2.3 Native Recruiter Interview & Meeting Scheduling Suite
+* **Status**: ✅ Completed
+* **Specification**: Built-in, high-performance appointment booking and schedule request management system that doesn't rely on third-party dependencies like Calendly.
+* **Public Portfolio UI**: Multi-step glassmorphic modal with interview type selection (Recruiter Screen, Technical Interview, Hiring Manager, Intro Call, etc.), duration selector (15/30/45/60 min), platform preferences (Google Meet, Zoom, Teams, Phone), date/time pickers with auto-detected timezone, and honeypot anti-spam protection.
+* **Tenant Admin Management (`/admin/interviews`)**:
+  * Real-time metrics overview (Pending Requests, Accepted Calls, Total Scheduled, Response Rate).
+  * Tabbed filtering (`ALL`, `PENDING`, `ACCEPTED`, `RESCHEDULED`, `DECLINED`).
+  * One-click **Accept** modal with custom Google Meet / Zoom link input and meeting notes.
+  * One-click **Reschedule** modal with alternative date & time selection.
+  * One-click **Decline** modal with polite feedback message.
+* **Automated SMTP Email Dispatch & Calendar (.ics) Generation**:
+  * When recruiter requests a meeting: Tenant receives notification with direct review link; recruiter receives instant confirmation.
+  * When tenant accepts: Recruiter receives branded email with call link and an attached RFC-5545 `.ics` calendar invitation file (compatible with Google Calendar, Apple Mail, and Outlook).
+  * When tenant reschedules or declines: Recruiter automatically receives a professional update email with tenant reply-to set.
+* **Sidebar Integration**: Live badge notification showing the current count of pending interview requests.
 
 ### 2.4 One-Click Direct WhatsApp Inquiry Button
 * **Status**: ⏳ Pending
@@ -227,6 +237,47 @@ This document outlines all platform capabilities, completed milestones, and pend
   1. *Executive Formal*: Classic single-column serif design preferred by banking, law, and corporate recruiters.
   2. *Tech Minimalist*: Clean monospace/sans-serif layout with compact skill matrices.
   3. *Creative Modern*: Vibrant header accents, bold typography, and visual timeline indicators.
+
+---
+
+## 🏢 Category 9: Company Partner Ecosystem & AI Candidate Matching
+
+### 9.1 Superadmin Company Invitation & Broadcast Campaign Suite
+* **Status**: ✅ Completed
+* **Specification**: Private, multi-recipient broadcast onboarding system for corporate partners.
+* **Capabilities**:
+  * Superadmin generates cryptographically secure, time-limited invitation tokens (`/superadmin/companies`).
+  * Multi-email input field accepting comma-, semicolon-, space-, or line-break-delimited lists of company addresses with live recipient count detection.
+  * Instant concurrent delivery of responsive, high-conversion HTML marketing emails to all recipients detailing platform benefits (pre-vetted portfolios, AI candidate matching, direct scheduling, zero commissions).
+  * Superadmin controls: Live recipient badges, track registered companies count (`usageCount`), copy shared registration links, resend marketing emails to all recipients, or revoke access.
+  * Partner directory tab listing registered companies, website links, company sizes, and active job counts.
+
+### 9.2 Shared Token-Gated Company Registration & Profile Setup
+* **Status**: ✅ Completed
+* **Specification**: Dedicated registration page (`/register/company?token=...`) supporting multiple independent company registrations under the same active token.
+* **Capabilities**:
+  * Step 1: Administrator account setup with corporate work email input, full name, and password with real-time strength validation.
+  * Step 2: Company profile (name, website, industry, size bracket, location, description, direct recruiter contact info).
+  * Multi-use link persistence: token remains valid for multiple companies throughout its expiration window without locking after the first sign-up.
+  * Automatic role assignment (`Role.COMPANY`), JWT issuance, and instant redirect to the Employer Portal.
+
+### 9.3 Job Management & Publishing Portal
+* **Status**: ✅ Completed
+* **Specification**: Comprehensive job listing workspace for corporate partners (`/company/jobs`, `/company/jobs/new`).
+* **Capabilities**:
+  * Multi-field posting form: Title, department, workplace type (Remote/Hybrid/Onsite), employment type (Full-time/Part-time/Contract/Internship), location, experience level, salary range, and rich description/requirements.
+  * Interactive tech-stack skill tagger with quick-add chips for common engineering tools.
+  * One-click lifecycle actions: Activate, Pause, Edit, and Delete job postings.
+
+### 9.4 Intelligent Portfolio Fit & Candidate Matching Engine
+* **Status**: ✅ Completed
+* **Specification**: Automated portfolio parsing and multi-factor candidate scoring (`/company/jobs/:id/matches`).
+* **Scoring Methodology (0–100% Fit Score)**:
+  * **Skills Match (40 pts)**: Overlap between required job skills and candidate portfolio tech stack tags.
+  * **Role & Title Alignment (25 pts)**: Semantic matching between target job title and candidate's current/past roles.
+  * **Experience Depth (25 pts)**: Years of verifiable experience, project density, and education.
+  * **Verification & Completeness (10 pts)**: Verified credentials, custom domain, and profile completeness.
+* **UI Location**: Dedicated candidate dossier page with SVG animated score rings, score breakdown bars, matched vs. missing skill tags, and direct one-click links to live public candidate portfolios.
 
 ---
 

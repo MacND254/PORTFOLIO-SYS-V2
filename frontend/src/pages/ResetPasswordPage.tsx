@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import { Button } from '../components/ui/Button';
 import { PasswordStrengthIndicator } from '../components/auth/PasswordStrengthIndicator';
-import { Lock, ArrowLeft, CheckCircle, AlertTriangle, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, ArrowLeft, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 export const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -138,10 +138,9 @@ export const ResetPasswordPage: React.FC = () => {
             size="md"
             isLoading={isLoading}
             disabled={!isPasswordValid || newPassword !== confirmPassword}
-            className="w-full h-10 font-semibold shadow-lg shadow-emerald-600/20 gap-2 mt-1"
+            className="w-full h-10 font-semibold shadow-lg shadow-emerald-600/20 mt-1"
           >
             <span>Update Password &amp; Sign In</span>
-            <ArrowRight className="w-4 h-4" />
           </Button>
         </form>
 

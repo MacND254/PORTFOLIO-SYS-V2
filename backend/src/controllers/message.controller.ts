@@ -54,6 +54,33 @@ export class MessageController {
     }
   }
 
+  public static async replyToMessage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await MessageService.replyToMessage(req.params.id, req.user!.id, req.body);
+      return sendSuccess({ res, message: result.message, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async getUnreadCount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await MessageService.getUnreadCount(req.user!.id);
+      return sendSuccess({ res, message: 'Unread message count fetched.', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async markAllAsSeen(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await MessageService.markAllAsSeen(req.user!.id);
+      return sendSuccess({ res, message: result.message, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async submitAccessKeyRequest(req: Request, res: Response, next: NextFunction) {
     try {
       const subdomain = req.tenantSubdomain || (req.body.subdomain as string) || req.params.subdomain;

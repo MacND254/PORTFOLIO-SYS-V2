@@ -22,6 +22,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { getPublicPortfolioUrl, getPublicPortfolioDisplay } from '../../utils/url';
 
 export const UserSettingsPage: React.FC = () => {
   const { user, refreshUser } = useAuth();
@@ -156,37 +157,37 @@ export const UserSettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-16 select-none animate-in fade-in duration-300">
+    <div className="p-4 sm:p-6 space-y-4 max-w-5xl mx-auto pb-10 select-none animate-in fade-in duration-300">
       {/* Header Banner */}
-      <div className="relative rounded-3xl bg-slate-900 border border-slate-800/80 p-8 overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-600 to-pink-500 p-0.5 shadow-lg shadow-indigo-500/20">
-              <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center text-white font-black text-2xl">
+      <div className="relative rounded-xl bg-slate-900 border border-slate-800/80 p-4 overflow-hidden shadow-lg">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-600 to-pink-500 p-0.5 shadow-md shadow-indigo-500/20 shrink-0">
+              <div className="w-full h-full rounded-[10px] bg-slate-950 flex items-center justify-center text-white font-bold text-base">
                 {user?.fullName?.[0] || 'U'}
               </div>
             </div>
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-black text-white tracking-tight">{user?.fullName}</h1>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">{user?.fullName}</h1>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">
                   {user?.role || 'Admin'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
                 <span>{user?.email}</span>
                 <span>•</span>
-                <span className="font-mono text-indigo-400">{user?.subdomain}.localhost:3080</span>
+                <span className="font-mono text-indigo-400">{getPublicPortfolioDisplay(user?.subdomain || '')}</span>
               </p>
             </div>
           </div>
 
           <a
-            href={`/p/${user?.subdomain}`}
+            href={getPublicPortfolioUrl(user?.subdomain || '')}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 hover:text-white border border-slate-700/60 transition shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 hover:text-white border border-slate-700/60 transition shadow-sm self-start md:self-auto"
           >
             <span>View Public Portfolio</span>
             <ExternalLink className="w-3.5 h-3.5" />
@@ -195,87 +196,87 @@ export const UserSettingsPage: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800/80 pb-px overflow-x-auto">
+      <div className="flex items-center gap-1.5 border-b border-slate-800/80 pb-px overflow-x-auto">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex items-center gap-2.5 px-5 py-3 rounded-t-2xl text-xs font-bold transition border-b-2 ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-t-lg text-xs font-bold transition border-b-2 ${
             activeTab === 'profile'
               ? 'bg-slate-900 text-indigo-400 border-indigo-500 shadow-md'
               : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-900/40'
           }`}
         >
-          <User className="w-4 h-4" />
+          <User className="w-3.5 h-3.5" />
           <span>Account Profile</span>
         </button>
 
         <button
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2.5 px-5 py-3 rounded-t-2xl text-xs font-bold transition border-b-2 ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-t-lg text-xs font-bold transition border-b-2 ${
             activeTab === 'security'
               ? 'bg-slate-900 text-indigo-400 border-indigo-500 shadow-md'
               : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-900/40'
           }`}
         >
-          <KeyRound className="w-4 h-4" />
-          <span>Password & Security</span>
+          <KeyRound className="w-3.5 h-3.5" />
+          <span>Password &amp; Security</span>
         </button>
 
         <button
           onClick={() => setActiveTab('2fa')}
-          className={`flex items-center gap-2.5 px-5 py-3 rounded-t-2xl text-xs font-bold transition border-b-2 ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-t-lg text-xs font-bold transition border-b-2 ${
             activeTab === '2fa'
               ? 'bg-slate-900 text-indigo-400 border-indigo-500 shadow-md'
               : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-900/40'
           }`}
         >
-          <Shield className="w-4 h-4" />
+          <Shield className="w-3.5 h-3.5" />
           <span>Two-Factor Auth</span>
           {is2faEnabled && (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
           )}
         </button>
 
         <button
           onClick={() => setActiveTab('connected')}
-          className={`flex items-center gap-2.5 px-5 py-3 rounded-t-2xl text-xs font-bold transition border-b-2 ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-t-lg text-xs font-bold transition border-b-2 ${
             activeTab === 'connected'
               ? 'bg-slate-900 text-indigo-400 border-indigo-500 shadow-md'
               : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-900/40'
           }`}
         >
-          <Globe className="w-4 h-4" />
+          <Globe className="w-3.5 h-3.5" />
           <span>OAuth Accounts</span>
         </button>
 
         <button
           onClick={() => setActiveTab('danger')}
-          className={`flex items-center gap-2.5 px-5 py-3 rounded-t-2xl text-xs font-bold transition border-b-2 ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-t-lg text-xs font-bold transition border-b-2 ${
             activeTab === 'danger'
               ? 'bg-rose-950/40 text-rose-400 border-rose-500 shadow-md'
               : 'text-slate-400 hover:text-rose-300 border-transparent hover:bg-rose-950/20'
           }`}
         >
-          <ShieldAlert className="w-4 h-4 text-rose-400" />
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
           <span>Danger Zone</span>
         </button>
       </div>
 
       {/* Tab 1: Profile & Identity */}
       {activeTab === 'profile' && (
-        <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-8 shadow-xl space-y-6">
+        <div className="bg-slate-900 rounded-xl border border-slate-800/80 p-4 sm:p-5 shadow-lg space-y-4">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <User className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <User className="w-4 h-4 text-indigo-400" />
               <span>Personal Identity Settings</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-0.5">
               Manage your personal account credentials, email address, and platform subdomains.
             </p>
           </div>
 
           {profileMessage && (
             <div
-              className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
+              className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
                 profileMessage.type === 'success'
                   ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
                   : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
@@ -290,12 +291,12 @@ export const UserSettingsPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleUpdateProfile} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {/* Full Name */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                  <User className="w-3.5 h-3.5 text-slate-400" />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <User className="w-3 h-3 text-slate-400" />
                   <span>Full Name</span>
                 </label>
                 <input
@@ -303,15 +304,15 @@ export const UserSettingsPage: React.FC = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500 transition"
                   placeholder="e.g. Francis Mwangi"
                 />
               </div>
 
               {/* Email Address */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Mail className="w-3 h-3 text-slate-400" />
                   <span>Email Address</span>
                 </label>
                 <input
@@ -319,50 +320,50 @@ export const UserSettingsPage: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500 transition"
                   placeholder="e.g. francis@example.com"
                 />
               </div>
 
               {/* Primary Profession */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Briefcase className="w-3 h-3 text-slate-400" />
                   <span>Primary Profession</span>
                 </label>
                 <input
                   type="text"
                   value={profession}
                   onChange={(e) => setProfession(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500 transition"
                   placeholder="e.g. Senior Software Architect"
                 />
               </div>
 
               {/* Subdomain Slug */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-slate-400" />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Globe className="w-3 h-3 text-slate-400" />
                   <span>Portfolio Subdomain Slug</span>
                 </label>
-                <div className="flex items-center rounded-xl bg-slate-950 border border-slate-800 overflow-hidden focus-within:border-indigo-500 transition">
+                <div className="flex items-center rounded-lg bg-slate-950 border border-slate-800 overflow-hidden focus-within:border-indigo-500 transition">
                   <input
                     type="text"
                     value={subdomain}
                     onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                     required
-                    className="w-full px-4 py-3 bg-transparent text-white text-sm focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-transparent text-white text-xs focus:outline-none"
                     placeholder="francis"
                   />
-                  <span className="px-4 py-3 text-xs font-mono text-slate-500 bg-slate-900 border-l border-slate-800">
+                  <span className="px-3 py-1.5 text-xs font-mono text-slate-500 bg-slate-900 border-l border-slate-800">
                     .myportfolio.com
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-800/80 flex justify-end">
-              <Button type="submit" isLoading={isSavingProfile} className="px-6 py-3">
+            <div className="pt-3 border-t border-slate-800/80 flex justify-end">
+              <Button type="submit" size="sm" isLoading={isSavingProfile} className="px-4 py-1.5 text-xs">
                 Save Account Changes
               </Button>
             </div>
@@ -372,20 +373,20 @@ export const UserSettingsPage: React.FC = () => {
 
       {/* Tab 2: Password & Security */}
       {activeTab === 'security' && (
-        <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-8 shadow-xl space-y-6">
+        <div className="bg-slate-900 rounded-xl border border-slate-800/80 p-4 sm:p-5 shadow-lg space-y-4">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <KeyRound className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-indigo-400" />
               <span>Password Security</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-0.5">
               Ensure your account uses a strong, complex password of at least 8 characters.
             </p>
           </div>
 
           {passwordMessage && (
             <div
-              className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
+              className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
                 passwordMessage.type === 'success'
                   ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
                   : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
@@ -400,10 +401,10 @@ export const UserSettingsPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleChangePassword} className="space-y-6 max-w-xl">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-slate-400" />
+          <form onSubmit={handleChangePassword} className="space-y-3.5 max-w-xl">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Lock className="w-3 h-3 text-slate-400" />
                 <span>Current Password</span>
               </label>
               <input
@@ -411,14 +412,14 @@ export const UserSettingsPage: React.FC = () => {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500 transition"
                 placeholder="••••••••••••"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Lock className="w-3 h-3 text-indigo-400" />
                 <span>New Password</span>
               </label>
               <input
@@ -427,14 +428,14 @@ export const UserSettingsPage: React.FC = () => {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500 transition"
                 placeholder="At least 8 characters"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Lock className="w-3 h-3 text-indigo-400" />
                 <span>Confirm New Password</span>
               </label>
               <input
@@ -442,13 +443,13 @@ export const UserSettingsPage: React.FC = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500 transition"
                 placeholder="Re-enter new password"
               />
             </div>
 
-            <div className="pt-4 border-t border-slate-800/80 flex justify-end">
-              <Button type="submit" isLoading={isSavingPassword} className="px-6 py-3">
+            <div className="pt-3 border-t border-slate-800/80 flex justify-end">
+              <Button type="submit" size="sm" isLoading={isSavingPassword} className="px-4 py-1.5 text-xs">
                 Update Password
               </Button>
             </div>
@@ -458,73 +459,73 @@ export const UserSettingsPage: React.FC = () => {
 
       {/* Tab 3: Two-Factor Authentication (2FA) */}
       {activeTab === '2fa' && (
-        <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-8 shadow-xl space-y-6">
-          <div className="flex items-start justify-between">
+        <div className="bg-slate-900 rounded-xl border border-slate-800/80 p-4 sm:p-5 shadow-lg space-y-4">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Shield className="w-5 h-5 text-indigo-400" />
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <Shield className="w-4 h-4 text-indigo-400" />
                 <span>Two-Factor Authentication (2FA)</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-0.5">
                 Add an extra layer of protection to your account using TOTP authenticator apps (Google Authenticator, Authy, 1Password).
               </p>
             </div>
 
-            <div className={`px-3 py-1.5 rounded-full text-xs font-bold border flex items-center gap-2 ${
+            <div className={`px-2.5 py-1 rounded-full text-[11px] font-bold border flex items-center gap-1.5 shrink-0 ${
               is2faEnabled
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                 : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
             }`}>
-              <span className={`w-2 h-2 rounded-full ${is2faEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${is2faEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
               <span>{is2faEnabled ? '2FA Enabled' : '2FA Disabled'}</span>
             </div>
           </div>
 
           {twoFaSuccess && (
-            <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>Two-Factor Authentication has been successfully configured and activated for your user account.</span>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-            <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center">
-                <Smartphone className="w-5 h-5" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center">
+                <Smartphone className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-white">Authenticator App (TOTP)</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <h3 className="text-xs font-bold text-white">Authenticator App (TOTP)</h3>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
                 Use an authenticator application to generate temporary time-based passcode verification codes during login.
               </p>
               {!is2faEnabled ? (
                 <button
                   onClick={handleInitiate2FA}
-                  className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2"
+                  className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5"
                 >
-                  <QrCode className="w-4 h-4" />
+                  <QrCode className="w-3.5 h-3.5" />
                   <span>Setup Authenticator App</span>
                 </button>
               ) : (
                 <button
                   onClick={() => setIs2faEnabled(false)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 font-bold text-xs border border-rose-500/30 transition flex items-center justify-center gap-2"
+                  className="w-full py-1.5 px-3 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 font-semibold text-xs border border-rose-500/30 transition flex items-center justify-center gap-1.5"
                 >
                   <span>Disable 2FA</span>
                 </button>
               )}
             </div>
 
-            <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-600/10 text-purple-400 border border-purple-500/20 flex items-center justify-center">
-                <KeyRound className="w-5 h-5" />
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2.5">
+              <div className="w-8 h-8 rounded-lg bg-purple-600/10 text-purple-400 border border-purple-500/20 flex items-center justify-center">
+                <KeyRound className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-white">Backup Recovery Codes</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <h3 className="text-xs font-bold text-white">Backup Recovery Codes</h3>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
                 Generate single-use emergency backup codes to access your account if you lose access to your authenticator device.
               </p>
               <button
                 disabled={!is2faEnabled}
-                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition border flex items-center justify-center gap-2 ${
+                className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition border flex items-center justify-center gap-1.5 ${
                   is2faEnabled
                     ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'
                     : 'bg-slate-900 text-slate-600 border-slate-850 cursor-not-allowed'
@@ -539,23 +540,23 @@ export const UserSettingsPage: React.FC = () => {
 
       {/* Tab 4: Connected OAuth Accounts */}
       {activeTab === 'connected' && (
-        <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-8 shadow-xl space-y-6">
+        <div className="bg-slate-900 rounded-xl border border-slate-800/80 p-4 sm:p-5 shadow-lg space-y-4">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Globe className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <Globe className="w-4 h-4 text-indigo-400" />
               <span>Connected Social Accounts</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-0.5">
               Link your social login providers for seamless single sign-on (SSO) authentication.
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2.5">
             {/* Google */}
-            <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800/80 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
                     <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
                     <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.8-.7-1.4-1.7-1.8-2.8z"/>
@@ -563,30 +564,30 @@ export const UserSettingsPage: React.FC = () => {
                   </svg>
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">Google OAuth 2.0</h4>
-                  <p className="text-xs text-slate-400">Google single sign-on enabled</p>
+                  <h4 className="text-xs font-bold text-white">Google OAuth 2.0</h4>
+                  <p className="text-[11px] text-slate-400">Google single sign-on enabled</p>
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5" />
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold flex items-center gap-1">
+                <Check className="w-3 h-3" />
                 <span>Connected</span>
               </span>
             </div>
 
             {/* GitHub */}
-            <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800/80 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-white">
-                  <Github className="w-5 h-5" />
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-white">
+                  <Github className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">GitHub OAuth</h4>
-                  <p className="text-xs text-slate-400">Developer sign-in integration</p>
+                  <h4 className="text-xs font-bold text-white">GitHub OAuth</h4>
+                  <p className="text-[11px] text-slate-400">Developer sign-in integration</p>
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-xs font-bold">
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[11px] font-semibold">
                 Available
               </span>
             </div>
@@ -596,27 +597,27 @@ export const UserSettingsPage: React.FC = () => {
 
       {/* Tab 5: Danger Zone */}
       {activeTab === 'danger' && (
-        <div className="bg-slate-900 rounded-3xl border border-rose-900/40 p-8 shadow-xl space-y-6">
+        <div className="bg-slate-900 rounded-xl border border-rose-900/40 p-4 sm:p-5 shadow-lg space-y-4">
           <div>
-            <h2 className="text-lg font-bold text-rose-400 flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-rose-400" />
+            <h2 className="text-sm font-bold text-rose-400 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-rose-400" />
               <span>Danger Zone</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-0.5">
               Irreversible account actions. Proceed with caution.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-rose-950/20 border border-rose-900/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-900/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-white">Deactivate or Delete Account</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-xl">
+              <h3 className="text-xs font-bold text-white">Deactivate or Delete Account</h3>
+              <p className="text-[11px] text-slate-400 mt-0.5 max-w-xl">
                 Permanently delete your user account, portfolio custom domains, uploaded CV documents, and public profile data.
               </p>
             </div>
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition shrink-0"
+              className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-600/30 transition shrink-0 self-start md:self-auto"
             >
               Delete Account
             </button>

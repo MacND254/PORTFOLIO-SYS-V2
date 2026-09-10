@@ -23,7 +23,15 @@ const DEFAULT_SETTINGS = [
   { key: 'SMTP_RESET_USER', value: '', description: 'Password Reset Gateway: Username' },
   { key: 'SMTP_RESET_PASS', value: '', description: 'Password Reset Gateway: Password' },
   { key: 'SMTP_RESET_FROM_EMAIL', value: 'security@myportfolio.com', description: 'Password Reset Gateway: From Email' },
-  { key: 'SMTP_RESET_FROM_NAME', value: 'Portfolio Security & Password Reset Gateway', description: 'Password Reset Gateway: From Name' },
+  // 3. Global Favicon & Web Manifest (PWA)
+  { key: 'DEFAULT_FAVICON_URL', value: '', description: 'Default global browser favicon URL (.ico, .png, .svg).' },
+  { key: 'PWA_APP_NAME', value: 'Portfolio SaaS Enterprise', description: 'PWA Web Manifest Application Name.' },
+  { key: 'PWA_SHORT_NAME', value: 'Portfolio', description: 'PWA Web Manifest Short Name.' },
+  { key: 'PWA_THEME_COLOR', value: '#4f46e5', description: 'PWA Primary Theme Color Hex.' },
+  { key: 'PWA_BACKGROUND_COLOR', value: '#0f172a', description: 'PWA App Background Color Hex.' },
+  // 4. Global External Analytics Measurement IDs
+  { key: 'GA4_MEASUREMENT_ID', value: '', description: 'Google Analytics 4 Measurement ID (e.g. G-XXXXXXXXXX).' },
+  { key: 'PLAUSIBLE_DOMAIN', value: '', description: 'Plausible Analytics Custom Tracking Domain.' },
   { key: 'PLATFORM_NAME', value: 'Portfolio SaaS Enterprise', description: 'Public platform branding title.' },
 ];
 
@@ -105,6 +113,10 @@ export class SettingsAdminController {
       const isMaintenance = await SystemSettingsService.isMaintenanceMode();
       const allowRegistration = await SystemSettingsService.isRegistrationAllowed();
       const platformName = await SystemSettingsService.getSetting('PLATFORM_NAME', 'Portfolio SaaS Enterprise');
+      const defaultFaviconUrl = await SystemSettingsService.getSetting('DEFAULT_FAVICON_URL', '');
+      const pwaAppName = await SystemSettingsService.getSetting('PWA_APP_NAME', 'Portfolio SaaS Enterprise');
+      const ga4MeasurementId = await SystemSettingsService.getSetting('GA4_MEASUREMENT_ID', '');
+      const plausibleDomain = await SystemSettingsService.getSetting('PLAUSIBLE_DOMAIN', '');
 
       return sendSuccess({
         res,
@@ -113,6 +125,10 @@ export class SettingsAdminController {
           isMaintenance,
           allowRegistration,
           platformName,
+          defaultFaviconUrl,
+          pwaAppName,
+          ga4MeasurementId,
+          plausibleDomain,
         },
       });
     } catch (error) {

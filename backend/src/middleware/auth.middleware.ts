@@ -56,3 +56,46 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     next(error);
   }
 };
+
+export const optionalAuthenticate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    let token: string | undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    } else if (req.query && typeof req.query.token === 'string') {
+      token = req.query.token;
+    }
+
+    if (!token) {
+      return next();
+    }
+
+    const decoded = jwt.verify(token, config.jwtSecret) as {
+      id: string;
+      email: string;
+      role: Role;
+    };
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, role: true, fullName: true, status: true },
+    });
+
+    if (user && user.status === 'ACTIVE') {
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+      };
+    }
+    next();
+  } catch (error) {
+    // Continue for optional auth without throwing
+    next();
+  }
+};

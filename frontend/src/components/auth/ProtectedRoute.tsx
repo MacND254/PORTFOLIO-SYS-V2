@@ -5,8 +5,10 @@ import { Sidebar } from '../layout/Sidebar';
 import { Navbar } from '../layout/Navbar';
 import { Spinner } from '../ui/Spinner';
 
+import type { Role } from '../../types';
+
 interface ProtectedRouteProps {
-  requiredRole?: 'SUPER_ADMIN' | 'TENANT_ADMIN';
+  requiredRole?: Role;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
@@ -25,8 +27,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) 
     return <Navigate to="/login" replace />;
   }
 
+  const getRoleHome = (role?: string) => {
+    if (role === 'SUPER_ADMIN') return '/superadmin/dashboard';
+    if (role === 'COMPANY') return '/company/dashboard';
+    return '/admin/dashboard';
+  };
+
+  // If a specific role is required and user does not have it, redirect to their role home
   if (requiredRole && user?.role !== requiredRole) {
-    return <Navigate to="/admin/dashboard" replace />;
+    return <Navigate to={getRoleHome(user?.role)} replace />;
+  }
+
+  // If on general/tenant admin route (no requiredRole specified) but user is a COMPANY, redirect to company dashboard
+  if (!requiredRole && user?.role === 'COMPANY') {
+    return <Navigate to="/company/dashboard" replace />;
   }
 
   const subdomain = (user as any)?.subdomains?.[0]?.slug || 'demo';

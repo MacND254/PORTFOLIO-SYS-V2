@@ -13,12 +13,39 @@ datasource db {
 enum Role {
   SUPER_ADMIN
   ADMIN
+  COMPANY
 }
 
 enum UserStatus {
   ACTIVE
   SUSPENDED
   DEACTIVATED
+}
+
+enum CompanyInviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum JobStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+enum WorkplaceType {
+  REMOTE
+  HYBRID
+  ONSITE
 }
 
 enum CVStatus {
@@ -43,6 +70,23 @@ enum ReviewStatus {
   REJECTED
 }
 
+enum InterviewStatus {
+  PENDING
+  ACCEPTED
+  RESCHEDULED
+  DECLINED
+  CANCELLED
+}
+
+enum InterviewType {
+  RECRUITER_SCREEN
+  TECHNICAL_INTERVIEW
+  HIRING_MANAGER
+  INTRO_CALL
+  PROJECT_DISCUSSION
+  OTHER
+}
+
 model User {
   id                String     @id @default(uuid())
   fullName          String
@@ -57,12 +101,15 @@ model User {
   desiredProfession String?
 
   // Relations
-  profile       Profile?
-  subdomains    Subdomain[]
-  sessions      Session[]
-  auditLogs     AuditLog[]
-  notifications Notification[]
-  cvs           CV[]
+  profile           Profile?
+  subdomains        Subdomain[]
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  cvs               CV[]
+  company           Company?
+  superAdminInvites CompanyInvite[] @relation("SuperAdminInvites")
+  moderatedTestimonials PlatformTestimonial[] @relation("ModeratedTestimonials")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -140,6 +187,11 @@ model Profile {
 
   completenessScore Int @default(0)
 
+  // Work / Employment Status
+  employmentStatus       String  @default("OPEN_TO_WORK") // OPEN_TO_WORK, OPEN_TO_OFFERS, FREELANCE, EMPLOYED, UNAVAILABLE
+  employmentStatusCustom String?
+  showEmploymentBadge    Boolean @default(true)
+
   // Relations
   experiences     Experience[]
   educations      Education[]
@@ -160,6 +212,7 @@ model Profile {
   revisions       PortfolioRevision[]
   reviews         Review[]
   contactMessages ContactMessage[]
+  interviews      InterviewSchedule[]
   analyticsEvents AnalyticsEvent[]
 
   createdAt DateTime @default(now())
@@ -559,12 +612,43 @@ model Notification {
   title     String
   message   String
   type      String   @default("INFO") // INFO, SUCCESS, WARNING, ALERT
+  category  String   @default("SYSTEM") // SYSTEM (superadmin) | PORTFOLIO (tenant)
   isRead    Boolean  @default(false)
   link      String?
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([isRead])
+  @@index([category])
+}
+
+enum TestimonialStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FEATURED
+}
+
+model PlatformTestimonial {
+  id              String             @id @default(uuid())
+  submitterName   String
+  submitterEmail  String
+  submitterRole   String?            // e.g. "Software Engineer", "Hiring Manager"
+  submitterCompany String?
+  submitterPhotoUrl String?
+  content         String             @db.Text
+  rating          Int                @default(5) // 1-5
+  status          TestimonialStatus  @default(PENDING)
+  moderatedById   String?
+  moderatedBy     User?              @relation("ModeratedTestimonials", fields: [moderatedById], references: [id], onDelete: SetNull)
+  moderatedAt     DateTime?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([status])
+  @@index([moderatedById])
 }
 
 model SystemSetting {
@@ -609,4 +693,116 @@ model DocumentAccessKey {
 
   @@index([profileId])
   @@index([code])
+}
+
+model InterviewSchedule {
+  id                 String          @id @default(uuid())
+  profileId          String
+  profile            Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  // Recruiter Information
+  recruiterName      String
+  recruiterEmail     String
+  company            String
+  recruiterTitle     String?
+
+  // Meeting Details
+  interviewType      InterviewType   @default(RECRUITER_SCREEN)
+  preferredDate      DateTime
+  preferredTime      String          // e.g. "14:00"
+  timezone           String          @default("UTC")
+  durationMinutes    Int             @default(30)
+  platformPreference String          @default("GOOGLE_MEET") // GOOGLE_MEET, ZOOM, TEAMS, PHONE
+  notes              String?
+  alternateDate      DateTime?
+  alternateTime      String?
+
+  // Tenant Response & Status
+  status             InterviewStatus @default(PENDING)
+  meetingLink        String?         // e.g. https://meet.google.com/xyz-abcd-efg
+  tenantNotes        String?         // Custom response note from tenant
+
+  // Rescheduled proposal
+  rescheduledDate    DateTime?
+  rescheduledTime    String?
+
+  // Metadata & Tracking
+  ipAddress          String?
+  userAgent          String?
+  isRead             Boolean         @default(false)
+
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([profileId])
+  @@index([status])
+  @@index([recruiterEmail])
+  @@index([preferredDate])
+}
+
+model CompanyInvite {
+  id          String              @id @default(uuid())
+  token       String              @unique
+  companyName String?
+  email       String              @db.Text
+  status      CompanyInviteStatus @default(PENDING)
+  invitedById String
+  invitedBy   User                @relation("SuperAdminInvites", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  usageCount  Int                 @default(0)
+  companies   Company[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([token])
+  @@index([status])
+}
+
+model Company {
+  id            String          @id @default(uuid())
+  userId        String          @unique
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inviteId      String?
+  invite        CompanyInvite?  @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+  name          String
+  website       String?
+  logoUrl       String?
+  industry      String?
+  companySize   String?         // e.g. "1-10", "11-50", "51-200", "201-500", "500+"
+  location      String?
+  description   String?
+  contactPerson String?
+  contactEmail  String?
+  jobs          JobPosting[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([name])
+  @@index([industry])
+  @@index([inviteId])
+}
+
+model JobPosting {
+  id              String          @id @default(uuid())
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title           String
+  department      String?
+  employmentType  EmploymentType  @default(FULL_TIME)
+  workplaceType   WorkplaceType   @default(REMOTE)
+  location        String?
+  experienceLevel String?         // e.g. "Entry", "Mid-Level", "Senior", "Lead"
+  salaryRange     String?         // e.g. "$120k - $150k" or "Competitive"
+  description     String          @db.Text
+  requirements    String?         @db.Text
+  skills          String[]        @default([])
+  status          JobStatus       @default(ACTIVE)
+  viewsCount      Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([companyId])
+  @@index([status])
+  @@index([title])
 }

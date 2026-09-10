@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PortfolioController } from '../controllers/portfolio.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware';
 import { resolveTenant } from '../middleware/tenant.middleware';
 
 const router = Router();
@@ -15,8 +15,8 @@ router.get('/manifest.json', resolveTenant, PortfolioController.getManifest);
 router.get('/public', resolveTenant, PortfolioController.getPublicPortfolio);
 router.get('/public/:subdomain', PortfolioController.getPublicPortfolio);
 router.post('/public/:subdomain/unlock-verified-documents', PortfolioController.unlockVerifiedDocuments);
-router.get('/pdf', resolveTenant, PortfolioController.downloadPdfResume);
-router.get('/qr', resolveTenant, PortfolioController.getQrCode);
+router.get('/pdf', optionalAuthenticate, resolveTenant, PortfolioController.downloadPdfResume);
+router.get('/qr', optionalAuthenticate, resolveTenant, PortfolioController.getQrCode);
 
 // Authenticated Admin routes
 router.use(authenticate);

@@ -124,7 +124,7 @@ services:
     environment:
       - BACKEND_HOST=backend:3000
     ports:
-      - "3080:80"
+      - "0.0.0.0:3080:80"
     networks:
       portfolio_net:
         aliases:

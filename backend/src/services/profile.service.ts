@@ -1,5 +1,6 @@
 import { prisma } from '../database/client';
 import { NotFoundError, ValidationError } from '../utils/errors';
+import { MailService } from './mail.service';
 
 export class ProfileService {
   public static async getProfileByUserId(userId: string) {
@@ -66,6 +67,7 @@ export class ProfileService {
       'twitter', 'behance', 'dribbble', 'facebook', 'instagram', 'youtube',
       'avatarUrl', 'coverUrl', 'logoUrl',
       'isPublicEmail', 'isPublicPhone', 'isPublicLocation', 'isPublicAddress', 'isPublicSocial',
+      'employmentStatus', 'employmentStatusCustom', 'showEmploymentBadge',
     ];
     const safeData: Record<string, any> = {};
     allowedFields.forEach((key) => {
@@ -565,7 +567,12 @@ export class ProfileService {
     });
   }
 
-  public static async generateDocumentAccessKey(userId: string, recipientName?: string, validityHours: number = 24) {
+  public static async generateDocumentAccessKey(
+    userId: string,
+    recipientName?: string,
+    validityHours: number = 24,
+    recipientEmail?: string
+  ) {
     const profile = await prisma.profile.findUnique({ where: { userId } });
     if (!profile) throw new NotFoundError('Profile not found.');
 
@@ -575,7 +582,7 @@ export class ProfileService {
 
     const expiresAt = new Date(Date.now() + (validityHours || 24) * 60 * 60 * 1000);
 
-    return prisma.documentAccessKey.create({
+    const keyRecord = await prisma.documentAccessKey.create({
       data: {
         profileId: profile.id,
         code,
@@ -583,6 +590,31 @@ export class ProfileService {
         expiresAt,
       },
     });
+
+    if (recipientEmail && recipientEmail.trim()) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { subdomains: { where: { isPrimary: true } } },
+      });
+      if (user) {
+        const subdomain = user.subdomains[0]?.slug || 'portfolio';
+        try {
+          await MailService.sendDocumentAccessKeyEmail({
+            recruiterEmail: recipientEmail.trim(),
+            recruiterName: recipientName || 'Recipient',
+            tenantName: user.fullName,
+            tenantEmail: user.email,
+            accessCode: code,
+            validityHours: validityHours || 24,
+            subdomain,
+          });
+        } catch (mailErr: any) {
+          console.error('[generateDocumentAccessKey] Failed to dispatch key email:', mailErr.message);
+        }
+      }
+    }
+
+    return keyRecord;
   }
 
   public static async deleteDocumentAccessKey(userId: string, keyId: string) {

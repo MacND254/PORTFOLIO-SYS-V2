@@ -1,5 +1,10 @@
+import os from 'os';
+import fs from 'fs';
+import path from 'path';
+import { performance } from 'perf_hooks';
 import { prisma } from '../database/client';
-import { getRedisStatus } from '../config/redis';
+import { getRedisStatus, redisClient } from '../config/redis';
+import { config } from '../config/env';
 
 export class AnalyticsService {
   /**
@@ -277,6 +282,9 @@ export class AnalyticsService {
       totalViews,
       totalDownloads,
       recentRegistrations,
+      totalCompanies,
+      verifiedCompanies,
+      totalCompanyJobs,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'ADMIN' } }),
       prisma.user.count({ where: { role: 'ADMIN', status: 'ACTIVE' } }),
@@ -296,6 +304,9 @@ export class AnalyticsService {
         take: 10,
         select: { id: true, fullName: true, email: true, createdAt: true, desiredProfession: true },
       }),
+      (prisma as any).company.count().catch(() => 0),
+      (prisma as any).company.count({ where: { user: { emailVerified: true } } }).catch(() => 0),
+      (prisma as any).jobPosting.count({ where: { status: 'ACTIVE' } }).catch(() => 0),
     ]);
 
     const professionsRaw = await prisma.user.groupBy({
@@ -323,6 +334,9 @@ export class AnalyticsService {
         totalContactMessages,
         totalViews,
         totalDownloads,
+        totalCompanies,
+        verifiedCompanies,
+        totalCompanyJobs,
       },
       popularProfessions,
       recentRegistrations,
@@ -330,27 +344,209 @@ export class AnalyticsService {
   }
 
   public static async getSystemHealth() {
+    // ── Database: real round-trip latency ─────────────────────────────────────
     let dbStatus = false;
+    let dbLatencyMs = -1;
     try {
+      const t0 = performance.now();
       await prisma.$queryRaw`SELECT 1`;
+      dbLatencyMs = Math.round(performance.now() - t0);
       dbStatus = true;
     } catch {
       dbStatus = false;
     }
 
+    // ── Redis: real ping + latency ─────────────────────────────────────────────
     const redisStatus = await getRedisStatus();
+    let redisLatencyMs = -1;
+    if (redisClient && redisStatus) {
+      try {
+        const t0 = performance.now();
+        await redisClient.ping();
+        redisLatencyMs = Math.round(performance.now() - t0);
+      } catch { /* ignore */ }
+    }
+
+    // ── Storage: check upload directory is writable ───────────────────────────
+    const storagePath = config.storagePath;
+    let storageWritable = false;
+    try {
+      const testFile = path.join(storagePath, '.health_probe');
+      fs.writeFileSync(testFile, 'ok');
+      fs.unlinkSync(testFile);
+      storageWritable = true;
+    } catch { /* not writable */ }
+
+    // ── CV Engine: check if AI key is configured ─────────────────────────────
+    const cvEngineConfigured = Boolean(
+      (config as any).geminiApiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY
+    );
+
+    // ── Memory: process heap + OS system RAM ─────────────────────────────────
+    const mem = process.memoryUsage();
+    const totalSysMem = os.totalmem();
+    const freeSysMem = os.freemem();
+    const usedSysMem = totalSysMem - freeSysMem;
+
+    // ── CPU: core count + OS load averages ───────────────────────────────────
+    const cpuCount = os.cpus().length;
+    const [load1, load5, load15] = os.loadavg();
 
     return {
       status: dbStatus ? 'HEALTHY' : 'DEGRADED',
       timestamp: new Date(),
-      services: {
-        api: 'UP',
-        database: dbStatus ? 'UP' : 'DOWN',
-        redis: redisStatus ? 'UP' : 'OFFLINE_FALLBACK',
-        storage: 'UP',
-        cvEngine: 'UP',
-      },
       uptimeSeconds: process.uptime(),
+      services: {
+        api: { status: 'UP', latencyMs: null },
+        database: {
+          status: dbStatus ? 'UP' : 'DOWN',
+          latencyMs: dbLatencyMs >= 0 ? dbLatencyMs : null,
+        },
+        redis: {
+          status: redisStatus ? 'UP' : 'OFFLINE_FALLBACK',
+          latencyMs: redisLatencyMs >= 0 ? redisLatencyMs : null,
+        },
+        storage: {
+          status: storageWritable ? 'UP' : 'READ_ONLY',
+          path: storagePath,
+          isWritable: storageWritable,
+        },
+        cvEngine: {
+          status: cvEngineConfigured ? 'UP' : 'UNCONFIGURED',
+          provider: process.env.GEMINI_API_KEY ? 'Gemini AI' : process.env.OPENAI_API_KEY ? 'OpenAI' : 'None',
+        },
+      },
+      memory: {
+        heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+        rssMb: Math.round(mem.rss / 1024 / 1024),
+        externalMb: Math.round(mem.external / 1024 / 1024),
+        systemTotalMb: Math.round(totalSysMem / 1024 / 1024),
+        systemFreeMb: Math.round(freeSysMem / 1024 / 1024),
+        systemUsedMb: Math.round(usedSysMem / 1024 / 1024),
+        systemUsagePercent: Math.round((usedSysMem / totalSysMem) * 100),
+      },
+      cpu: {
+        cores: cpuCount,
+        loadAvg1m: parseFloat(load1.toFixed(2)),
+        loadAvg5m: parseFloat(load5.toFixed(2)),
+        loadAvg15m: parseFloat(load15.toFixed(2)),
+        platform: os.platform(),
+        arch: os.arch(),
+      },
+    };
+  }
+
+  /**
+   * Platform-wide traffic analytics with time-series data for the SuperAdmin analytics drill-down page.
+   */
+  public static async getSuperAdminPlatformTraffic(timeRange: '7d' | '30d' | '90d' | 'all' = '30d') {
+    let days = 30;
+    if (timeRange === '7d') days = 7;
+    else if (timeRange === '90d') days = 90;
+    else if (timeRange === 'all') days = 180;
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const whereRange = timeRange === 'all' ? {} : { timestamp: { gte: startDate } };
+    const whereContactRange = timeRange === 'all' ? {} : { createdAt: { gte: startDate } };
+
+    const [rangeEvents, totalContactMessages, topProfiles] = await Promise.all([
+      prisma.analyticsEvent.findMany({
+        where: whereRange,
+        select: { eventType: true, timestamp: true, deviceType: true, browser: true, referrer: true },
+        orderBy: { timestamp: 'asc' },
+      }),
+      prisma.contactMessage.count({ where: whereContactRange }),
+      prisma.analyticsEvent.groupBy({
+        by: ['profileId'],
+        where: { eventType: 'VIEW', ...whereRange },
+        _count: { profileId: true },
+        orderBy: { _count: { profileId: 'desc' } },
+        take: 10,
+      }),
+    ]);
+
+    const totalViews = rangeEvents.filter((e: any) => e.eventType === 'VIEW').length;
+    const totalDownloads = rangeEvents.filter((e: any) => e.eventType === 'DOWNLOAD_RESUME').length;
+    const conversionRate = totalViews > 0
+      ? Math.min(100, parseFloat((((totalDownloads + totalContactMessages) / totalViews) * 100).toFixed(1)))
+      : 0;
+    const uniqueVisitors = new Set(rangeEvents.map((e: any) => e.timestamp.toISOString().split('T')[0])).size;
+
+    // Daily time-series chart
+    const dateMap: Record<string, { views: number; downloads: number }> = {};
+    for (let i = Math.min(days, 180) - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dateMap[d.toISOString().split('T')[0]] = { views: 0, downloads: 0 };
+    }
+    rangeEvents.forEach((ev: any) => {
+      const key = ev.timestamp.toISOString().split('T')[0];
+      if (dateMap[key]) {
+        if (ev.eventType === 'VIEW') dateMap[key].views++;
+        else if (ev.eventType === 'DOWNLOAD_RESUME') dateMap[key].downloads++;
+      }
+    });
+    const trafficChart = Object.entries(dateMap).map(([date, counts]) => ({ date, ...counts }));
+
+    // Device breakdown
+    const deviceCounts: Record<string, number> = { Desktop: 0, Mobile: 0, Tablet: 0 };
+    rangeEvents.forEach((ev: any) => {
+      const dev = ev.deviceType || 'Desktop';
+      deviceCounts[dev] = (deviceCounts[dev] || 0) + 1;
+    });
+    const total = Math.max(1, rangeEvents.length);
+    const deviceBreakdown = Object.entries(deviceCounts).map(([name, count]) => ({
+      name, count, percentage: Math.round((count / total) * 100),
+    }));
+
+    // Browser breakdown
+    const browserCounts: Record<string, number> = {};
+    rangeEvents.forEach((ev: any) => {
+      const b = ev.browser || 'Other';
+      browserCounts[b] = (browserCounts[b] || 0) + 1;
+    });
+    const browserBreakdown = Object.entries(browserCounts)
+      .map(([name, count]) => ({ name, count, percentage: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    // Top portfolios by views
+    const topProfileIds = topProfiles.map((p: any) => p.profileId);
+    const profileDetails = topProfileIds.length > 0
+      ? await prisma.profile.findMany({
+          where: { id: { in: topProfileIds } },
+          select: {
+            id: true,
+            title: true,
+            user: { select: { fullName: true, subdomains: { where: { isPrimary: true }, select: { slug: true } } } },
+            portfolioStatus: { select: { isPublished: true } },
+          },
+        })
+      : [];
+
+    const topPortfolios = topProfiles.map((tp: any) => {
+      const detail: any = profileDetails.find((p: any) => p.id === tp.profileId);
+      return {
+        profileId: tp.profileId,
+        views: tp._count.profileId,
+        fullName: detail?.user?.fullName || 'Unknown',
+        title: detail?.title || 'Portfolio',
+        subdomain: detail?.user?.subdomains?.[0]?.slug || '-',
+        isPublished: detail?.portfolioStatus?.isPublished ?? false,
+      };
+    });
+
+    return {
+      timeRange,
+      overview: { totalViews, totalDownloads, totalContactMessages, conversionRate, uniqueVisitors },
+      trafficChart,
+      deviceBreakdown,
+      browserBreakdown,
+      topPortfolios,
     };
   }
 }

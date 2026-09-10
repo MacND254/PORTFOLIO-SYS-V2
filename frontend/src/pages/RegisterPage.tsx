@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Globe, User, Mail, Lock, Briefcase, AlertTriangle, ArrowRight, Sparkles } from 'lucide-react';
+import { Globe, User, Mail, Lock, Briefcase, AlertTriangle, Sparkles } from 'lucide-react';
 import api from '../api/client';
 import { PasswordStrengthIndicator } from '../components/auth/PasswordStrengthIndicator';
 import { AVAILABLE_PROFESSIONS } from '../types';
@@ -172,10 +172,9 @@ export const RegisterPage: React.FC = () => {
             variant="primary"
             size="md"
             isLoading={isLoading}
-            className="w-full h-10 font-semibold gap-2 shadow-lg shadow-indigo-600/20"
+            className="w-full h-10 font-semibold shadow-lg shadow-indigo-600/20"
           >
             <span>Complete Registration & Launch</span>
-            <ArrowRight className="w-4 h-4" />
           </Button>
 
           <button

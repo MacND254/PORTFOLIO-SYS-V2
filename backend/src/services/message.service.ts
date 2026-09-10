@@ -57,6 +57,7 @@ export class MessageService {
       title: 'New Portfolio Inquiry Received!',
       message: `Message from ${data.name}: "${data.subject}"`,
       type: 'INFO',
+      category: 'PORTFOLIO',
       link: '/admin/messages',
     });
 
@@ -112,6 +113,88 @@ export class MessageService {
     });
   }
 
+  public static async replyToMessage(
+    messageId: string,
+    userId: string,
+    data: { message: string; subject?: string }
+  ) {
+    if (!data.message || !data.message.trim()) {
+      throw new ValidationError('Reply message body is required.');
+    }
+
+    const profile: any = await prisma.profile.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            subdomains: { select: { slug: true }, take: 1 },
+          },
+        },
+      },
+    });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    const msg = await prisma.contactMessage.findFirst({
+      where: { id: messageId, profileId: profile.id },
+    });
+    if (!msg) throw new NotFoundError('Message not found.');
+
+    // Mark message as read
+    await prisma.contactMessage.update({
+      where: { id: messageId },
+      data: { isRead: true },
+    });
+
+    const tenantEmail = profile.contactEmail || profile.user.email;
+    const tenantName = profile.user.fullName;
+    const subdomain = profile.user.subdomains?.[0]?.slug;
+
+    const emailSent = await MailService.sendContactReplyEmail({
+      recipientEmail: msg.email,
+      recipientName: msg.name,
+      tenantName,
+      tenantEmail,
+      subject: data.subject || msg.subject || 'Portfolio Inquiry',
+      replyMessage: data.message.trim(),
+      originalMessage: msg.message,
+      subdomain,
+    });
+
+    return {
+      success: emailSent,
+      message: emailSent ? 'Reply sent successfully.' : 'Reply recorded, but SMTP delivery encountered an issue. Check system SMTP configuration.',
+    };
+  }
+
+  public static async getUnreadCount(userId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) return { count: 0 };
+
+    const count = await prisma.contactMessage.count({
+      where: {
+        profileId: profile.id,
+        isRead: false,
+      },
+    });
+
+    return { count };
+  }
+
+  public static async markAllAsSeen(userId: string) {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundError('Profile not found.');
+
+    const result = await prisma.contactMessage.updateMany({
+      where: { profileId: profile.id, isRead: false },
+      data: { isRead: true },
+    });
+
+    return { count: result.count, message: 'All messages marked as read.' };
+  }
+
   public static async submitAccessKeyRequest(
     subdomain: string,
     data: {
@@ -164,6 +247,7 @@ export class MessageService {
       title: '🔑 Verified Document Access Requested!',
       message: `${data.name}${companyName} requested access to your verified credentials.`,
       type: 'WARNING',
+      category: 'PORTFOLIO',
       link: '/admin/messages',
     });
 
@@ -236,6 +320,7 @@ export class MessageService {
       recruiterEmail: msg.email,
       recruiterName: msg.name,
       tenantName: profile.user.fullName,
+      tenantEmail: profile.user.email,
       accessCode: code,
       validityHours,
       subdomain,

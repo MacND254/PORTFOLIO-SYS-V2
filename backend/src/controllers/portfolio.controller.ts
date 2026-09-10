@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { prisma } from '../database/client';
 import { PortfolioService } from '../services/portfolio.service';
 import { ProfileService } from '../services/profile.service';
 import { PDFService } from '../services/pdf.service';
@@ -95,20 +96,69 @@ export class PortfolioController {
         return res.status(404).json({ message: 'Portfolio not found' });
       }
 
-      // A public resume may only be generated for an active, published portfolio.
-      // This also ensures the query parameter can never select an arbitrary user.
       const templateStyle = String(req.query.template || req.query.style || 'modern').toLowerCase();
-      const portfolio = await PortfolioService.getPublicPortfolioBySubdomain(requestedSubdomain);
-      const pdfBuffer = await PDFService.generateResumePdf(portfolio.profile.userId, templateStyle);
 
-      AnalyticsService.recordEvent({
-        profileId: portfolio.profile.id,
-        eventType: 'DOWNLOAD_RESUME',
-        visitorIp: req.ip,
-        userAgent: req.get('User-Agent'),
-      });
+      let targetUserId: string | null = null;
+      let ownerFullName = 'Resume';
+      let profileId: string | null = null;
 
-      const ownerName = portfolio.owner.fullName
+      // Allow authenticated owner or superadmin to download even if portfolio is unpublished
+      if (req.user) {
+        const normSlug = requestedSubdomain.toLowerCase().trim();
+        const subRecord = await prisma.subdomain.findUnique({
+          where: { slug: normSlug },
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                profile: { select: { id: true } },
+              },
+            },
+          },
+        });
+
+        if (subRecord && subRecord.user && (subRecord.user.id === req.user.id || req.user.role === 'SUPER_ADMIN')) {
+          targetUserId = subRecord.user.id;
+          ownerFullName = subRecord.user.fullName;
+          profileId = subRecord.user.profile?.id || null;
+        }
+      }
+
+      // If not owner/super admin, enforce active published status
+      if (!targetUserId) {
+        const portfolio = await PortfolioService.getPublicPortfolioBySubdomain(requestedSubdomain);
+        targetUserId = portfolio.profile.userId;
+        ownerFullName = portfolio.owner.fullName;
+        profileId = portfolio.profile.id;
+      }
+
+      if (!targetUserId) {
+        return res.status(404).json({ message: 'Portfolio not found' });
+      }
+
+      const pdfBuffer = await PDFService.generateResumePdf(targetUserId, templateStyle);
+
+      if (profileId) {
+        const recentEvent = await prisma.analyticsEvent.findFirst({
+          where: {
+            profileId,
+            eventType: 'DOWNLOAD_RESUME',
+            timestamp: { gte: new Date(Date.now() - 5000) },
+            ...(req.ip ? { visitorIp: req.ip } : {}),
+          },
+        });
+        if (!recentEvent) {
+          AnalyticsService.recordEvent({
+            profileId,
+            eventType: 'DOWNLOAD_RESUME',
+            visitorIp: req.ip,
+            userAgent: req.get('User-Agent'),
+          });
+        }
+      }
+
+      const ownerName = ownerFullName
         .replace(/[^a-z0-9]+/gi, '_')
         .replace(/^_+|_+$/g, '') || 'Resume';
 

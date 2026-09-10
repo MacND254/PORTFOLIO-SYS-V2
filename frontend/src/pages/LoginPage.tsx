@@ -11,14 +11,20 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, login, user } = useAuth();
   const navigate = useNavigate();
 
+  const getHomeRoute = (role?: string) => {
+    if (role === 'SUPER_ADMIN') return '/superadmin/dashboard';
+    if (role === 'COMPANY') return '/company/dashboard';
+    return '/admin/dashboard';
+  };
+
   React.useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      navigate('/admin/dashboard', { replace: true });
+    if (isAuthenticated && !authLoading && user) {
+      navigate(getHomeRoute(user.role), { replace: true });
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  }, [isAuthenticated, authLoading, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,8 +32,8 @@ export const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      await login(email, password);
-      navigate('/admin/dashboard', { replace: true });
+      const loggedUser = await login(email, password);
+      navigate(getHomeRoute(loggedUser?.role), { replace: true });
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check credentials.');
     } finally {

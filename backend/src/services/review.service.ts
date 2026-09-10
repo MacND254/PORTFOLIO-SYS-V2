@@ -59,6 +59,7 @@ export class ReviewService {
       title: 'New Client Review Received!',
       message: `${data.reviewerName} submitted a ${data.rating}-star review for your portfolio.`,
       type: 'INFO',
+      category: 'PORTFOLIO',
       link: '/admin/reviews',
     });
 

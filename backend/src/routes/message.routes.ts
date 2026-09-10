@@ -12,7 +12,10 @@ router.post('/public/request-key', resolveTenant, contactRateLimiter, MessageCon
 
 // Admin message management
 router.use(authenticate);
+router.get('/unread-count', MessageController.getUnreadCount);
+router.post('/mark-all-seen', MessageController.markAllAsSeen);
 router.get('/', MessageController.getAdminMessages);
+router.post('/:id/reply', MessageController.replyToMessage);
 router.put('/:id', MessageController.updateMessageStatus);
 router.post('/:id/accept-key', MessageController.acceptKeyRequest);
 router.post('/:id/decline-key', MessageController.declineKeyRequest);

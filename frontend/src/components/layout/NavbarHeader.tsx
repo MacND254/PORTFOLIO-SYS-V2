@@ -16,8 +16,13 @@ export const NavbarHeader: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchNotifications, 15000);
+    const handleNotifUpdated = () => fetchNotifications();
+    window.addEventListener('notifications-updated', handleNotifUpdated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('notifications-updated', handleNotifUpdated);
+    };
   }, []);
 
   useEffect(() => {
@@ -52,6 +57,7 @@ export const NavbarHeader: React.FC = () => {
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
+      window.dispatchEvent(new CustomEvent('notifications-updated'));
     } catch (e) {
       console.error(e);
     }
@@ -62,6 +68,7 @@ export const NavbarHeader: React.FC = () => {
       await api.put('/notifications/read-all');
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
+      window.dispatchEvent(new CustomEvent('notifications-updated'));
     } catch (e) {
       console.error(e);
     }

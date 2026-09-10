@@ -25,19 +25,30 @@ app.use(
   })
 );
 
-// CORS setup supporting subdomains
+// CORS setup supporting subdomains and local network access
 const allowedOrigins = config.corsOrigin.split(',').map((o) => o.trim());
 
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      // Allow exact origin or subdomain matches
+      // Allow exact origin, subdomain matches, or LAN private IP addresses
       const isAllowed = allowedOrigins.some((allowed) => {
         if (origin === allowed) return true;
         try {
-          const originHost = new URL(origin).hostname;
-          return originHost.endsWith(`.${config.platformDomain}`) || originHost.endsWith('.localhost');
+          const originUrl = new URL(origin);
+          const originHost = originUrl.hostname;
+          if (originHost.endsWith(`.${config.platformDomain}`) || originHost.endsWith('.localhost')) {
+            return true;
+          }
+
+          // Allow LAN private network IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.0.0.1)
+          const isPrivateIP = /^(127\.|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(originHost);
+          if (isPrivateIP) {
+            return true;
+          }
+
+          return false;
         } catch {
           return false;
         }

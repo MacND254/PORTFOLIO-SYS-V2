@@ -65,7 +65,7 @@ export const ProfileEditorPage: React.FC = () => {
 
   // Access Keys State
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
-  const [keyForm, setKeyForm] = useState({ recipientName: '', validityHours: 24 });
+  const [keyForm, setKeyForm] = useState({ recipientName: '', recipientEmail: '', validityHours: 24 });
   const [keyLoading, setKeyLoading] = useState(false);
   const [newKey, setNewKey] = useState<any>(null);
   const [keyCopied, setKeyCopied] = useState(false);
@@ -2161,7 +2161,7 @@ export const ProfileEditorPage: React.FC = () => {
                   <p className="text-xs text-slate-400">Generate a temporary key to share with employers for secure, limited-time document access.</p>
                 </div>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => { setNewKey(null); setKeyForm({ recipientName: '', validityHours: 24 }); setIsKeyModalOpen(true); }} leftIcon={<Key className="w-4 h-4" />}>
+              <Button variant="secondary" size="sm" onClick={() => { setNewKey(null); setKeyForm({ recipientName: '', recipientEmail: '', validityHours: 24 }); setIsKeyModalOpen(true); }} leftIcon={<Key className="w-4 h-4" />}>
                 Generate Key
               </Button>
             </div>
@@ -2715,6 +2715,16 @@ export const ProfileEditorPage: React.FC = () => {
               />
             </div>
             <div className="space-y-1">
+              <label className="text-xs text-slate-300 font-semibold">Recipient Email (Optional)</label>
+              <input
+                type="email"
+                value={keyForm.recipientEmail}
+                onChange={(e) => setKeyForm({ ...keyForm, recipientEmail: e.target.value })}
+                className="w-full p-2.5 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm"
+                placeholder="e.g. hr@company.com (auto-dispatches key via Mail Gateway 1)"
+              />
+            </div>
+            <div className="space-y-1">
               <label className="text-xs text-slate-300 font-semibold">Key Validity</label>
               <select
                 value={keyForm.validityHours}
@@ -2736,6 +2746,11 @@ export const ProfileEditorPage: React.FC = () => {
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
               <Check className="w-8 h-8 text-emerald-400 mx-auto" />
               <p className="text-sm font-bold text-emerald-300">Access Key Generated!</p>
+              {keyForm.recipientEmail && (
+                <p className="text-xs text-emerald-400/90 font-medium">
+                  Dispatched directly to {keyForm.recipientEmail} via Mail Gateway 1 from your account email.
+                </p>
+              )}
             </div>
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
               <p className="text-xs text-slate-400">Share this key with the recruiter:</p>

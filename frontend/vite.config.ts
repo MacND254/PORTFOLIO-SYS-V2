@@ -10,8 +10,9 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
-    host: true,
+    host: '0.0.0.0',
+    port: Number(process.env.PORT || process.env.VITE_PORT) || 5173,
+    strictPort: true,
     proxy: {
       // Proxy /api requests to the Express backend on port 5000
       '/api': {
@@ -26,5 +27,10 @@ export default defineConfig({
         secure: false,
       },
     },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 3080,
+    strictPort: true,
   },
 });

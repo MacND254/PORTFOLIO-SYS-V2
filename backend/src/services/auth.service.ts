@@ -234,6 +234,15 @@ export class AuthService {
       title: 'Welcome to Portfolio Platform!',
       message: `Your account is ready. Your portfolio is published at ${subdomain}.${config.platformDomain}`,
       type: 'SUCCESS',
+      category: 'PORTFOLIO',
+      link: '/admin/dashboard',
+    });
+
+    await NotificationService.notifySuperAdmins({
+      title: 'New Tenant Registered',
+      message: `${result.user.fullName} (${result.user.email}) registered with subdomain: ${subdomain}`,
+      type: 'INFO',
+      link: '/superadmin/users',
     });
 
     const token = this.generateToken(result.user);

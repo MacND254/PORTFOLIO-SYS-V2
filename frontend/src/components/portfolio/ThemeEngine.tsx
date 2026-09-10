@@ -6,8 +6,10 @@ import {
   ShieldCheck, Cpu, Layers, Database, ExternalLink, Phone, MapPin,
   CheckCircle2, Share2, Zap, BarChart2, BookOpen, Scale, TrendingUp,
   Camera, Users, FlaskConical, Menu, X as XIcon, Eye, Lock, FileText, Shield,
+  Calendar, ChevronLeft, ChevronRight, Clock,
 } from 'lucide-react';
 import { CertificateViewerModal } from './CertificateViewerModal';
+import { EmploymentStatusBadge } from '../ui/EmploymentStatusBadge';
 
 interface ThemeEngineProps {
   profile: Profile;
@@ -20,6 +22,8 @@ interface ThemeEngineProps {
   onSendMessage: (data: any) => Promise<void>;
   onOpenVerifiedDocs?: (tab?: 'unlock' | 'request') => void;
   hasVerifiedDocs?: boolean;
+  onOpenScheduleModal?: () => void;
+  onOpenCallModal?: () => void;
 }
 
 // ─── Derive full theme config from DB record ───────────────────────────────
@@ -185,15 +189,79 @@ function getDefaultAvatarShape(themeId: string): AvatarViewShape {
   return 'round';
 }
 
+// ─── Calculate Net Years of Work Experience ──────────────────────────────
+function calculateTotalExperience(experiences?: any[]): string {
+  if (!experiences || experiences.length === 0) return 'Entry Level';
+
+  const parseDate = (dStr?: string | null, isEnd: boolean = false): Date => {
+    if (!dStr) return isEnd ? new Date() : new Date(0);
+    const cleaned = dStr.trim();
+    if (/^\d{4}$/.test(cleaned)) {
+      return new Date(parseInt(cleaned, 10), isEnd ? 11 : 0, 1);
+    }
+    const parsed = new Date(cleaned);
+    if (!isNaN(parsed.getTime())) return parsed;
+    return isEnd ? new Date() : new Date(0);
+  };
+
+  const intervals: { start: number; end: number }[] = [];
+  for (const exp of experiences) {
+    if (!exp.startDate) continue;
+    const start = parseDate(exp.startDate, false).getTime();
+    const end = (exp.isCurrent || !exp.endDate)
+      ? Date.now()
+      : parseDate(exp.endDate, true).getTime();
+    if (end > start) {
+      intervals.push({ start, end });
+    }
+  }
+
+  if (intervals.length === 0) return 'Entry Level';
+
+  intervals.sort((a, b) => a.start - b.start);
+
+  const merged: { start: number; end: number }[] = [];
+  for (const interval of intervals) {
+    if (merged.length === 0) {
+      merged.push({ ...interval });
+    } else {
+      const last = merged[merged.length - 1];
+      if (interval.start <= last.end) {
+        last.end = Math.max(last.end, interval.end);
+      } else {
+        merged.push({ ...interval });
+      }
+    }
+  }
+
+  let totalMs = 0;
+  for (const m of merged) {
+    totalMs += (m.end - m.start);
+  }
+
+  const totalDays = totalMs / (1000 * 60 * 60 * 24);
+  const years = Math.floor(totalDays / 365.25);
+  const remainingMonths = Math.round((totalDays % 365.25) / 30.4);
+
+  if (years >= 1) {
+    return `${years}+ Years`;
+  }
+  if (remainingMonths > 0) {
+    return `${remainingMonths} Months`;
+  }
+  return '< 1 Year';
+}
+
 // ─── Main Engine ──────────────────────────────────────────────────────────
 export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   profile, subdomain, onOpenQrModal, onOpenReviewModal, onDownloadPdf,
   isDownloadingResume = false, resumeDownloadError, onSendMessage,
-  onOpenVerifiedDocs, hasVerifiedDocs = false,
+  onOpenVerifiedDocs, hasVerifiedDocs = false, onOpenScheduleModal, onOpenCallModal,
 }) => {
   const themeId = profile.customization?.themeId || 'software-engineer';
   const fullName = profile.user?.fullName || 'Portfolio Owner';
   const title = profile.title || 'Professional';
+  const experienceYears = React.useMemo(() => calculateTotalExperience(profile.experiences), [profile.experiences]);
 
   const defaultAvatarShape = getDefaultAvatarShape(themeId);
   const activeCustomAvatarStyle = (profile.customization?.avatarStyle || profile.customization?.colorPalette?.avatarStyle) as AvatarViewShape | undefined;
@@ -262,6 +330,37 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       setContactState({ name:'', email:'', subject:'', message:'', honeypot:'' });
     } catch (err) { console.error(err); } finally { setIsSubmittingContact(false); }
   };
+
+  // ── Reviews carousel horizontal scroll & cyclic rotation ──────────────────
+  const reviewsScrollRef = React.useRef<HTMLDivElement>(null);
+
+  const handleScrollReviews = (direction: 'left' | 'right') => {
+    if (!reviewsScrollRef.current) return;
+    const container = reviewsScrollRef.current;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    if (maxScroll <= 0) return;
+
+    const cardWidth = container.clientWidth < 640 ? 280 : 320;
+
+    if (direction === 'right') {
+      // If at or near the end, rotate back to start
+      if (container.scrollLeft >= maxScroll - 25) {
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        const nextLeft = Math.min(container.scrollLeft + cardWidth, maxScroll);
+        container.scrollTo({ left: nextLeft, behavior: 'smooth' });
+      }
+    } else {
+      // If at or near the beginning, rotate to the end
+      if (container.scrollLeft <= 25) {
+        container.scrollTo({ left: maxScroll, behavior: 'smooth' });
+      } else {
+        const nextLeft = Math.max(container.scrollLeft - cardWidth, 0);
+        container.scrollTo({ left: nextLeft, behavior: 'smooth' });
+      }
+    }
+  };
+
 
   // Inject CSS variables from theme colors
   const cssVars = {
@@ -408,6 +507,20 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
               <Download className="w-3 h-3" />
               <span>{isDownloadingResume ? 'Preparing...' : 'Resume'}</span>
             </button>
+            {(onOpenCallModal || onOpenScheduleModal) && (
+              <button
+                onClick={onOpenCallModal || onOpenScheduleModal}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-white border transition whitespace-nowrap shadow-sm hover:scale-105"
+                style={{
+                  borderColor: `${colors.accent || colors.primary}70`,
+                  background: `linear-gradient(135deg, ${colors.primary}cc, ${colors.accent || colors.secondary}cc)`,
+                }}
+                title="Book a Call"
+              >
+                <Phone className="w-3 h-3 text-white" />
+                <span>Book Call</span>
+              </button>
+            )}
             {hasVerifiedDocs && onOpenVerifiedDocs && (
               <button
                 onClick={() => onOpenVerifiedDocs('unlock')}
@@ -468,6 +581,15 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             >
               <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
             </button>
+            {(onOpenCallModal || onOpenScheduleModal) && (
+              <button
+                onClick={() => { (onOpenCallModal ?? onOpenScheduleModal)?.(); setIsMobileMenuOpen(false); }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold text-white transition"
+                style={{ borderColor: `${colors.accent || colors.primary}80`, background: `${colors.primary}30` }}
+              >
+                <Phone className="w-4 h-4 text-white" /><span>Book Call</span>
+              </button>
+            )}
             {showQrAction && (
               <button
                 onClick={() => { onOpenQrModal(); setIsMobileMenuOpen(false); }}
@@ -520,13 +642,17 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
         {/* ═══ MOBILE LAYOUT (< md) — stacked: text → avatar → body ═══ */}
         <div className="md:hidden relative px-4 xs:px-5 sm:px-6 space-y-4 pt-2">
 
-          {/* Theme badge */}
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium"
-               style={{ background: `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}35` }}>
-            <ThemeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            <span className="truncate max-w-[180px] sm:max-w-none">Available for Hire &amp; Speaking</span>
-            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse shrink-0" style={{ background: colors.accent }} />
-          </div>
+          {/* Work / Employment status badge */}
+          {profile.showEmploymentBadge !== false && (
+            <div>
+              <EmploymentStatusBadge
+                status={profile.employmentStatus || 'OPEN_TO_WORK'}
+                customText={profile.employmentStatusCustom}
+                size="sm"
+                themeColors={{ primary: colors.primary, accent: colors.accent }}
+              />
+            </div>
+          )}
 
           {showTerminalHeader && (
             <div className="theme-terminal-line text-xs" style={{ color: colors.accent, borderColor: `${colors.accent}45` }}>
@@ -581,21 +707,35 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             {profile.summary || 'Welcome to my professional portfolio.'}
           </p>
 
-          {/* CTA Buttons — stacked on 320, side-by-side on sm */}
-          <div className="flex flex-col xs:flex-row flex-wrap items-stretch xs:items-center gap-3 pt-1">
+          {/* CTA Buttons — strictly aligned horizontally in one line with compact button & text size */}
+          <div className="flex flex-row items-center gap-1.5 sm:gap-2 pt-2 py-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full">
             <a href="#contact"
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-white shadow-lg transition hover:opacity-90 text-sm"
-              style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 6px 20px ${colors.primary}40` }}
+              className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl font-semibold text-white shadow-md transition hover:opacity-90 text-[11px] sm:text-xs shrink-0 whitespace-nowrap"
+              style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 4px 15px ${colors.primary}35` }}
             >
-              <Mail className="w-4 h-4" /><span>Get In Touch</span>
+              <Mail className="w-3.5 h-3.5 shrink-0" /><span>Get In Touch</span>
             </a>
             <button onClick={() => setIsPdfModalOpen(true)} disabled={isDownloadingResume}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold border transition text-sm disabled:cursor-wait disabled:opacity-70"
+              className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl font-semibold border transition text-[11px] sm:text-xs shrink-0 whitespace-nowrap disabled:cursor-wait disabled:opacity-70"
               style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}80` }}
               aria-busy={isDownloadingResume}
             >
-              <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
+              <Download className="w-3.5 h-3.5 shrink-0" /><span>{resumeActionLabel}</span>
             </button>
+            {onOpenScheduleModal && (
+              <button
+                type="button"
+                onClick={onOpenScheduleModal}
+                className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl font-semibold text-white shadow-md transition hover:opacity-90 hover:scale-105 text-[11px] sm:text-xs shrink-0 whitespace-nowrap"
+                style={{
+                  background: `linear-gradient(135deg, ${colors.accent || colors.secondary}, ${colors.primary})`,
+                  boxShadow: `0 4px 15px ${(colors.accent || colors.primary)}40`,
+                }}
+              >
+                <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
+                <span>Schedule Interview</span>
+              </button>
+            )}
           </div>
 
           {/* Social links */}
@@ -639,14 +779,19 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
         </div>
 
         {/* ═══ DESKTOP / TABLET LAYOUT (≥ md) — original side-by-side ═══ */}
-        <div className="hidden md:grid md:grid-cols-12 gap-8 lg:gap-12 items-center relative max-w-7xl mx-auto px-4 sm:px-8 lg:px-12" style={{ paddingTop: '0.75rem', paddingBottom: '1.5rem' }}>
-          <div className="md:col-span-6 space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
-                 style={{ background: `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}35` }}>
-              <ThemeIcon className="w-3.5 h-3.5" />
-              <span>Available for Hire &amp; Keynote Speaking</span>
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: colors.accent }} />
-            </div>
+        <div className="hidden md:grid md:grid-cols-12 gap-6 lg:gap-10 items-center relative max-w-7xl mx-auto px-4 sm:px-8 lg:px-12" style={{ paddingTop: '0.75rem', paddingBottom: '1.5rem' }}>
+          <div className="md:col-span-7 lg:col-span-7 space-y-4">
+            {/* Work / Employment status badge */}
+            {profile.showEmploymentBadge !== false && (
+              <div>
+                <EmploymentStatusBadge
+                  status={profile.employmentStatus || 'OPEN_TO_WORK'}
+                  customText={profile.employmentStatusCustom}
+                  size="md"
+                  themeColors={{ primary: colors.primary, accent: colors.accent }}
+                />
+              </div>
+            )}
 
             {showTerminalHeader && (
               <div className="theme-terminal-line" style={{ color: colors.accent, borderColor: `${colors.accent}45` }}>
@@ -677,29 +822,46 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
               {profile.summary || 'Welcome to my professional portfolio.'}
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            {/* Core CTA Buttons — strictly aligned horizontally in one line with compact button & text size */}
+            <div className="flex flex-row items-center gap-1.5 sm:gap-2 lg:gap-2.5 pt-2 py-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full">
               <a href="#contact"
-                className="px-6 py-3 rounded-xl font-semibold text-white shadow-lg transition flex items-center gap-2 hover:opacity-90"
-                style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 8px 25px ${colors.primary}40` }}
+                className="px-2.5 sm:px-3 lg:px-3.5 py-1.5 sm:py-2 rounded-xl font-semibold text-white shadow-md transition flex items-center gap-1.5 hover:opacity-90 text-[11px] sm:text-xs shrink-0 whitespace-nowrap"
+                style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, boxShadow: `0 6px 20px ${colors.primary}35` }}
               >
-                <Mail className="w-4 h-4" /><span>Get In Touch</span>
+                <Mail className="w-3.5 h-3.5 shrink-0" /><span>Get In Touch</span>
               </a>
               <button onClick={() => setIsPdfModalOpen(true)} disabled={isDownloadingResume}
-                className="px-6 py-3 rounded-xl font-semibold border transition flex items-center gap-2 disabled:cursor-wait disabled:opacity-70"
+                className="px-2.5 sm:px-3 lg:px-3.5 py-1.5 sm:py-2 rounded-xl font-semibold border transition flex items-center gap-1.5 text-[11px] sm:text-xs shrink-0 whitespace-nowrap disabled:cursor-wait disabled:opacity-70"
                 style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}80` }}
                 aria-busy={isDownloadingResume}
               >
-                <Download className="w-4 h-4" /><span>{resumeActionLabel}</span>
+                <Download className="w-3.5 h-3.5 shrink-0" /><span>{resumeActionLabel}</span>
               </button>
-              {showPrototypes && (
-                <a href="#projects"
-                  className="px-6 py-3 rounded-xl font-semibold border transition flex items-center gap-2 hover:opacity-80"
-                  style={{ borderColor: `${colors.accent}60`, color: colors.accent, background: `${colors.accent}10` }}
+              {onOpenScheduleModal && (
+                <button
+                  type="button"
+                  onClick={onOpenScheduleModal}
+                  className="px-2.5 sm:px-3 lg:px-3.5 py-1.5 sm:py-2 rounded-xl font-semibold text-white shadow-md transition flex items-center gap-1.5 hover:opacity-90 hover:scale-105 text-[11px] sm:text-xs shrink-0 whitespace-nowrap"
+                  style={{
+                    background: `linear-gradient(135deg, ${colors.accent || colors.secondary}, ${colors.primary})`,
+                    boxShadow: `0 6px 20px ${(colors.accent || colors.primary)}40`,
+                  }}
                 >
-                  <Layers className="w-4 h-4" /><span>Explore Selected Work</span>
-                </a>
+                  <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
+                  <span>Schedule Interview</span>
+                </button>
               )}
             </div>
+            {showPrototypes && (
+              <div className="pt-1">
+                <a href="#projects"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition hover:opacity-80"
+                  style={{ borderColor: `${colors.accent}60`, color: colors.accent, background: `${colors.accent}10` }}
+                >
+                  <Layers className="w-3.5 h-3.5" /><span>Explore Selected Work</span>
+                </a>
+              </div>
+            )}
 
             {showCharts && (
               <div className="theme-metrics-grid" style={{ borderColor: `${colors.primary}28` }}>
@@ -740,7 +902,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             </div>
           </div>
 
-          <div className="md:col-span-6 flex justify-center md:justify-end items-center relative z-10">
+          <div className="md:col-span-5 lg:col-span-5 flex justify-center md:justify-end items-center relative z-10">
             <div className="relative group">
               <div className={`absolute -inset-3 blur-3xl opacity-50 group-hover:opacity-80 transition-all duration-700 ${activeAvatarConfig.glow}`}
                    style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` }} />
@@ -765,17 +927,18 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>About Me</h2>
             <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             {[
               { icon: MapPin, label:'Location', value: profile.location || 'Remote / Global', color: colors.primary },
               { icon: Briefcase, label:'Profession', value: title, color: colors.accent },
-              { icon: AwardIcon, label:'Completeness', value: `${profile.completenessScore}% Verified`, color: colors.secondary },
+              { icon: Clock, label:'Experience', value: experienceYears, color: colors.secondary || colors.accent },
+              { icon: AwardIcon, label:'Completeness', value: `${profile.completenessScore}% Verified`, color: colors.primary },
             ].map(({ icon: Icon, label, value, color }) => (
-              <div key={label} className={`p-6 rounded-2xl space-y-2 ${cardCls}`}
+              <div key={label} className={`p-5 sm:p-6 rounded-2xl space-y-2 ${cardCls}`}
                    style={cardStyle === 'neon' ? { borderColor: color, boxShadow: `0 0 15px ${color}30` } : {}}>
-                <Icon className="w-6 h-6" style={{ color }} />
+                <Icon className="w-5 sm:w-6 h-5 sm:h-6" style={{ color }} />
                 <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: `${colors.text}60` }}>{label}</h3>
-                <p className="font-semibold" style={{ color: colors.text }}>{value}</p>
+                <p className="font-semibold text-sm sm:text-base" style={{ color: colors.text }}>{value}</p>
               </div>
             ))}
           </div>
@@ -1067,41 +1230,41 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
 
       {/* ── CERTIFICATIONS ────────────────────────────────────────── */}
       {profile.certifications && profile.certifications.length > 0 && (
-        <section id="certifications" className={`theme-section ${revealCls} px-6 py-16`} style={{ background: `${colors.surface}40`, borderTop: `1px solid ${colors.primary}20` }}>
-          <div className="max-w-7xl mx-auto space-y-10 px-4 sm:px-8 lg:px-12">
+        <section id="certifications" className={`theme-section ${revealCls} px-4 sm:px-6 py-12 sm:py-16`} style={{ background: `${colors.surface}40`, borderTop: `1px solid ${colors.primary}20` }}>
+          <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10 px-2 sm:px-6 lg:px-8 w-full max-w-full overflow-hidden">
             <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Certifications</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Certifications</h2>
               <div className="w-12 h-1 mx-auto rounded-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})` }} />
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 w-full">
               {profile.certifications.map((cert: any) => (
-                <div key={cert.id} className={`p-5 rounded-2xl flex flex-col justify-between gap-4 ${cardCls}`}
+                <div key={cert.id} className={`p-4 sm:p-5 rounded-xl sm:rounded-2xl flex flex-col justify-between gap-3 sm:gap-4 w-full max-w-full overflow-hidden min-w-0 ${cardCls}`}
                      style={cardStyle === 'neon' ? { borderColor: colors.accent, boxShadow: `0 0 12px ${colors.accent}20` } : {}}>
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                  <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
                          style={{ background: `${colors.primary}20` }}>
-                      <AwardIcon className="w-6 h-6" style={{ color: colors.primary }} />
+                      <AwardIcon className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: colors.primary }} />
                     </div>
-                    <div className="space-y-1 min-w-0">
+                    <div className="space-y-1 min-w-0 flex-1 overflow-hidden">
                       <h4 className="font-bold text-sm truncate" style={{ color: colors.text }}>{cert.name}</h4>
-                      <p className="text-xs font-semibold" style={{ color: colors.primary }}>{cert.issuingOrganization}</p>
+                      <p className="text-xs font-semibold truncate" style={{ color: colors.primary }}>{cert.issuingOrganization}</p>
                       <p className="text-xs" style={{ color: `${colors.text}50` }}>Issued: {cert.issueDate}</p>
                       {cert.credentialId && (
-                        <p className="text-[11px] font-mono" style={{ color: `${colors.text}40` }}>ID: {cert.credentialId}</p>
+                        <p className="text-[11px] font-mono break-all line-clamp-1" style={{ color: `${colors.text}40` }}>ID: {cert.credentialId}</p>
                       )}
                     </div>
                   </div>
 
                   {(cert.certificateUrl || cert.credentialUrl) && (
-                    <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: `${colors.primary}20` }}>
+                    <div className="flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t w-full min-w-0" style={{ borderColor: `${colors.primary}20` }}>
                       {cert.certificateUrl && (
                         <button
                           onClick={() => setViewCertificate({ url: cert.certificateUrl, title: cert.name, issuer: cert.issuingOrganization })}
-                          className="flex-1 py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1.5 hover:opacity-90 shadow-sm"
+                          className="flex-1 min-w-0 py-2 px-2.5 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1.5 hover:opacity-90 shadow-sm whitespace-nowrap"
                           style={{ background: `${colors.accent}15`, color: colors.accent, borderColor: `${colors.accent}40` }}
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View Certificate (View Only)</span>
+                          <Eye className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">View Certificate</span>
                         </button>
                       )}
                       {cert.credentialUrl && (
@@ -1109,10 +1272,10 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                           href={cert.credentialUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1 hover:opacity-90"
+                          className="py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1 hover:opacity-90 shrink-0 whitespace-nowrap"
                           style={{ background: `${colors.surface}80`, color: colors.text, borderColor: `${colors.text}20` }}
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                           <span>Verify</span>
                         </a>
                       )}
@@ -1126,46 +1289,149 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
       )}
 
       {/* ── TESTIMONIALS ──────────────────────────────────────────── */}
-      <section id="testimonials" className={`theme-section ${revealCls} px-6 py-20`}>
-        <div className="max-w-7xl mx-auto space-y-12 px-4 sm:px-8 lg:px-12">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Client & Employer Reviews</h2>
-              <p className="text-sm mt-1" style={{ color: `${colors.text}70` }}>Verified testimonials from industry partners</p>
+      <section id="testimonials" className={`theme-section ${revealCls} px-4 sm:px-6 py-16 sm:py-20`}>
+        <div className="max-w-7xl mx-auto space-y-8 sm:space-y-12 px-2 sm:px-8 lg:px-12">
+          <div className="text-center space-y-3 max-w-2xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Client &amp; Employer Reviews</h2>
+            <p className="text-xs sm:text-sm" style={{ color: `${colors.text}70` }}>Verified testimonials from industry partners</p>
+
+            <div className="flex items-center justify-center pt-1">
+              <button onClick={onOpenReviewModal}
+                className="px-3.5 sm:px-4 py-2 rounded-xl font-semibold text-xs border transition flex items-center gap-2 hover:opacity-90 shadow-sm whitespace-nowrap"
+                style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}60` }}
+              >
+                <Star className="w-3.5 h-3.5" style={{ color: colors.accent }} /><span>Leave a Review</span>
+              </button>
             </div>
-            <button onClick={onOpenReviewModal}
-              className="px-5 py-2.5 rounded-xl font-semibold text-xs border transition flex items-center gap-2"
-              style={{ borderColor: `${colors.primary}50`, color: colors.text, background: `${colors.surface}60` }}
-            >
-              <Star className="w-4 h-4" style={{ color: colors.accent }} /><span>Leave a Review</span>
-            </button>
           </div>
+
           {profile.reviews && profile.reviews.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-6">
-              {profile.reviews.map((rev) => (
-                <div key={rev.id} className={`p-6 rounded-2xl space-y-4 ${cardCls}`}
-                     style={cardStyle === 'neon' ? { borderColor: colors.accent, boxShadow: `0 0 12px ${colors.accent}15` } : {}}>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: rev.rating }).map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-current" style={{ color: colors.accent }} />
+            profile.reviews.length >= 3 ? (
+              <div className="relative w-full max-w-5xl mx-auto overflow-hidden py-2 group">
+                {/* Floating Left Arrow on Card */}
+                <button
+                  type="button"
+                  onClick={() => handleScrollReviews('left')}
+                  className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full border shadow-xl flex items-center justify-center transition-all opacity-85 hover:opacity-100 hover:scale-105 active:scale-95 touch-manipulation"
+                  style={{
+                    background: `${colors.surface}f5`,
+                    borderColor: `${colors.primary}50`,
+                    color: colors.text,
+                    backdropFilter: 'blur(8px)',
+                  }}
+                  title="Previous review"
+                  aria-label="Previous review"
+                >
+                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+
+                {/* Floating Right Arrow on Card */}
+                <button
+                  type="button"
+                  onClick={() => handleScrollReviews('right')}
+                  className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full border shadow-xl flex items-center justify-center transition-all opacity-85 hover:opacity-100 hover:scale-105 active:scale-95 touch-manipulation"
+                  style={{
+                    background: `${colors.surface}f5`,
+                    borderColor: `${colors.primary}50`,
+                    color: colors.text,
+                    backdropFilter: 'blur(8px)',
+                  }}
+                  title="Next review"
+                  aria-label="Next review"
+                >
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+
+                {/* Horizontal scroll container with smooth manual button navigation */}
+                <div
+                  ref={reviewsScrollRef}
+                  className="flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth py-3 px-10 sm:px-14 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory w-full"
+                >
+                  <div className="flex gap-3 sm:gap-4 mx-auto min-w-min justify-center">
+                    {profile.reviews.map((rev) => (
+                      <div
+                        key={rev.id}
+                        className={`w-[260px] sm:w-[300px] p-5 rounded-xl space-y-3 shrink-0 text-center transition-all duration-200 hover:-translate-y-1 snap-center flex flex-col justify-between ${cardCls}`}
+                        style={{
+                          ...(cardStyle === 'neon' ? { borderColor: colors.accent, boxShadow: `0 0 10px ${colors.accent}15` } : {}),
+                          background: `${colors.surface}95`,
+                          border: `1px solid ${colors.primary}25`,
+                        }}
+                      >
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-center gap-0.5">
+                            {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                              <Star key={i} className="w-3.5 h-3.5 fill-current" style={{ color: colors.accent }} />
+                            ))}
+                          </div>
+                          <p className="text-xs italic leading-relaxed line-clamp-4 text-center" style={{ color: `${colors.text}cc` }}>
+                            "{rev.reviewText}"
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-center justify-center gap-1.5 pt-3 border-t" style={{ borderColor: `${colors.primary}20` }}>
+                          <div
+                            className="w-8 h-8 rounded-full font-bold flex items-center justify-center text-xs shrink-0"
+                            style={{ background: `${colors.primary}30`, color: colors.primary }}
+                          >
+                            {rev.reviewerName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="text-center min-w-0 w-full px-2">
+                            <h4 className="font-semibold text-xs truncate" style={{ color: colors.text }}>
+                              {rev.reviewerName}
+                            </h4>
+                            <p className="text-[11px] truncate" style={{ color: `${colors.text}60` }}>
+                              {rev.reviewerJobTitle}{rev.reviewerCompany ? ` @ ${rev.reviewerCompany}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                  <p className="text-sm italic" style={{ color: `${colors.text}cc` }}>"{rev.reviewText}"</p>
-                  <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: `${colors.primary}20` }}>
-                    <div className="w-10 h-10 rounded-full font-bold flex items-center justify-center"
-                         style={{ background: `${colors.primary}30`, color: colors.primary }}>
-                      {rev.reviewerName.charAt(0)}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-sm" style={{ color: colors.text }}>{rev.reviewerName}</h4>
-                      <p className="text-xs" style={{ color: `${colors.text}60` }}>
-                        {rev.reviewerJobTitle}{rev.reviewerCompany ? ` @ ${rev.reviewerCompany}` : ''}
+                </div>
+              </div>
+
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-4 py-2 max-w-5xl mx-auto">
+                {profile.reviews.map((rev) => (
+                  <div
+                    key={rev.id}
+                    className={`w-[280px] sm:w-[320px] p-5 rounded-xl space-y-3 shrink-0 text-center transition-transform duration-200 hover:-translate-y-1 flex flex-col justify-between ${cardCls}`}
+                    style={{
+                      ...(cardStyle === 'neon' ? { borderColor: colors.accent, boxShadow: `0 0 10px ${colors.accent}15` } : {}),
+                      background: `${colors.surface}90`,
+                      border: `1px solid ${colors.primary}25`,
+                    }}
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-center gap-0.5">
+                        {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                          <Star key={i} className="w-3.5 h-3.5 fill-current" style={{ color: colors.accent }} />
+                        ))}
+                      </div>
+                      <p className="text-xs italic leading-relaxed line-clamp-4 text-center" style={{ color: `${colors.text}cc` }}>
+                        "{rev.reviewText}"
                       </p>
                     </div>
+                    <div className="flex flex-col items-center justify-center gap-1.5 pt-3 border-t" style={{ borderColor: `${colors.primary}20` }}>
+                      <div
+                        className="w-8 h-8 rounded-full font-bold flex items-center justify-center text-xs shrink-0"
+                        style={{ background: `${colors.primary}30`, color: colors.primary }}
+                      >
+                        {rev.reviewerName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="text-center min-w-0 w-full px-2">
+                        <h4 className="font-semibold text-xs truncate" style={{ color: colors.text }}>
+                          {rev.reviewerName}
+                        </h4>
+                        <p className="text-[11px] truncate" style={{ color: `${colors.text}60` }}>
+                          {rev.reviewerJobTitle}{rev.reviewerCompany ? ` @ ${rev.reviewerCompany}` : ''}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
           ) : (
             <div className="text-center py-12 rounded-2xl border space-y-3"
                  style={{ borderColor: `${colors.primary}20`, background: `${colors.surface}40` }}>
@@ -1255,6 +1521,33 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
             <h2 className="text-3xl font-bold" style={{ fontFamily:`var(--theme-font-heading)`, color: colors.text }}>Get In Touch</h2>
             <p className="text-sm" style={{ color: `${colors.text}70` }}>Send a direct message to {fullName}</p>
           </div>
+          {onOpenScheduleModal && (
+            <div className="max-w-2xl mx-auto p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg"
+                 style={{ background: `${colors.surface}80`, borderColor: `${colors.primary}40` }}>
+              <div className="flex items-center gap-3.5 text-left">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                     style={{ background: `${colors.primary}25`, border: `1px solid ${colors.primary}50`, color: colors.primary }}>
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold" style={{ color: colors.text }}>Looking to interview or hire {fullName}?</h4>
+                  <p className="text-xs mt-0.5" style={{ color: `${colors.text}80` }}>Skip back-and-forth emails and book a screening, technical interview, or intro call directly.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenScheduleModal}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs text-white shadow-md transition whitespace-nowrap hover:scale-105 shrink-0 flex items-center justify-center gap-2"
+                style={{
+                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
+                  boxShadow: `0 4px 15px ${colors.primary}40`,
+                }}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Schedule Interview</span>
+              </button>
+            </div>
+          )}
           {contactSuccess ? (
             <div className="p-8 rounded-2xl text-center space-y-3"
                  style={{ background: `${colors.accent}15`, border: `1px solid ${colors.accent}40` }}>

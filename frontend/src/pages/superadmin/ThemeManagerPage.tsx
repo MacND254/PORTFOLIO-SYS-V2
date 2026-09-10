@@ -168,34 +168,36 @@ export const ThemeManagerPage: React.FC = () => {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-4 max-w-7xl mx-auto pb-10">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 pb-2 border-b border-slate-800/80">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-            <Sparkles className="w-7 h-7 text-indigo-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <Sparkles className="w-4 h-4" />
+            </div>
             Platform Theme Studio
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-400 text-xs mt-0.5">
             Customize colors, fonts, animations, and layouts for all 20 profession-specific themes. Changes apply platform-wide instantly.
           </p>
         </div>
-        <Button variant="outline" size="sm" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={fetchThemes}>
+        <Button variant="outline" size="sm" leftIcon={<RefreshCw className="w-3.5 h-3.5" />} onClick={fetchThemes}>
           Refresh All
         </Button>
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'Total Themes', value: themes.length, color: 'text-indigo-400' },
           { label: 'Published', value: themes.filter((t) => t.isPublished).length, color: 'text-emerald-400' },
           { label: 'Hidden', value: themes.filter((t) => !t.isPublished).length, color: 'text-amber-400' },
           { label: 'Profession Categories', value: new Set(themes.map((t) => t.profession)).size, color: 'text-purple-400' },
         ].map((stat) => (
-          <div key={stat.label} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center">
-            <p className={`text-2xl font-extrabold ${stat.color}`}>{stat.value}</p>
-            <p className="text-xs text-slate-400 mt-1">{stat.label}</p>
+          <div key={stat.label} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+            <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -206,7 +208,7 @@ export const ThemeManagerPage: React.FC = () => {
         placeholder="Search themes by name or profession..."
         value={searchQ}
         onChange={(e) => setSearchQ(e.target.value)}
-        className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+        className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs focus:border-indigo-500 focus:outline-none transition"
       />
 
       {/* Theme Cards */}

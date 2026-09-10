@@ -15,6 +15,8 @@ import {
   Clock,
   SendHorizontal,
   FileCheck,
+  CheckCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const MessagesManagerPage: React.FC = () => {
@@ -26,6 +28,7 @@ export const MessagesManagerPage: React.FC = () => {
   const [replyText, setReplyText] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [replySentSuccess, setReplySentSuccess] = useState(false);
+  const [replyError, setReplyError] = useState('');
 
   // Key Accept Modal State
   const [acceptModalMsg, setAcceptModalMsg] = useState<any>(null);
@@ -44,7 +47,18 @@ export const MessagesManagerPage: React.FC = () => {
     setIsLoading(true);
     try {
       const res: any = await api.get('/messages');
-      setMessages(res.data);
+      const data = Array.isArray(res.data) ? res.data : [];
+      setMessages(data);
+
+      // Reset counter on messages module after messages have been seen
+      const hasUnread = data.some((m: any) => !m.isRead);
+      if (hasUnread) {
+        api.post('/messages/mark-all-seen')
+          .then(() => {
+            window.dispatchEvent(new CustomEvent('messages-seen'));
+          })
+          .catch((err) => console.error('Failed to mark messages seen:', err));
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -63,17 +77,27 @@ export const MessagesManagerPage: React.FC = () => {
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!replyMsg) return;
     setIsSendingReply(true);
+    setReplyError('');
     try {
-      await new Promise((res) => setTimeout(res, 800));
+      await api.post(`/messages/${replyMsg.id}/reply`, {
+        message: replyText,
+        subject: replyMsg.subject,
+      });
       setReplySentSuccess(true);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === replyMsg.id ? { ...m, isRead: true } : m))
+      );
+      window.dispatchEvent(new CustomEvent('messages-seen'));
       setTimeout(() => {
         setReplySentSuccess(false);
         setReplyMsg(null);
         setReplyText('');
       }, 1500);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Failed to send reply:', e);
+      setReplyError(e?.response?.data?.message || e?.message || 'Failed to dispatch email reply via Gateway 1. Please check mail settings.');
     } finally {
       setIsSendingReply(false);
     }
@@ -120,6 +144,17 @@ export const MessagesManagerPage: React.FC = () => {
       setMessages((prev) =>
         prev.map((m) => (m.id === msgId ? { ...m, isRead: true } : m))
       );
+      window.dispatchEvent(new CustomEvent('messages-seen'));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.post('/messages/mark-all-seen');
+      setMessages((prev) => prev.map((m) => ({ ...m, isRead: true })));
+      window.dispatchEvent(new CustomEvent('messages-seen'));
     } catch (e) {
       console.error(e);
     }
@@ -130,21 +165,39 @@ export const MessagesManagerPage: React.FC = () => {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Visitor &amp; Recruiter Messages</h1>
+    <div className="p-4 sm:p-6 space-y-4 max-w-6xl mx-auto pb-10">
+      <div className="space-y-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                <Mail className="w-4 h-4" />
+              </div>
+              Visitor &amp; Recruiter Messages
+            </h1>
+            {unreadCount > 0 && (
+              <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-1.5 shadow-sm animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                {unreadCount} Unread
+              </span>
+            )}
+          </div>
           {unreadCount > 0 && (
-            <span className="px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-extrabold flex items-center gap-1.5 shadow-sm animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-              {unreadCount} Unread
-            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              leftIcon={<CheckCheck className="w-3.5 h-3.5 text-indigo-400" />}
+              className="text-xs"
+            >
+              Mark all as read
+            </Button>
           )}
         </div>
-        <p className="text-slate-400 text-sm">Direct contact inquiries and document unlock requests from recruiters.</p>
+        <p className="text-xs text-slate-400">Direct contact inquiries and document unlock requests from recruiters.</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {messages.length > 0 ? (
           messages.map((msg) => {
             const isKeyRequest = msg.type === 'DOCUMENT_ACCESS_REQUEST' || msg.subject?.includes('[DOCUMENT_ACCESS_REQUEST]');
@@ -152,25 +205,33 @@ export const MessagesManagerPage: React.FC = () => {
             return (
               <div
                 key={msg.id}
-                className={`p-6 rounded-2xl border transition space-y-4 ${
+                className={`p-4 rounded-xl border transition space-y-3 ${
                   isKeyRequest
                     ? 'bg-slate-900/90 border-emerald-500/30 shadow-lg shadow-emerald-950/20'
                     : 'bg-slate-900 border-slate-800'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
                     {isKeyRequest && (
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                        <Key className="w-5 h-5" />
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                        <Key className="w-4 h-4" />
                       </div>
                     )}
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {!msg.isRead && (
-                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 animate-pulse shrink-0" title="Unread Message" />
+                          <button
+                            type="button"
+                            onClick={() => handleMarkRead(msg.id)}
+                            className="flex items-center gap-1 text-[10px] text-rose-400 hover:text-rose-300 font-semibold bg-rose-500/10 hover:bg-rose-500/20 px-2 py-0.5 rounded-full border border-rose-500/30 transition cursor-pointer"
+                            title="Click to mark as read"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                            <span>Unread</span>
+                          </button>
                         )}
-                        <h3 className="text-base font-bold text-white">{msg.name}</h3>
+                        <h3 className="text-sm font-bold text-white">{msg.name}</h3>
                         {isKeyRequest && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
                             Document Access Request
@@ -187,17 +248,17 @@ export const MessagesManagerPage: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-indigo-400 font-semibold">{msg.email} • {msg.subject}</p>
+                      <p className="text-xs text-indigo-400 font-medium">{msg.email} • {msg.subject}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
                     {isKeyRequest && (msg.status === 'PENDING' || !msg.status) && (
                       <>
                         <Button
                           variant="primary"
                           size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 py-1"
                           onClick={() => setAcceptModalMsg(msg)}
                           leftIcon={<Key className="w-3.5 h-3.5" />}
                         >
@@ -206,7 +267,7 @@ export const MessagesManagerPage: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                          className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-2.5 py-1"
                           isLoading={decliningId === msg.id}
                           onClick={() => handleDeclineKeyRequest(msg.id)}
                           leftIcon={<XCircle className="w-3.5 h-3.5" />}
@@ -220,6 +281,7 @@ export const MessagesManagerPage: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="text-xs px-2.5 py-1"
                         onClick={() => { setReplyMsg(msg); setReplyText(`Hi ${msg.name},\n\nThank you for reaching out regarding "${msg.subject}".\n\nBest regards,`); }}
                         leftIcon={<Reply className="w-3.5 h-3.5" />}
                       >
@@ -227,32 +289,32 @@ export const MessagesManagerPage: React.FC = () => {
                       </Button>
                     )}
 
-                    <button onClick={() => handleDelete(msg.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Delete message">
-                      <Trash2 className="w-4 h-4" />
+                    <button onClick={() => handleDelete(msg.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Delete message">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                <div className="text-sm text-slate-300 bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-2">
-                  <p>{msg.message}</p>
+                <div className="text-xs text-slate-300 bg-slate-950/70 p-3 rounded-lg border border-slate-800/80 space-y-2">
+                  <p className="leading-relaxed">{msg.message}</p>
 
                   {msg.generatedKey && (
                     <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
                       <span className="text-emerald-400 font-medium flex items-center gap-1.5">
-                        <FileCheck className="w-4 h-4" />
-                        Dispatched Access Code: <strong className="font-mono text-white text-sm bg-slate-900 px-2 py-0.5 rounded border border-emerald-500/30">{msg.generatedKey}</strong>
+                        <FileCheck className="w-3.5 h-3.5" />
+                        Dispatched Access Code: <strong className="font-mono text-white text-xs bg-slate-900 px-2 py-0.5 rounded border border-emerald-500/30">{msg.generatedKey}</strong>
                       </span>
-                      <span className="text-[11px] text-slate-500">Sent via Gateway 1 (Portfolio Forwarder)</span>
+                      <span className="text-[10px] text-slate-500">Sent via Gateway 1 (Portfolio Forwarder)</span>
                     </div>
                   )}
                 </div>
 
-                <span className="text-[11px] text-slate-500 block">Received: {new Date(msg.createdAt).toLocaleString()}</span>
+                <span className="text-[10px] text-slate-500 block">Received: {new Date(msg.createdAt).toLocaleString()}</span>
               </div>
             );
           })
         ) : (
-          <div className="p-8 text-center bg-slate-900/60 rounded-2xl border border-slate-800 text-slate-400 text-sm">
+          <div className="p-8 text-center bg-slate-900/60 rounded-xl border border-slate-800 text-slate-400 text-xs">
             No contact or document access messages received yet.
           </div>
         )}
@@ -286,6 +348,12 @@ export const MessagesManagerPage: React.FC = () => {
                 className="w-full p-3 bg-slate-950 border border-slate-800 text-white rounded-xl text-sm focus:border-indigo-500 focus:outline-none font-sans"
               />
             </div>
+            {replyError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{replyError}</span>
+              </div>
+            )}
             <Button type="submit" variant="primary" isLoading={isSendingReply} leftIcon={<Send className="w-4 h-4" />} className="w-full">
               Send Email Reply
             </Button>

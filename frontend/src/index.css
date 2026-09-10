@@ -69,6 +69,14 @@ samp {
   background: #475569;
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* === FOCUS RING === */
 :focus-visible {
   outline: 2px solid #6366f1;
@@ -875,4 +883,26 @@ pre {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* === REVIEWS HORIZONTAL MARQUEE SLIDER === */
+@keyframes marquee-reviews {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-reviews {
+  display: flex;
+  width: max-content;
+  animation: marquee-reviews 38s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-reviews:hover {
+  animation-play-state: paused;
+}
+
 
