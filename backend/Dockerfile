@@ -42,9 +42,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist          ./dist
 COPY --from=builder /app/node_modules  ./node_modules
 COPY --from=builder /app/package.json  ./package.json
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Writable volume for uploaded files
-RUN mkdir -p uploads && chown -R node:node /app
+RUN mkdir -p uploads && chmod +x docker-entrypoint.sh && chown -R node:node /app
 
 USER node
 
@@ -53,4 +54,4 @@ EXPOSE 3000
 ENV NODE_ENV=production
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/server.js"]
+CMD ["./docker-entrypoint.sh"]

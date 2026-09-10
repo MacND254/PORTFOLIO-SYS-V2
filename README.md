@@ -332,6 +332,10 @@ Full interactive docs available at `/api/docs` (Swagger UI).
 
 ## Deployment Notes
 
+### Railway
+
+The repository supports a four-service Railway project (managed PostgreSQL, managed Redis, backend, and frontend) while keeping Docker Compose unchanged for local use. Follow the service roots, variables, volume, custom-domain, and verification steps in [the Railway deployment guide](docs/RAILWAY.md).
+
 ### Wildcard Subdomain DNS
 
 For `yourname.myportfolio.com` to work in production, configure:

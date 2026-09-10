@@ -89,12 +89,6 @@ services:
       SMTP_PASS:            ${SMTP_PASS:-}
     volumes:
       - uploads_data:/app/uploads         # Persist uploaded CV files
-    # Run migrations then start the server
-    command: >
-      sh -c "
-        npx prisma db push &&
-        node dist/server.js
-      "
     ports:
       - "5000:3000"
     expose:
@@ -109,7 +103,6 @@ services:
       portfolio_net:
         aliases:
           - backend
-          - portfolio-backend.railway.internal
 
   # ── Frontend (Nginx + Vite SPA) ───────────────────────────
   frontend:
@@ -123,13 +116,13 @@ services:
         condition: service_healthy
     environment:
       - BACKEND_HOST=backend:3000
+      - PORT=80
     ports:
       - "0.0.0.0:3080:80"
     networks:
       portfolio_net:
         aliases:
           - frontend
-          - portfolio-frontend.railway.internal
 
 
 # ─────────────────────────────────────────────────────────────
