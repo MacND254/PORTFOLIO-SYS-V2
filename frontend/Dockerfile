@@ -7,6 +7,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Vite substitutes VITE_* values at build time. Railway exposes service
+# variables to the build, but Docker requires an ARG before they can be used.
+ARG VITE_PLATFORM_DOMAIN
+ENV VITE_PLATFORM_DOMAIN=${VITE_PLATFORM_DOMAIN}
+
 COPY package*.json ./
 RUN npm ci
 

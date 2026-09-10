@@ -43,9 +43,10 @@ For `portfolio-frontend`, set:
 ```dotenv
 PORT=8080
 BACKEND_HOST=portfolio-backend.railway.internal:3000
+VITE_PLATFORM_DOMAIN=example.com
 ```
 
-The backend is intentionally fixed at port `3000` inside Railway private networking, and the frontend uses Railway's own injected/configured `PORT`. Do not set `VITE_API_URL`: the built frontend uses relative `/api` URLs so requests remain on the public frontend domain and Nginx proxies them internally.
+The backend is intentionally fixed at port `3000` inside Railway private networking, and the frontend uses Railway's own injected/configured `PORT`. `VITE_PLATFORM_DOMAIN` is required when using tenant wildcard domains and must be set before building the frontend, because Vite embeds it into the production bundle. Do not set `VITE_API_URL`: the built frontend uses relative `/api` URLs so requests remain on the public frontend domain and Nginx proxies them internally.
 
 ## Persistence and health checks
 
