@@ -13,7 +13,7 @@ Use Railway's managed PostgreSQL and Redis services rather than deploying the im
 
 ## Service setup
 
-For each application service, connect the same GitHub repository and set its **Root Directory** as shown above. Railway will discover the `Dockerfile` in that directory. Generate public domains for both application services. The backend domain is required for OAuth provider callback URLs; normal browser API traffic stays same-origin through the frontend proxy.
+For each application service, connect the same GitHub repository and set its **Root Directory** as shown above. Railway will discover the `Dockerfile` and `railway.json` in that directory. Generate public domains for both application services. The backend domain is required for OAuth provider callback URLs; normal browser API traffic stays same-origin through the frontend proxy. Each service directory has a safe `.env.railway.example` variable template for Railway's Variables editor.
 
 Add the following variables to `portfolio-backend`. Replace the service names in reference variables if you chose different names in Railway.
 
@@ -42,7 +42,7 @@ For `portfolio-frontend`, set:
 
 ```dotenv
 PORT=8080
-BACKEND_HOST=portfolio-backend.railway.internal:3000
+BACKEND_HOST=${{portfolio-backend.RAILWAY_PRIVATE_DOMAIN}}:${{portfolio-backend.PORT}}
 VITE_PLATFORM_DOMAIN=example.com
 ```
 
