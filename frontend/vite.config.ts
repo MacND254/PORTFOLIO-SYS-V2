@@ -32,5 +32,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3080,
     strictPort: true,
+    allowedHosts: ['portfolio-frontend-production-2cb8.up.railway.app'],
   },
 });
+
