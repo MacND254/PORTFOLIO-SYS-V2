@@ -92,10 +92,10 @@ async function seed() {
   // Super Admin Portfolio Customization
   await prisma.portfolioCustomization.upsert({
     where: { profileId: superAdminProfile.id },
-    update: { themeId: 'cybersecurity' },
+    update: { themeId: 'graphic-designer' },
     create: {
       profileId: superAdminProfile.id,
-      themeId: 'cybersecurity',
+      themeId: 'graphic-designer',
       fontHeading: 'Fira Code',
       fontBody: 'Fira Code',
       showQrInPdf: true,
@@ -288,10 +288,10 @@ async function seed() {
   // Portfolio Customization
   await prisma.portfolioCustomization.upsert({
     where: { profileId: profile.id },
-    update: { themeId: 'software-engineer' },
+    update: { themeId: 'freelancer-consultant' },
     create: {
       profileId: profile.id,
-      themeId: 'software-engineer',
+      themeId: 'freelancer-consultant',
       fontHeading: 'Inter',
       fontBody: 'Inter',
       showQrInPdf: true,
@@ -647,6 +647,18 @@ async function seed() {
         isFeatured: true,
         status: 'APPROVED',
       },
+      {
+        profileId: profile.id,
+        reviewerName: 'ANTONY NDUTA',
+        reviewerCompany: 'Perseus Tritech',
+        reviewerJobTitle: 'Project Manager',
+        reviewerEmail: 'machariant@gmail.com',
+        rating: 5,
+        reviewText: 'Amazing and quality work done. Really appreciated his professionalism.',
+        isApproved: true,
+        isFeatured: false,
+        status: 'APPROVED',
+      },
     ],
   });
 
@@ -661,6 +673,36 @@ async function seed() {
         subject: 'Consulting Opportunity for SaaS Platform',
         message: 'Hi Francis, we saw your multi-tenant platform work and would love to discuss a contract architecture consultation with your team.',
         isRead: false,
+      },
+      {
+        profileId: profile.id,
+        name: 'ANTONY NDUTA',
+        email: 'archer.tritech@gmail.com',
+        subject: '[DOCUMENT_ACCESS_REQUEST] Key Request from ANTONY NDUTA (Archer Solutions)',
+        message: 'Background Check for a Senior position',
+        type: 'DOCUMENT_ACCESS_REQUEST',
+        status: 'ACCEPTED',
+        isRead: true,
+      },
+      {
+        profileId: profile.id,
+        name: 'Morgan Keen',
+        email: 'macharia.t.me@gmail.com',
+        subject: 'Job Opportunity',
+        message: 'We would like you to visit our offices on monday at 13th Street, 7th floor room 13 to discuss your quality on an available position in our firm.',
+        type: 'GENERAL',
+        status: 'PENDING',
+        isRead: true,
+      },
+      {
+        profileId: profile.id,
+        name: 'Macharia Antony',
+        email: 'archer.tritech@gmail.com',
+        subject: '[DOCUMENT_ACCESS_REQUEST] Key Request from Macharia Antony (ACME TRADERS)',
+        message: 'Background check',
+        type: 'DOCUMENT_ACCESS_REQUEST',
+        status: 'ACCEPTED',
+        isRead: true,
       },
     ],
   });
@@ -680,10 +722,594 @@ async function seed() {
     });
   }
 
+  // ── 4. System Settings ─────────────────────────────────────
+  console.log('⚙️ Seeding System Settings...');
+  const systemSettings = [
+    { key: 'PLATFORM_NAME', value: 'Portfolio SaaS Enterprise', description: 'Public platform branding title.' },
+    { key: 'ALLOW_REGISTRATION', value: 'false', description: 'Allow new tenant user registrations.' },
+    { key: 'MAINTENANCE_MODE', value: 'false', description: 'Enable platform maintenance mode (block non-admin traffic).' },
+    { key: 'MAX_CV_UPLOAD_MB', value: '10', description: 'Maximum file size allowed for CV uploads in megabytes.' },
+    { key: 'DEFAULT_FAVICON_URL', value: '', description: 'Default global browser favicon URL (.ico, .png, .svg).' },
+    { key: 'GA4_MEASUREMENT_ID', value: '', description: 'Google Analytics 4 Measurement ID (e.g. G-XXXXXXXXXX).' },
+    { key: 'PLAUSIBLE_DOMAIN', value: '', description: 'Plausible Analytics Custom Tracking Domain.' },
+    { key: 'PWA_APP_NAME', value: 'Portfolio SaaS Enterprise', description: 'PWA Web Manifest Application Name.' },
+    { key: 'PWA_SHORT_NAME', value: 'Portfolio', description: 'PWA Web Manifest Short Name.' },
+    { key: 'PWA_THEME_COLOR', value: '#4f46e5', description: 'PWA Primary Theme Color Hex.' },
+    { key: 'PWA_BACKGROUND_COLOR', value: '#0f172a', description: 'PWA App Background Color Hex.' },
+    { key: 'SMTP_HOST', value: 'smtp.gmail.com', description: 'Portfolio Gateway: Host' },
+    { key: 'SMTP_PORT', value: '587', description: 'Portfolio Gateway: Port' },
+    { key: 'SMTP_SECURE', value: 'false', description: 'Portfolio Gateway: SSL' },
+    { key: 'SMTP_USER', value: '', description: 'Portfolio Gateway: Username' },
+    { key: 'SMTP_PASS', value: '', description: 'Portfolio Gateway: Password' },
+    { key: 'SMTP_FROM_EMAIL', value: '', description: 'Portfolio Gateway: From Email' },
+    { key: 'SMTP_FROM_NAME', value: 'Portfolio SaaS Mailer', description: 'Portfolio Gateway: From Name' },
+    { key: 'SMTP_RESET_HOST', value: 'smtp.gmail.com', description: 'Password Reset Gateway: Host' },
+    { key: 'SMTP_RESET_PORT', value: '587', description: 'Password Reset Gateway: Port' },
+    { key: 'SMTP_RESET_SECURE', value: 'false', description: 'Password Reset Gateway: SSL' },
+    { key: 'SMTP_RESET_USER', value: '', description: 'Password Reset Gateway: Username' },
+    { key: 'SMTP_RESET_PASS', value: '', description: 'Password Reset Gateway: Password' },
+    { key: 'SMTP_RESET_FROM_EMAIL', value: '', description: 'Password Reset Gateway: From Email' },
+    { key: 'SMTP_RESET_FROM_NAME', value: 'Portfolio Security & Password Reset Gateway', description: 'Password Reset Gateway: From Name' },
+    { key: 'OPENAI_API_KEY', value: '', description: 'API Key for AI CV Parsing Service.' },
+  ];
+  for (const setting of systemSettings) {
+    await prisma.systemSetting.upsert({
+      where: { key: setting.key },
+      update: {},
+      create: setting,
+    });
+  }
+
+  // ── 5. Platform Testimonials ────────────────────────────────
+  console.log('💬 Seeding Platform Testimonials...');
+  await prisma.platformTestimonial.upsert({
+    where: { id: '1ef6c7a9-4195-4ec6-bb88-6726616a9490' },
+    update: {},
+    create: {
+      id: '1ef6c7a9-4195-4ec6-bb88-6726616a9490',
+      submitterName: 'Dr. Gregory House',
+      submitterEmail: 'house@ppth.org',
+      submitterRole: 'Chief of Diagnostic Medicine',
+      submitterCompany: 'Princeton-Plainsboro',
+      content: 'Astonishing platform. Highlighted my medical research and clinical case studies flawlessly.',
+      rating: 5,
+      status: 'APPROVED',
+    },
+  });
+
+  // ── 6. Seed Additional Admin: Macharia Antony ───────────────
+  console.log('👤 Seeding Additional Admin (Macharia Antony)...');
+  const machariaPassword = await bcrypt.hash('ChangeMe@12345', 12);
+
+  const machariaAdmin = await prisma.user.upsert({
+    where: { email: 'machariant@gmail.com' },
+    update: {
+      fullName: 'Macharia Antony',
+      role: Role.ADMIN,
+      status: 'ACTIVE',
+      emailVerified: true,
+    },
+    create: {
+      fullName: 'Macharia Antony',
+      email: 'machariant@gmail.com',
+      password: machariaPassword,
+      role: Role.ADMIN,
+      status: 'ACTIVE',
+      emailVerified: true,
+      desiredProfession: 'Software Engineer',
+    },
+  });
+
+  await prisma.subdomain.upsert({
+    where: { slug: 'machariaantony' },
+    update: { userId: machariaAdmin.id, isPrimary: true },
+    create: {
+      userId: machariaAdmin.id,
+      slug: 'machariaantony',
+      isPrimary: true,
+    },
+  });
+
+  const machariaProfile = await prisma.profile.upsert({
+    where: { userId: machariaAdmin.id },
+    update: {
+      title: 'Software Engineer',
+      headline: 'Software Engineer | Scalable Solutions & Product Delivery',
+      phone: '2025071613553',
+      location: 'Nairobi, Kenya',
+      linkedin: 'linkedin.com/in/antony-nduta-099376199',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocJMs6IZR0xu6lX5ShA24CsS5nCDCYFdpJQ-n43MyPjCNwVmHAU=s96-c',
+      completenessScore: 95,
+      isPublicEmail: true,
+      isPublicPhone: false,
+      isPublicLocation: true,
+      isPublicSocial: true,
+    },
+    create: {
+      userId: machariaAdmin.id,
+      title: 'Software Engineer',
+      headline: 'Software Engineer | Scalable Solutions & Product Delivery',
+      phone: '2025071613553',
+      location: 'Nairobi, Kenya',
+      linkedin: 'linkedin.com/in/antony-nduta-099376199',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocJMs6IZR0xu6lX5ShA24CsS5nCDCYFdpJQ-n43MyPjCNwVmHAU=s96-c',
+      completenessScore: 95,
+      isPublicEmail: true,
+      isPublicPhone: false,
+      isPublicLocation: true,
+      isPublicSocial: true,
+    },
+  });
+
+  await prisma.portfolioStatus.upsert({
+    where: { profileId: machariaProfile.id },
+    update: { isPublished: true, publishStatus: 'PUBLISHED' },
+    create: {
+      profileId: machariaProfile.id,
+      isPublished: true,
+      publishStatus: 'PUBLISHED',
+      publishedAt: new Date('2026-08-19T15:09:03.580Z'),
+    },
+  });
+
+  await prisma.portfolioCustomization.upsert({
+    where: { profileId: machariaProfile.id },
+    update: { themeId: 'software-engineer' },
+    create: {
+      profileId: machariaProfile.id,
+      themeId: 'software-engineer',
+      fontHeading: 'Inter',
+      fontBody: 'Inter',
+      showQrInPdf: true,
+      showSocialLinks: true,
+    },
+  });
+
+  await prisma.experience.deleteMany({ where: { profileId: machariaProfile.id } });
+  await prisma.education.deleteMany({ where: { profileId: machariaProfile.id } });
+  await prisma.skill.deleteMany({ where: { profileId: machariaProfile.id } });
+  await prisma.project.deleteMany({ where: { profileId: machariaProfile.id } });
+  await prisma.certification.deleteMany({ where: { profileId: machariaProfile.id } });
+
+  await prisma.experience.createMany({
+    data: [
+      {
+        profileId: machariaProfile.id,
+        company: 'Tech Solutions Inc.',
+        position: 'Software Engineer',
+        location: 'Remote',
+        startDate: '2021-01',
+        endDate: 'Present',
+        isCurrent: true,
+        description: 'Led technical initiatives, architected scalable systems, and mentored junior staff.',
+        orderIndex: 0,
+      },
+    ],
+  });
+
+  await prisma.education.createMany({
+    data: [
+      {
+        profileId: machariaProfile.id,
+        institution: 'University of Engineering & Technology',
+        qualification: 'Bachelor of Science',
+        field: 'Computer Science & Software Engineering',
+        startDate: '2016-09',
+        endDate: '2020-05',
+        grade: 'First Class Honors',
+        orderIndex: 0,
+      },
+    ],
+  });
+
+  await prisma.skill.createMany({
+    data: [
+      { profileId: machariaProfile.id, name: 'Node.js', category: 'Technical', proficiency: 90, orderIndex: 0 },
+      { profileId: machariaProfile.id, name: 'React', category: 'Technical', proficiency: 90, orderIndex: 1 },
+      { profileId: machariaProfile.id, name: 'TypeScript', category: 'Technical', proficiency: 90, orderIndex: 2 },
+      { profileId: machariaProfile.id, name: 'PostgreSQL', category: 'Technical', proficiency: 90, orderIndex: 3 },
+    ],
+  });
+
+  await prisma.project.createMany({
+    data: [
+      {
+        profileId: machariaProfile.id,
+        title: 'Multi-Tenant SaaS Platform',
+        description: 'Engineered a multi-tenant platform with automated subdomain routing and dynamic resume parsing.',
+        demoUrl: 'https://demo.myportfolio.com',
+        githubUrl: 'https://github.com/example/portfolio-sys',
+        technologies: ['TypeScript', 'React', 'Node.js', 'PostgreSQL', 'Docker'],
+        featured: false,
+        orderIndex: 0,
+      },
+    ],
+  });
+
+  await prisma.certification.createMany({
+    data: [
+      {
+        profileId: machariaProfile.id,
+        name: 'AWS Certified Solutions Architect',
+        issuingOrganization: 'Amazon Web Services',
+        issueDate: '2022-06',
+        credentialId: 'AWS-SA-88942',
+        orderIndex: 0,
+      },
+    ],
+  });
+
+  // ── 7. Seed Additional Admin: Kevin Mureithi Mwangi ────────
+  console.log('👤 Seeding Additional Admin (Kevin Mureithi Mwangi)...');
+  const kevinPassword = await bcrypt.hash('ChangeMe@12345', 12);
+
+  const kevinAdmin = await prisma.user.upsert({
+    where: { email: 'romeo.dev369@gmail.com' },
+    update: {
+      fullName: 'KEVIN MUREITHI MWANGI',
+      role: Role.ADMIN,
+      status: 'ACTIVE',
+      emailVerified: true,
+    },
+    create: {
+      fullName: 'KEVIN MUREITHI MWANGI',
+      email: 'romeo.dev369@gmail.com',
+      password: kevinPassword,
+      role: Role.ADMIN,
+      status: 'ACTIVE',
+      emailVerified: true,
+      desiredProfession: 'Teacher / Educator',
+    },
+  });
+
+  await prisma.subdomain.upsert({
+    where: { slug: 'alpha' },
+    update: { userId: kevinAdmin.id, isPrimary: true },
+    create: {
+      userId: kevinAdmin.id,
+      slug: 'alpha',
+      isPrimary: true,
+    },
+  });
+
+  const kevinProfile = await prisma.profile.upsert({
+    where: { userId: kevinAdmin.id },
+    update: {
+      title: 'ELECTRIC, INSTRUMENTATION AND CONTROL TECHNICIAN',
+      headline: 'ELECTRIC, INSTRUMENTATION AND CONTROL TECHNICIAN',
+      phone: '0798779200',
+      location: '284 - 00900, KIAMBU',
+      website: 'https://gmail.com/',
+      completenessScore: 75,
+      isPublicEmail: true,
+      isPublicPhone: false,
+      isPublicLocation: true,
+      isPublicSocial: true,
+    },
+    create: {
+      userId: kevinAdmin.id,
+      title: 'ELECTRIC, INSTRUMENTATION AND CONTROL TECHNICIAN',
+      headline: 'ELECTRIC, INSTRUMENTATION AND CONTROL TECHNICIAN',
+      phone: '0798779200',
+      location: '284 - 00900, KIAMBU',
+      website: 'https://gmail.com/',
+      completenessScore: 75,
+      isPublicEmail: true,
+      isPublicPhone: false,
+      isPublicLocation: true,
+      isPublicSocial: true,
+    },
+  });
+
+  await prisma.portfolioStatus.upsert({
+    where: { profileId: kevinProfile.id },
+    update: { isPublished: true, publishStatus: 'PUBLISHED' },
+    create: {
+      profileId: kevinProfile.id,
+      isPublished: true,
+      publishStatus: 'PUBLISHED',
+      publishedAt: new Date('2026-08-24T10:29:58.551Z'),
+    },
+  });
+
+  await prisma.portfolioCustomization.upsert({
+    where: { profileId: kevinProfile.id },
+    update: { themeId: 'mechanical-engineer' },
+    create: {
+      profileId: kevinProfile.id,
+      themeId: 'mechanical-engineer',
+      fontHeading: 'Inter',
+      fontBody: 'Inter',
+      showQrInPdf: true,
+      showSocialLinks: true,
+    },
+  });
+
+  await prisma.experience.deleteMany({ where: { profileId: kevinProfile.id } });
+  await prisma.education.deleteMany({ where: { profileId: kevinProfile.id } });
+  await prisma.skill.deleteMany({ where: { profileId: kevinProfile.id } });
+  await prisma.certification.deleteMany({ where: { profileId: kevinProfile.id } });
+  await prisma.reference.deleteMany({ where: { profileId: kevinProfile.id } });
+  await prisma.language.deleteMany({ where: { profileId: kevinProfile.id } });
+
+  await prisma.experience.createMany({
+    data: [
+      {
+        profileId: kevinProfile.id,
+        company: 'K.T.D.A Nyamachae Tea Factory',
+        position: 'Electrician Attache',
+        location: 'Kisii, Kenya',
+        startDate: '05/2023',
+        endDate: '07/2023',
+        isCurrent: false,
+        description: 'Motor rewinding\nMotor servicing\nGenerator servicing\nDol and star delta starter terminations\nProcess monitoring',
+        orderIndex: 0,
+      },
+      {
+        profileId: kevinProfile.id,
+        company: 'Schindler Limited',
+        position: 'Service Technician Attache',
+        location: 'Nairobi, Kenya',
+        startDate: '05/2022',
+        endDate: '08/2022',
+        isCurrent: false,
+        description: 'Elevator servicing\nEscalator servicing\nLift breakdown repair\nEscalator troubleshooting\nLift commissioning',
+        orderIndex: 1,
+      },
+      {
+        profileId: kevinProfile.id,
+        company: 'Sammyster electricals',
+        position: 'Electrician',
+        location: 'Nairobi, Kenya',
+        startDate: '08/2023',
+        endDate: '01/2024',
+        isCurrent: false,
+        description: 'Domestic wiring works\nElectrical wirings troubleshooting\nIndustrial electrical wiring\nDomestic lighting and interior design',
+        orderIndex: 2,
+      },
+      {
+        profileId: kevinProfile.id,
+        company: 'Rentstate ltd',
+        position: 'Technician',
+        location: 'Nairobi, Kenya',
+        startDate: '02/2024',
+        isCurrent: true,
+        description: 'Elevator Installations and costing\nElevator troubleshooting\nEscalator service and maintenance\nElevator maintenance and breakdown repair\nLift slow speed and high speed commissioning',
+        orderIndex: 3,
+      },
+    ],
+  });
+
+  await prisma.education.createMany({
+    data: [
+      {
+        profileId: kevinProfile.id,
+        institution: 'University of Eastern Africa, Baraton',
+        qualification: 'Bachelor Of Science',
+        field: 'Electronics Technology (Industrial Option)',
+        startDate: '09/2019',
+        endDate: '04/2023',
+        orderIndex: 0,
+      },
+      {
+        profileId: kevinProfile.id,
+        institution: 'Kiambu High School',
+        qualification: 'Kenya Certificate of Secondary Education',
+        startDate: '02/2014',
+        endDate: '11/2017',
+        orderIndex: 1,
+      },
+    ],
+  });
+
+  await prisma.skill.createMany({
+    data: [
+      { profileId: kevinProfile.id, name: 'Access DBMS', category: 'Technical', proficiency: 75, level: 'Intermediate', orderIndex: 0 },
+      { profileId: kevinProfile.id, name: 'Excel', category: 'Tool', proficiency: 75, level: 'Intermediate', orderIndex: 1 },
+      { profileId: kevinProfile.id, name: 'Word', category: 'Tool', proficiency: 75, level: 'Intermediate', orderIndex: 2 },
+      { profileId: kevinProfile.id, name: 'CMD', category: 'Tool', proficiency: 75, level: 'Intermediate', orderIndex: 3 },
+      { profileId: kevinProfile.id, name: 'Powerpoint', category: 'Tool', proficiency: 75, level: 'Intermediate', orderIndex: 4 },
+      { profileId: kevinProfile.id, name: 'IBM SPSS', category: 'Tool', proficiency: 75, level: 'Intermediate', orderIndex: 5 },
+      { profileId: kevinProfile.id, name: 'Excellent Communication Skills', category: 'Soft', proficiency: 50, orderIndex: 6 },
+      { profileId: kevinProfile.id, name: 'Motivational And Guidance Speaker', category: 'Soft', proficiency: 50, orderIndex: 7 },
+      { profileId: kevinProfile.id, name: 'Time Management', category: 'Soft', proficiency: 50, orderIndex: 8 },
+      { profileId: kevinProfile.id, name: 'Persuasive/Convincing', category: 'Soft', proficiency: 50, orderIndex: 9 },
+      { profileId: kevinProfile.id, name: 'Organizational Skills', category: 'Soft', proficiency: 50, orderIndex: 10 },
+      { profileId: kevinProfile.id, name: 'Team Player', category: 'Soft', proficiency: 50, orderIndex: 11 },
+      { profileId: kevinProfile.id, name: 'Research', category: 'Soft', proficiency: 50, orderIndex: 12 },
+      { profileId: kevinProfile.id, name: 'Report Writing Skills', category: 'Soft', proficiency: 50, orderIndex: 13 },
+      { profileId: kevinProfile.id, name: 'Analytical Skills', category: 'Soft', proficiency: 50, orderIndex: 14 },
+      { profileId: kevinProfile.id, name: 'Math And Data Analysis', category: 'Industry', proficiency: 50, orderIndex: 15 },
+      { profileId: kevinProfile.id, name: 'Induction Motor Troubleshooting And Servicing', category: 'Industry', proficiency: 50, orderIndex: 16 },
+      { profileId: kevinProfile.id, name: 'Elevator Servicing And Maintenance', category: 'Industry', proficiency: 50, orderIndex: 17 },
+      { profileId: kevinProfile.id, name: 'Elevator And Escalator Breakdown Repairs', category: 'Industry', proficiency: 50, orderIndex: 18 },
+      { profileId: kevinProfile.id, name: 'Generator Servicing', category: 'Industry', proficiency: 50, orderIndex: 19 },
+      { profileId: kevinProfile.id, name: 'Control Panel Service And Troubleshooting', category: 'Industry', proficiency: 50, orderIndex: 20 },
+      { profileId: kevinProfile.id, name: 'Electrical Diagram Reading And Interpretation', category: 'Industry', proficiency: 50, orderIndex: 21 },
+    ],
+  });
+
+  await prisma.certification.createMany({
+    data: [
+      {
+        profileId: kevinProfile.id,
+        name: 'Computer Packages Level 1',
+        issuingOrganization: 'Kiambu High School / Baraton University',
+        issueDate: '2022',
+        orderIndex: 0,
+      },
+      {
+        profileId: kevinProfile.id,
+        name: 'Financial and taxes Training',
+        issuingOrganization: 'Kenya Revenue Authority',
+        issueDate: '04/2021',
+        expiryDate: '05/2021',
+        orderIndex: 1,
+      },
+      {
+        profileId: kevinProfile.id,
+        name: 'EQUITY LEADERSHIP PROGRAM',
+        issuingOrganization: 'EQUITY BANK',
+        issueDate: '05/2016',
+        expiryDate: '06/2016',
+        orderIndex: 2,
+      },
+    ],
+  });
+
+  await prisma.reference.createMany({
+    data: [
+      {
+        profileId: kevinProfile.id,
+        name: 'Engineer Conrad Ambani',
+        position: 'Electrical Engineer',
+        organization: 'Schindler Kenya',
+        email: 'conrad.ambani@schindler.com',
+        phone: '0110583647',
+        isPublic: false,
+        orderIndex: 0,
+      },
+      {
+        profileId: kevinProfile.id,
+        name: 'Mr. James Ayiemba',
+        position: 'Lecturer',
+        organization: 'Baraton University',
+        email: 'ayiembaj@ueab.ac.ke',
+        phone: '0724155587',
+        isPublic: false,
+        orderIndex: 1,
+      },
+      {
+        profileId: kevinProfile.id,
+        name: 'Mr. Benjamin Nyagero',
+        position: 'Senior electrician',
+        organization: 'K.T.D.A. Nyamache tea factory',
+        phone: '0726374490',
+        isPublic: false,
+        orderIndex: 2,
+      },
+    ],
+  });
+
+  await prisma.language.createMany({
+    data: [
+      { profileId: kevinProfile.id, language: 'English', proficiency: 'Professional', orderIndex: 0 },
+      { profileId: kevinProfile.id, language: 'Kiswahili', proficiency: 'Professional', orderIndex: 1 },
+    ],
+  });
+
+  // ── 8. Seed Company Users (COMPANY role) ─────────────────────
+  console.log('🏢 Seeding Company Users and Companies...');
+  const companyUserPassword = await bcrypt.hash('ChangeMe@12345', 12);
+
+  // Company Invite (needed before company users)
+  const superAdminUser = await prisma.user.findUnique({ where: { email: config.superAdmin.email } });
+
+  const companyInvite = await prisma.companyInvite.upsert({
+    where: { token: '224af4e52406478dab3b3439530b6a43cc3d18bc5a3844957ebd49939f5133ac' },
+    update: { status: 'ACCEPTED', usageCount: 2 },
+    create: {
+      token: '224af4e52406478dab3b3439530b6a43cc3d18bc5a3844957ebd49939f5133ac',
+      companyName: 'Tri Tech Partners',
+      email: 'perseus.tritech@gmail.com, acco.vision.me@gmail.com',
+      status: 'ACCEPTED',
+      invitedById: superAdminUser!.id,
+      expiresAt: new Date('2026-09-16T12:49:19.374Z'),
+      usageCount: 2,
+      acceptedAt: new Date('2026-09-16T12:49:19.374Z'),
+    },
+  });
+
+  // Company User 1: Antony Macharia (Tri Tech Partners)
+  const companyUser1 = await prisma.user.upsert({
+    where: { email: 'perseus.tritech@gmail.com' },
+    update: {
+      fullName: 'Antony Macharia',
+      role: Role.COMPANY,
+      status: 'ACTIVE',
+      emailVerified: true,
+    },
+    create: {
+      fullName: 'Antony Macharia',
+      email: 'perseus.tritech@gmail.com',
+      password: companyUserPassword,
+      role: Role.COMPANY,
+      status: 'ACTIVE',
+      emailVerified: true,
+    },
+  });
+
+  await prisma.company.upsert({
+    where: { userId: companyUser1.id },
+    update: {
+      name: 'Tri Tech Partners',
+      industry: 'Technology',
+      companySize: '11-50',
+      location: 'Nairobi, Kenya',
+      contactPerson: 'Antony Macharia',
+      contactEmail: 'perseus.tritech@gmail.com',
+    },
+    create: {
+      userId: companyUser1.id,
+      inviteId: companyInvite.id,
+      name: 'Tri Tech Partners',
+      industry: 'Technology',
+      companySize: '11-50',
+      location: 'Nairobi, Kenya',
+      contactPerson: 'Antony Macharia',
+      contactEmail: 'perseus.tritech@gmail.com',
+    },
+  });
+
+  // Company User 2: Acco Vision
+  const companyUser2 = await prisma.user.upsert({
+    where: { email: 'acco.vision.me@gmail.com' },
+    update: {
+      fullName: 'Acco Vision',
+      role: Role.COMPANY,
+      status: 'ACTIVE',
+      emailVerified: true,
+    },
+    create: {
+      fullName: 'Acco Vision',
+      email: 'acco.vision.me@gmail.com',
+      password: companyUserPassword,
+      role: Role.COMPANY,
+      status: 'ACTIVE',
+      emailVerified: true,
+    },
+  });
+
+  await prisma.company.upsert({
+    where: { userId: companyUser2.id },
+    update: {
+      name: 'Acco Vision',
+      industry: 'Energy',
+      companySize: '51-200',
+      location: 'Nairobi, Kenya',
+      contactPerson: 'Acco Hiring Team',
+      contactEmail: 'acco.vision.me@gmail.com',
+    },
+    create: {
+      userId: companyUser2.id,
+      inviteId: companyInvite.id,
+      name: 'Acco Vision',
+      industry: 'Energy',
+      companySize: '51-200',
+      location: 'Nairobi, Kenya',
+      contactPerson: 'Acco Hiring Team',
+      contactEmail: 'acco.vision.me@gmail.com',
+    },
+  });
+
   console.log('✅ Database Seeding Completed Successfully!');
   console.log('================================================');
   console.log(`👑 Super Admin Creds: ${config.superAdmin.email} / ${config.superAdmin.password}`);
   console.log(`👤 Test Admin Creds:  ${config.testAdmin.email} / ${config.testAdmin.password}`);
+  console.log(`👤 Macharia Admin:    machariant@gmail.com / ChangeMe@12345`);
+  console.log(`👤 Kevin Admin:       romeo.dev369@gmail.com / ChangeMe@12345`);
+  console.log(`🏢 Company (Tri Tech): perseus.tritech@gmail.com / ChangeMe@12345`);
+  console.log(`🏢 Company (Acco):    acco.vision.me@gmail.com / ChangeMe@12345`);
   console.log(`🌐 Test Portfolio:   http://${config.testAdmin.subdomain}.${config.platformDomain}:5000`);
   console.log('================================================');
 }
