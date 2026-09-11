@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { promises as dns } from 'node:dns';
 import { prisma } from '../database/client';
 import { logger } from '../config/logger';
 
@@ -18,6 +19,21 @@ export interface EmailOptions {
 }
 
 export class MailService {
+  /**
+   * Railway does not provide outbound IPv6 by default. Nodemailer resolves both
+   * address families and may randomly select IPv6 first, so resolve SMTP hosts
+   * to an IPv4 address before creating the socket.
+   */
+  private static async resolveSmtpHost(host: string): Promise<string> {
+    try {
+      const [ipv4Address] = await dns.resolve4(host);
+      return ipv4Address || host;
+    } catch (error: any) {
+      logger.warn(`Unable to resolve IPv4 address for SMTP host ${host}: ${error?.message || error}`);
+      return host;
+    }
+  }
+
   /**
    * Retrieves dynamic SMTP settings from SystemSetting table by gateway type
    */
@@ -100,17 +116,19 @@ export class MailService {
    */
   private static async createTransporter(gatewayType: 'portfolio' | 'reset' = 'portfolio') {
     const config = await this.getSmtpConfig(gatewayType);
+    const smtpHost = await this.resolveSmtpHost(config.host);
 
     const transportOptions: nodemailer.TransportOptions = {
-      host: config.host,
+      host: smtpHost,
       port: config.port,
       secure: config.secure,
-      // Railway does not enable outbound IPv6 by default. Prefer IPv4 for
-      // external SMTP hosts such as Gmail to avoid ENETUNREACH timeouts.
-      family: 4,
       auth: config.user ? { user: config.user, pass: config.pass } : undefined,
+      connectionTimeout: 10000,
       tls: {
         rejectUnauthorized: false,
+        // Retain the original hostname for TLS validation/SNI after resolving
+        // the actual socket target to IPv4.
+        servername: config.host,
       },
     } as any;
 
