@@ -105,6 +105,9 @@ export class MailService {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      // Railway does not enable outbound IPv6 by default. Prefer IPv4 for
+      // external SMTP hosts such as Gmail to avoid ENETUNREACH timeouts.
+      family: 4,
       auth: config.user ? { user: config.user, pass: config.pass } : undefined,
       tls: {
         rejectUnauthorized: false,
