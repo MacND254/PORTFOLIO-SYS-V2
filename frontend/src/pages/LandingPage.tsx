@@ -68,7 +68,7 @@ export const LandingPage: React.FC = () => {
       submitterRole: 'Principal Cloud Architect',
       submitterCompany: 'Veritas Technologies',
       rating: 5,
-      content: 'The dark-mode IDE theme and CV OCR extraction blew me away. In under three minutes, I had a custom subdomain with interactive project architecture diagrams. Received 4 recruiter interview calls within 48 hours of publishing.',
+      content: 'The dark-mode IDE theme and Gemini AI CV extraction blew me away. In under three minutes, I had a custom subdomain with interactive project architecture diagrams. Received 4 recruiter interview calls within 48 hours of publishing.',
     },
     {
       id: 'fb-2',
@@ -248,9 +248,9 @@ export const LandingPage: React.FC = () => {
   const features = [
     {
       id: 'ai',
-      title: 'CV OCR & Parsing Engine',
+      title: 'Gemini AI CV Intelligence Engine',
       subtitle: 'Upload PDF / DOCX ➔ Complete Profile Draft',
-      description: 'Our local OCR and document parser reads resumes, extracts work experience, skills, education, awards, and projects, then prepares a profile draft for review.',
+      description: 'Our Google Gemini AI document intelligence reads resumes, extracts work experience, skills, education, awards, and projects, then prepares a profile draft for review.',
       icon: Cpu,
       color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
       highlights: [
@@ -321,7 +321,7 @@ export const LandingPage: React.FC = () => {
   const faqs = [
     {
       q: 'How does CV extraction work?',
-      a: 'Upload a PDF, DOCX, DOC, or TXT resume. The local parser reads document text and uses OCR for scanned PDFs, then creates a pre-populated profile draft for you to review and customize.',
+      a: 'Upload a PDF, DOCX, DOC, or TXT resume. Google Gemini AI reads document text and visual structures, then creates a pre-populated profile draft for you to review and customize.',
     },
     {
       q: 'Can I pick a custom subdomain for my portfolio?',
@@ -499,7 +499,7 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60">
             <div className="text-3xl font-extrabold text-emerald-400">&lt; 10s</div>
-            <div className="text-xs text-slate-400 font-medium mt-1">CV OCR Extraction Time</div>
+            <div className="text-xs text-slate-400 font-medium mt-1">Gemini AI Extraction Time</div>
           </div>
           <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60">
             <div className="text-3xl font-extrabold text-purple-400">PDF + QR</div>

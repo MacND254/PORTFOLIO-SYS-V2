@@ -241,7 +241,7 @@ export const SystemHealthPage: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-xs font-bold text-white">AI / CV Engine</h4>
-                <p className="text-[10px] text-slate-500">OCR & structured extraction</p>
+                <p className="text-[10px] text-slate-500">Google Gemini AI structured extraction</p>
               </div>
             </div>
             <StatusBadge status={sv.cvEngine?.status || 'UNCONFIGURED'} />

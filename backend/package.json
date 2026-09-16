@@ -37,7 +37,6 @@
     "pdfkit": "^0.15.0",
     "qrcode": "^1.5.3",
     "swagger-ui-express": "^5.0.0",
-    "tesseract.js": "^5.1.0",
     "winston": "^3.12.0",
     "word-extractor": "^1.0.4",
     "zod": "^3.22.4"

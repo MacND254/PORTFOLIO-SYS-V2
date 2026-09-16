@@ -9,7 +9,7 @@ import { SkillNormalizer } from '../normalizers/skillNormalizer';
 import { UrlNormalizer } from '../normalizers/urlNormalizer';
 import {
   ExtractedCvData
-} from './ocr-cv.service';
+} from './gemini-cv.service';
 import {
   FieldEvidence,
   QualityScoreReport,
@@ -19,7 +19,6 @@ import {
 export interface ScanEngineOptions {
   forceEngine?: 'gemini' | 'heuristic';
   layoutSummary?: string;
-  ocrApplied?: boolean;
 }
 
 export class ScanEngine {
@@ -66,7 +65,7 @@ export class ScanEngine {
     // ─────────────────────────────────────────────────────────────
     // STEP 3: Deterministic Validation & Normalization
     // ─────────────────────────────────────────────────────────────
-    const normalized = this.applyNormalizers(extracted, rawText, engineUsed, Date.now() - startTime, options.ocrApplied);
+    const normalized = this.applyNormalizers(extracted, rawText, engineUsed, Date.now() - startTime);
 
     // ─────────────────────────────────────────────────────────────
     // STEP 4: Quality Scoring & Confidence Assessment
@@ -85,8 +84,7 @@ export class ScanEngine {
     rawObj: Partial<StructuredResume>,
     rawText: string,
     engineUsed: 'gemini' | 'heuristic',
-    durationMs: number,
-    ocrApplied = false
+    durationMs: number
   ): StructuredResume {
     const rawIdentity = rawObj.identity || { fullName: '', title: '', headline: '', summary: '', location: { raw: '' } };
     const rawContact = rawObj.contact || { emails: [], phones: [], location: { raw: '' } };
@@ -241,7 +239,6 @@ export class ScanEngine {
         model: rawObj.meta?.model,
         processedAt: new Date().toISOString(),
         durationMs,
-        ocrApplied,
       },
     };
   }

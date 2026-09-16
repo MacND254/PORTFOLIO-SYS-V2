@@ -10,6 +10,10 @@
 services:
 
 
+  postgres:
+    ports:
+      - "5433:5432"
+
   redis:
     # Expose Redis for debugging with redis-cli / RedisInsight
     ports:

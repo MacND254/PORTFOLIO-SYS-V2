@@ -191,6 +191,7 @@ model Profile {
   employmentStatus       String  @default("OPEN_TO_WORK") // OPEN_TO_WORK, OPEN_TO_OFFERS, FREELANCE, EMPLOYED, UNAVAILABLE
   employmentStatusCustom String?
   showEmploymentBadge    Boolean @default(true)
+  yearsOfExperience      String? // Editable experience period override e.g. "5 Years", "5+ Years"
 
   // Relations
   experiences     Experience[]

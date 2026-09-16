@@ -204,6 +204,8 @@ export interface Profile {
   employmentStatus?: EmploymentStatusType | string;
   employmentStatusCustom?: string;
   showEmploymentBadge?: boolean;
+  yearsOfExperience?: string;
+  experiencePeriod?: string;
   experiences?: Experience[];
   educations?: Education[];
   skills?: Skill[];

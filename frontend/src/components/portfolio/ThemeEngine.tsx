@@ -190,66 +190,115 @@ function getDefaultAvatarShape(themeId: string): AvatarViewShape {
 }
 
 // ─── Calculate Net Years of Work Experience ──────────────────────────────
-function calculateTotalExperience(experiences?: any[]): string {
+/** Parse a flexible date string into a JS Date, or null if unparseable. */
+function parseFlexibleDate(dStr: string | null | undefined, isEnd: boolean): Date | null {
+  if (!dStr) return null;
+  const s = String(dStr).trim();
+  if (!s) return null;
+
+  // "Present", "Current", "Now", "Ongoing", "Today"
+  if (/^(present|current|now|ongoing|today)$/i.test(s)) {
+    return new Date();
+  }
+
+  // Year-only e.g. "2019"
+  if (/^\d{4}$/.test(s)) {
+    const year = Number(s);
+    return isEnd ? new Date(year, 11, 31, 23, 59, 59) : new Date(year, 0, 1);
+  }
+
+  // "MM/YYYY" or "M/YYYY" e.g. "05/2023", "5/2023"
+  const mmyyyy = s.match(/^(\d{1,2})\/(\d{4})$/);
+  if (mmyyyy) {
+    const month = Number(mmyyyy[1]) - 1;
+    const year = Number(mmyyyy[2]);
+    return isEnd ? new Date(year, month + 1, 0, 23, 59, 59) : new Date(year, month, 1);
+  }
+
+  // "YYYY-MM" or "YYYY/MM" e.g. "2020-06"
+  const ym = s.match(/^(\d{4})[-\/](\d{1,2})$/);
+  if (ym) {
+    const year = Number(ym[1]);
+    const month = Number(ym[2]) - 1;
+    return isEnd ? new Date(year, month + 1, 0, 23, 59, 59) : new Date(year, month, 1);
+  }
+
+  // "Month YYYY" e.g. "Jan 2020", "January 2020", "Jan, 2020"
+  const monthYear = s.match(/^([A-Za-z]+)[,\s]+(\d{4})$/);
+  if (monthYear) {
+    const d = new Date(`${monthYear[1]} 1, ${monthYear[2]}`);
+    if (!isNaN(d.getTime())) {
+      if (isEnd) d.setMonth(d.getMonth() + 1, 0); // last day of that month
+      return d;
+    }
+  }
+
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** Calculate duration of a single work experience entry (rounded to nearest year or months) */
+function getExperienceDuration(exp: any): string {
+  if (!exp || !exp.startDate) return '';
+  const start = parseFlexibleDate(exp.startDate, false);
+  if (!start) return '';
+
+  const isOngoing = exp.isCurrent || !exp.endDate || /^(present|current|now|ongoing|today)$/i.test(String(exp.endDate).trim());
+  const end = isOngoing ? new Date() : parseFlexibleDate(exp.endDate, true);
+  if (!end || end < start) return '';
+
+  const diffMs = end.getTime() - start.getTime();
+  const totalDays = diffMs / (1000 * 60 * 60 * 24);
+  const rawYears = totalDays / 365.25;
+  const roundedYears = Math.round(rawYears);
+
+  if (roundedYears >= 1) {
+    return `${roundedYears} ${roundedYears === 1 ? 'Year' : 'Years'}`;
+  }
+  const months = Math.max(1, Math.round(totalDays / 30.4375));
+  return `${months} ${months === 1 ? 'mo' : 'mos'}`;
+}
+
+/**
+ * Calculates total experience period by adding the time of each work experience for the tenant,
+ * rounded off to the nearest year.
+ * Allows tenant custom override (yearsOfExperience) if provided.
+ */
+function calculateTotalExperience(experiences?: any[], customYears?: string): string {
+  if (customYears && customYears.trim()) {
+    return customYears.trim();
+  }
   if (!experiences || experiences.length === 0) return 'Entry Level';
 
-  const parseDate = (dStr?: string | null, isEnd: boolean = false): Date => {
-    if (!dStr) return isEnd ? new Date() : new Date(0);
-    const cleaned = dStr.trim();
-    if (/^\d{4}$/.test(cleaned)) {
-      return new Date(parseInt(cleaned, 10), isEnd ? 11 : 0, 1);
-    }
-    const parsed = new Date(cleaned);
-    if (!isNaN(parsed.getTime())) return parsed;
-    return isEnd ? new Date() : new Date(0);
-  };
-
-  const intervals: { start: number; end: number }[] = [];
+  let totalMs = 0;
   for (const exp of experiences) {
     if (!exp.startDate) continue;
-    const start = parseDate(exp.startDate, false).getTime();
-    const end = (exp.isCurrent || !exp.endDate)
-      ? Date.now()
-      : parseDate(exp.endDate, true).getTime();
-    if (end > start) {
-      intervals.push({ start, end });
+    const start = parseFlexibleDate(exp.startDate, false);
+    if (!start) continue;
+
+    const isOngoing = exp.isCurrent || !exp.endDate || /^(present|current|now|ongoing|today)$/i.test(String(exp.endDate).trim());
+    const end = isOngoing ? new Date() : parseFlexibleDate(exp.endDate, true);
+    if (!end || end < start) continue;
+
+    const duration = end.getTime() - start.getTime();
+    if (duration > 0) {
+      totalMs += duration;
     }
   }
 
-  if (intervals.length === 0) return 'Entry Level';
+  if (totalMs <= 0) return 'Entry Level';
 
-  intervals.sort((a, b) => a.start - b.start);
+  const MS_PER_YEAR = 1000 * 60 * 60 * 24 * 365.25;
+  const rawYears = totalMs / MS_PER_YEAR;
+  const roundedYears = Math.round(rawYears);
 
-  const merged: { start: number; end: number }[] = [];
-  for (const interval of intervals) {
-    if (merged.length === 0) {
-      merged.push({ ...interval });
-    } else {
-      const last = merged[merged.length - 1];
-      if (interval.start <= last.end) {
-        last.end = Math.max(last.end, interval.end);
-      } else {
-        merged.push({ ...interval });
-      }
-    }
+  if (roundedYears >= 1) {
+    return `${roundedYears} ${roundedYears === 1 ? 'Year' : 'Years'}`;
   }
-
-  let totalMs = 0;
-  for (const m of merged) {
-    totalMs += (m.end - m.start);
+  if (rawYears > 0.08) {
+    return '< 1 Year';
   }
-
-  const totalDays = totalMs / (1000 * 60 * 60 * 24);
-  const years = Math.floor(totalDays / 365.25);
-  const remainingMonths = Math.round((totalDays % 365.25) / 30.4);
-
-  if (years >= 1) {
-    return `${years}+ Years`;
-  }
-  if (remainingMonths > 0) {
-    return `${remainingMonths} Months`;
-  }
-  return '< 1 Year';
+  return 'Entry Level';
 }
 
 // ─── Main Engine ──────────────────────────────────────────────────────────
@@ -261,7 +310,10 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
   const themeId = profile.customization?.themeId || 'software-engineer';
   const fullName = profile.user?.fullName || 'Portfolio Owner';
   const title = profile.title || 'Professional';
-  const experienceYears = React.useMemo(() => calculateTotalExperience(profile.experiences), [profile.experiences]);
+  const experienceYears = React.useMemo(
+    () => calculateTotalExperience(profile.experiences, profile.yearsOfExperience || (profile as any).experiencePeriod),
+    [profile.experiences, profile.yearsOfExperience, (profile as any).experiencePeriod]
+  );
 
   const defaultAvatarShape = getDefaultAvatarShape(themeId);
   const activeCustomAvatarStyle = (profile.customization?.avatarStyle || profile.customization?.colorPalette?.avatarStyle) as AvatarViewShape | undefined;
@@ -767,7 +819,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
               {[
                 { label: 'Projects', value: profile.projects?.length || 0 },
                 { label: 'Skills', value: profile.skills?.length || 0 },
-                { label: 'Experience', value: profile.experiences?.length || 0 },
+                { label: 'Experience', value: experienceYears },
               ].map((metric) => (
                 <div key={metric.label} className="theme-metric" style={{ background: `${colors.surface}99` }}>
                   <strong style={{ color: colors.primary }}>{metric.value}</strong>
@@ -868,7 +920,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                 {[
                   { label: 'Projects', value: profile.projects?.length || 0 },
                   { label: 'Capabilities', value: profile.skills?.length || 0 },
-                  { label: 'Experience', value: profile.experiences?.length || 0 },
+                  { label: 'Experience', value: experienceYears },
                 ].map((metric) => (
                   <div key={metric.label} className="theme-metric" style={{ background: `${colors.surface}99` }}>
                     <strong style={{ color: colors.primary }}>{metric.value}</strong>
@@ -974,6 +1026,7 @@ export const ThemeEngine: React.FC<ThemeEngineProps> = ({
                       <span className="px-3 py-1 rounded-full text-xs font-semibold"
                             style={{ background: `${colors.primary}20`, color: colors.primary }}>
                         {exp.startDate} – {exp.isCurrent ? 'Present' : exp.endDate || 'Present'}
+                        {getExperienceDuration(exp) ? ` • ${getExperienceDuration(exp)}` : ''}
                       </span>
                     </div>
                     {exp.description && <p className="text-sm" style={{ color: `${colors.text}cc` }}>{exp.description}</p>}

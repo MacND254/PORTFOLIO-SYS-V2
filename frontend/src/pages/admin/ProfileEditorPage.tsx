@@ -40,6 +40,59 @@ import { ImageUploadWidget } from "../../components/ui/ImageUploadWidget";
 import { CertificateUploadWidget } from "../../components/ui/CertificateUploadWidget";
 import { VERIFIED_DOCUMENT_TYPES } from "../../types";
 
+function parseExpDate(dStr: string | null | undefined, isEnd: boolean): Date | null {
+  if (!dStr) return null;
+  const s = String(dStr).trim();
+  if (!s) return null;
+  if (/^(present|current|now|ongoing|today)$/i.test(s)) return new Date();
+  if (/^\d{4}$/.test(s)) {
+    const year = Number(s);
+    return isEnd ? new Date(year, 11, 31, 23, 59, 59) : new Date(year, 0, 1);
+  }
+  const mmyyyy = s.match(/^(\d{1,2})\/(\d{4})$/);
+  if (mmyyyy) {
+    const month = Number(mmyyyy[1]) - 1;
+    const year = Number(mmyyyy[2]);
+    return isEnd ? new Date(year, month + 1, 0, 23, 59, 59) : new Date(year, month, 1);
+  }
+  const ym = s.match(/^(\d{4})[-\/](\d{1,2})$/);
+  if (ym) {
+    const year = Number(ym[1]);
+    const month = Number(ym[2]) - 1;
+    return isEnd ? new Date(year, month + 1, 0, 23, 59, 59) : new Date(year, month, 1);
+  }
+  const monthYear = s.match(/^([A-Za-z]+)[,\s]+(\d{4})$/);
+  if (monthYear) {
+    const d = new Date(`${monthYear[1]} 1, ${monthYear[2]}`);
+    if (!isNaN(d.getTime())) {
+      if (isEnd) d.setMonth(d.getMonth() + 1, 0);
+      return d;
+    }
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function calculateRoundedExperience(experiences?: any[]): string {
+  if (!experiences || experiences.length === 0) return '0 Years';
+  let totalMs = 0;
+  for (const exp of experiences) {
+    if (!exp.startDate) continue;
+    const start = parseExpDate(exp.startDate, false);
+    if (!start) continue;
+    const isOngoing = exp.isCurrent || !exp.endDate || /^(present|current|now|ongoing|today)$/i.test(String(exp.endDate).trim());
+    const end = isOngoing ? new Date() : parseExpDate(exp.endDate, true);
+    if (!end || end < start) continue;
+    const duration = end.getTime() - start.getTime();
+    if (duration > 0) totalMs += duration;
+  }
+  if (totalMs <= 0) return '0 Years';
+  const rawYears = totalMs / (1000 * 60 * 60 * 24 * 365.25);
+  const rounded = Math.round(rawYears);
+  if (rounded >= 1) return `${rounded} ${rounded === 1 ? 'Year' : 'Years'}`;
+  return '< 1 Year';
+}
+
 export const ProfileEditorPage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,8 +129,12 @@ export const ProfileEditorPage: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // OCR CV scan and profile import state
   const [isAiCvModalOpen, setIsAiCvModalOpen] = useState(false);
+
+  const calculatedExpYears = React.useMemo(
+    () => calculateRoundedExperience(profile?.experiences),
+    [profile?.experiences]
+  );
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [isCvScanning, setIsCvScanning] = useState(false);
   const [extractedCv, setExtractedCv] = useState<any>(null);
@@ -189,6 +246,7 @@ export const ProfileEditorPage: React.FC = () => {
         title: res.data.title || "",
         headline: res.data.headline || "",
         summary: res.data.summary || "",
+        yearsOfExperience: res.data.yearsOfExperience || res.data.experiencePeriod || "",
         contactEmail: res.data.contactEmail || res.data.user?.email || "",
         location: res.data.location || "",
         phone: res.data.phone || "",
@@ -342,19 +400,59 @@ export const ProfileEditorPage: React.FC = () => {
     const formData = new FormData();
     formData.append('file', cvFile);
 
+    const pollForExtraction = async (maxAttempts = 30, intervalMs = 2500): Promise<boolean> => {
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        try {
+          const res: any = await api.get('/cv/extraction');
+          const data = res?.data?.extractedData || res?.extractedData;
+          if (data && Object.keys(data).length > 0) {
+            setExtractedCv(data);
+            return true;
+          }
+        } catch {
+          // Extraction still processing in background, continue polling
+        }
+      }
+      return false;
+    };
+
     try {
       const res: any = await api.post('/cv/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 180000,
       });
 
       if (res?.data?.extraction?.extractedData) {
         setExtractedCv(res.data.extraction.extractedData);
       } else {
-        await fetchLatestCvExtraction();
+        const found = await pollForExtraction(25, 2000);
+        if (!found) {
+          await fetchLatestCvExtraction();
+        }
       }
     } catch (err: any) {
-      console.error('CV Upload & Scan error:', err);
-      setCvScanError(err?.message || 'CV processing failed. Please try again.');
+      console.warn('CV Upload request caught error, checking for background extraction:', err);
+      const errMsg = err?.message || String(err);
+
+      // If the gateway/proxy returned 504 Gateway Timeout or timed out, the backend
+      // Node.js process is already completing the Gemini extraction in the background.
+      // Poll for completion instead of showing an error to the user!
+      if (
+        errMsg.includes('504') ||
+        errMsg.includes('timeout') ||
+        errMsg.includes('Gateway') ||
+        errMsg.includes('Network Error') ||
+        errMsg.includes('502')
+      ) {
+        const found = await pollForExtraction(30, 2500);
+        if (found) {
+          setCvScanError('');
+          return;
+        }
+      }
+
+      setCvScanError(errMsg || 'CV processing failed. Please try again.');
     } finally {
       setIsCvScanning(false);
     }
@@ -385,6 +483,7 @@ export const ProfileEditorPage: React.FC = () => {
           title: updated.title ?? prev.title,
           headline: updated.headline ?? prev.headline,
           summary: updated.summary ?? prev.summary,
+          yearsOfExperience: updated.yearsOfExperience ?? prev.yearsOfExperience,
           contactEmail: updated.contactEmail ?? prev.contactEmail,
           location: updated.location ?? prev.location,
           phone: updated.phone ?? prev.phone,
@@ -439,6 +538,7 @@ export const ProfileEditorPage: React.FC = () => {
         title: '',
         headline: '',
         summary: '',
+        yearsOfExperience: '',
         careerObjective: '',
         bio: '',
         contactEmail: '',
@@ -841,7 +941,7 @@ export const ProfileEditorPage: React.FC = () => {
             className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 shadow-lg shadow-indigo-500/25 border-0 text-white font-bold"
             leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
           >
-            Scan CV with OCR
+            Scan CV with Gemini AI
           </Button>
         </div>
       </div>
@@ -929,6 +1029,40 @@ export const ProfileEditorPage: React.FC = () => {
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Experience Period / Years of Experience</span>
+              </label>
+              <span className="text-[11px] text-indigo-400 font-medium">
+                Auto-calculated: {calculatedExpYears}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={generalState.yearsOfExperience || ''}
+                onChange={(e) =>
+                  setGeneralState({ ...generalState, yearsOfExperience: e.target.value })
+                }
+                placeholder={`e.g. ${calculatedExpYears} or 5+ Years (leave blank to auto-calculate)`}
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-indigo-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setGeneralState((prev: any) => ({ ...prev, yearsOfExperience: calculatedExpYears }))}
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold shrink-0 transition"
+                title="Use auto-calculated value from your work experience list"
+              >
+                Use Calculated
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Custom override for the experience period displayed on your public portfolio. If left blank, the portfolio automatically sums the duration of each work experience rounded off to the nearest year.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -1342,6 +1476,50 @@ export const ProfileEditorPage: React.FC = () => {
             >
               Add Experience
             </Button>
+          </div>
+
+          {/* Experience Period Summary & Quick Override */}
+          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-400">Portfolio Experience Period:</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    {generalState.yearsOfExperience?.trim() || calculatedExpYears}
+                  </span>
+                  {generalState.yearsOfExperience?.trim() && (
+                    <span className="text-[10px] text-amber-400 font-medium bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      Custom Override
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 pt-0.5">
+                  Calculated from roles: <strong className="text-slate-300">{calculatedExpYears}</strong> across {profile?.experiences?.length || 0} position{profile?.experiences?.length === 1 ? '' : 's'}. Rounded off to the nearest year.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <input
+                type="text"
+                placeholder={`e.g. ${calculatedExpYears} or 5+ Years`}
+                value={generalState.yearsOfExperience || ''}
+                onChange={(e) => setGeneralState((prev: any) => ({ ...prev, yearsOfExperience: e.target.value }))}
+                className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs w-44 focus:border-indigo-500 focus:outline-none"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleSaveGeneral}
+                isLoading={isSavingGeneral}
+                leftIcon={<Save className="w-3.5 h-3.5" />}
+              >
+                Save
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -2870,7 +3048,7 @@ export const ProfileEditorPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* OCR CV scan and profile import modal */}
+      {/* Gemini AI CV scan and profile import modal */}
       <Modal
         isOpen={isAiCvModalOpen}
         onClose={() => {
@@ -2878,7 +3056,7 @@ export const ProfileEditorPage: React.FC = () => {
           setCvScanError('');
           setCvApplyMessage('');
         }}
-        title="CV OCR Scanner & Profile Auto-Fill"
+        title="Gemini AI CV Scanner & Profile Auto-Fill"
       >
         <div className="space-y-6 max-h-[82vh] overflow-y-auto pr-1">
           {/* Header Info */}
@@ -2889,7 +3067,7 @@ export const ProfileEditorPage: React.FC = () => {
             <div className="space-y-1">
               <p className="text-sm font-bold text-white">Upload Your Resume & Fill Your Profile</p>
               <p className="text-xs text-slate-300 leading-relaxed">
-                The local CV parser reads PDF files (including scanned PDFs through OCR), Word DOC/DOCX, and TXT resumes, then extracts work history, education, skills, projects, and contact details into your Profile Editor tabs.
+                Powered by Google Gemini AI. Analyzes PDF files, Word DOC/DOCX, and TXT resumes, then extracts work history, education, skills, projects, and contact details into your Profile Editor tabs.
               </p>
             </div>
           </div>
@@ -2970,7 +3148,7 @@ export const ProfileEditorPage: React.FC = () => {
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
                     <Check className="w-4 h-4 text-emerald-400" />
-                    <span>OCR Extracted Profile Preview</span>
+                    <span>Gemini AI Extracted Profile Preview</span>
                   </h4>
                   <p className="text-xs text-slate-400">Select which sections to apply to your Edit Profile tabs.</p>
                 </div>

@@ -243,14 +243,14 @@ export class AIService {
   }
 
   /**
-   * Multimodal/OCR extraction for scanned or image-based documents
+   * Multimodal extraction for scanned or image-based documents using Google Gemini AI
    */
   public static async analyzeCvDocument(filePath: string, mimeType: string, userProfession?: string): Promise<ExtractedCvData> {
     const isGemini = config.geminiApiKey || config.aiProvider === 'gemini' || (config.aiApiKey && config.aiApiKey.startsWith('AIza'));
     const isOpenAI = config.openaiApiKey || config.aiProvider === 'openai' || (config.aiApiKey && config.aiApiKey.startsWith('sk-'));
 
     if (!isGemini && !isOpenAI && !config.aiApiKey) {
-      throw new Error('This document contains scanned images or non-selectable text, and requires AI OCR. Please configure an AI API key or upload a standard text PDF/DOCX file.');
+      throw new Error('This document contains scanned images or non-selectable text, and requires Google Gemini AI. Please configure your GEMINI_API_KEY or upload a standard text PDF/DOCX file.');
     }
 
     const fileData = fs.readFileSync(filePath).toString('base64');

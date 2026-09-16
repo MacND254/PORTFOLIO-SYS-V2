@@ -2,7 +2,7 @@ import path from 'path';
 import { prisma } from '../database/client';
 import { NotFoundError, ValidationError } from '../utils/errors';
 import { StorageService } from './storage.service';
-import { OcrCvService, ExtractedCvData } from './ocr-cv.service';
+import { GeminiCvService, ExtractedCvData } from './gemini-cv.service';
 import { AuditService } from './audit.service';
 import { NotificationService } from './notification.service';
 import { ProfileService } from './profile.service';
@@ -81,14 +81,16 @@ export interface SectionDiffAnalysis {
 
 export class CVService {
   /**
-   * Handles CV upload and initiates local OCR and structured extraction.
+   * Saves the uploaded CV file, creates a PROCESSING record in the database,
+   * and immediately returns — then fires off Gemini extraction in the background
+   * so the HTTP request never times out waiting for AI processing.
    */
   public static async uploadCV(userId: string, file: Express.Multer.File) {
     if (!file) throw new ValidationError('No file uploaded.');
 
     const relativeUrl = await StorageService.saveFile(file, 'cvs');
 
-    // Create CV record in DB
+    // Create CV record in DB with PROCESSING status
     const cv = await prisma.cV.create({
       data: {
         userId,
@@ -107,22 +109,17 @@ export class CVService {
       target: cv.originalFilename,
     });
 
-    // Process extraction immediately
-    try {
-      const extraction = await this.processCVBackground(cv.id, userId, file.path, file.mimetype);
-      return {
-        ...cv,
-        status: 'REVIEW_REQUIRED',
-        extraction,
-      };
-    } catch (err: any) {
-      logger.error(`CV Processing Error: ${err.message}`);
-      throw err;
-    }
+    // Fire background extraction WITHOUT awaiting — the HTTP response returns immediately.
+    // The client should poll GET /api/cv/latest to check when status becomes REVIEW_REQUIRED.
+    this.processCVBackground(cv.id, userId, file.path, file.mimetype).catch((err: any) => {
+      logger.error(`[CVService] Background extraction failed for CV ${cv.id}: ${err?.message || err}`);
+    });
+
+    return { ...cv, status: 'PROCESSING' };
   }
 
   /**
-   * Executes document text extraction, OCR when needed, and profile diff calculation.
+   * Executes document text extraction with Google Gemini AI and profile diff calculation.
    */
   public static async processCVBackground(cvId: string, userId: string, filePath: string, mimeType: string) {
     try {
@@ -150,9 +147,8 @@ export class CVService {
         },
       });
 
-      // 2. CV-SCAN's local pipeline extracts embedded text first and falls back
-      // to Tesseract OCR for scanned PDF pages. Nothing is sent to an AI API.
-      const scan = await OcrCvService.extract(filePath, mimeType);
+      // 2. Intelligent document extraction exclusively powered by Google Gemini AI.
+      const scan = await GeminiCvService.extract(filePath, mimeType);
       const rawText = scan.rawText;
       const extractedData: ExtractedCvData = scan.data;
 
@@ -162,9 +158,9 @@ export class CVService {
       // 4. Keep the extraction pipeline's evidence, quality score, and metrics with the data.
       const confidenceScores = {
         ...this.calculateConfidenceScores(extractedData),
-        ocr: scan.ocr,
+        aiEngine: 'gemini',
         qualityScore: scan.structured?.qualityScore,
-        engineUsed: scan.structured?.meta?.engineUsed,
+        engineUsed: scan.structured?.meta?.engineUsed || 'gemini',
       };
 
       // 5. Create Extraction Record in database

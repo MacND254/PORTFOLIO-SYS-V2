@@ -68,8 +68,12 @@ export class ProfileService {
       'avatarUrl', 'coverUrl', 'logoUrl',
       'isPublicEmail', 'isPublicPhone', 'isPublicLocation', 'isPublicAddress', 'isPublicSocial',
       'employmentStatus', 'employmentStatusCustom', 'showEmploymentBadge',
+      'yearsOfExperience',
     ];
     const safeData: Record<string, any> = {};
+    if (data.experiencePeriod !== undefined && data.yearsOfExperience === undefined) {
+      safeData.yearsOfExperience = data.experiencePeriod;
+    }
     allowedFields.forEach((key) => {
       if (key in data) safeData[key] = data[key];
     });

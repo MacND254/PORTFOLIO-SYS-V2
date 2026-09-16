@@ -7,10 +7,12 @@ export class CVController {
     try {
       const file = req.file;
       const cv = await CVService.uploadCV(req.user!.id, file!);
+      // Respond immediately with 202 Accepted — Gemini extraction runs in the background.
+      // The client should poll GET /api/cv/latest until status === 'REVIEW_REQUIRED'.
       return sendSuccess({
         res,
-        statusCode: 201,
-        message: 'CV uploaded successfully. Background processing started.',
+        statusCode: 202,
+        message: 'CV uploaded successfully. AI extraction is processing in the background. Poll /api/cv/latest to check progress.',
         data: cv,
       });
     } catch (error) {

@@ -108,19 +108,44 @@ export const CvImportPage: React.FC = () => {
     formData.append('file', file);
 
     try {
-      const res: any = await api.post('/cv/upload', formData, {
+      // Upload the file — server responds immediately (202) while Gemini processes in the background
+      await api.post('/cv/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      if (res?.data?.extraction) {
-        setExtraction(res.data.extraction);
-      } else {
-        await fetchLatestExtraction();
-      }
-      setMessage('CV uploaded and parsed with precision! Review, edit, and verify fields below before applying to your profile.');
+      // Poll until Gemini extraction finishes (status flips to REVIEW_REQUIRED or FAILED)
+      setMessage('AI is analysing your CV… this may take up to a minute.');
+      let attempts = 0;
+      const maxAttempts = 40; // up to ~2 min (40 × 3 s)
+      const poll = async (): Promise<void> => {
+        if (attempts >= maxAttempts) {
+          setErrorMessage('CV processing is taking longer than expected. Please refresh the page in a moment.');
+          setIsUploading(false);
+          return;
+        }
+        attempts++;
+        try {
+          const latest: any = await api.get('/cv/extraction');
+          const status = latest?.data?.cv?.status || latest?.data?.status;
+          if (status === 'REVIEW_REQUIRED') {
+            setExtraction(latest.data);
+            setMessage('CV uploaded and parsed with precision! Review, edit, and verify fields below before applying to your profile.');
+            setIsUploading(false);
+          } else if (status === 'FAILED') {
+            setErrorMessage('CV extraction failed. Please try again with a different file.');
+            setIsUploading(false);
+          } else {
+            // Still PROCESSING — wait 3 s and try again
+            setTimeout(poll, 3000);
+          }
+        } catch {
+          // Extraction not available yet — keep polling
+          setTimeout(poll, 3000);
+        }
+      };
+      await new Promise<void>((resolve) => { poll().then(resolve); });
     } catch (err: any) {
-      setErrorMessage(err.message || 'CV processing failed.');
-    } finally {
+      setErrorMessage(err.message || 'CV upload failed. Please try again.');
       setIsUploading(false);
     }
   };
@@ -420,7 +445,14 @@ export const CvImportPage: React.FC = () => {
         </div>
       </div>
 
-      {message && (
+      {isUploading && message && (
+        <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-sm flex items-center gap-3 animate-in fade-in">
+          <Spinner />
+          <span>{message}</span>
+        </div>
+      )}
+
+      {!isUploading && message && (
         <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span>{message}</span>
@@ -460,8 +492,8 @@ export const CvImportPage: React.FC = () => {
             {file ? file.name : 'Choose Resume File'}
           </label>
 
-          <Button type="submit" variant="primary" size="sm" isLoading={isUploading} disabled={!file}>
-            {isUploading ? 'Scanning Document...' : 'Scan & Extract'}
+          <Button type="submit" variant="primary" size="sm" isLoading={isUploading} disabled={!file || isUploading}>
+            {isUploading ? 'AI Processing…' : 'Scan & Extract'}
           </Button>
         </div>
       </form>
