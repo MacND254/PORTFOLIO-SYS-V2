@@ -116,7 +116,7 @@ export const CvImportPage: React.FC = () => {
       // Poll until Gemini extraction finishes (status flips to REVIEW_REQUIRED or FAILED)
       setMessage('AI is analysing your CV… this may take up to a minute.');
       let attempts = 0;
-      const maxAttempts = 40; // up to ~2 min (40 × 3 s)
+      const maxAttempts = 60; // up to ~3 min (60 × 3 s)
       const poll = async (): Promise<void> => {
         if (attempts >= maxAttempts) {
           setErrorMessage('CV processing is taking longer than expected. Please refresh the page in a moment.');
@@ -126,20 +126,28 @@ export const CvImportPage: React.FC = () => {
         attempts++;
         try {
           const latest: any = await api.get('/cv/extraction');
-          const status = latest?.data?.cv?.status || latest?.data?.status;
+          // Status can live at the top level (during PROCESSING) or inside cv (legacy)
+          const status = latest?.data?.status || latest?.data?.cv?.status;
           if (status === 'REVIEW_REQUIRED') {
             setExtraction(latest.data);
             setMessage('CV uploaded and parsed with precision! Review, edit, and verify fields below before applying to your profile.');
             setIsUploading(false);
           } else if (status === 'FAILED') {
-            setErrorMessage('CV extraction failed. Please try again with a different file.');
+            setErrorMessage('CV extraction failed. The AI could not process this file. Please try a different file or check your Gemini API key.');
             setIsUploading(false);
           } else {
             // Still PROCESSING — wait 3 s and try again
             setTimeout(poll, 3000);
           }
-        } catch {
-          // Extraction not available yet — keep polling
+        } catch (pollErr: any) {
+          const statusCode = pollErr?.response?.status;
+          if (statusCode === 404) {
+            // No CV record at all — stop polling (shouldn't happen after upload)
+            setErrorMessage('CV upload could not be confirmed. Please try again.');
+            setIsUploading(false);
+            return;
+          }
+          // Network / auth error — keep polling
           setTimeout(poll, 3000);
         }
       };

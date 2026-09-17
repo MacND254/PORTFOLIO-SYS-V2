@@ -401,8 +401,28 @@ export class CVService {
       include: { cv: true },
     });
 
-    if (!extraction) throw new NotFoundError('No CV extractions found.');
-    return extraction;
+    // If an extraction record exists, return it directly (covers REVIEW_REQUIRED and FAILED).
+    if (extraction) return extraction;
+
+    // No extraction record yet — check if a CV is currently being processed.
+    // This happens during the window between upload and Gemini finishing.
+    const latestCv = await prisma.cV.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!latestCv) throw new NotFoundError('No CV extractions found.');
+
+    // Return a lightweight processing-state object so the frontend can poll correctly.
+    return {
+      id: null,
+      status: latestCv.status, // 'PROCESSING' | 'FAILED'
+      cv: latestCv,
+      extractedData: null,
+      confidenceScores: null,
+      createdAt: latestCv.createdAt,
+      updatedAt: latestCv.updatedAt,
+    };
   }
 
   public static async resetExtraction(userId: string) {
