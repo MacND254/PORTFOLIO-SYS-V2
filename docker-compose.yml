@@ -82,7 +82,7 @@ services:
       AI_PROVIDER:          ${AI_PROVIDER:-gemini}
       EXTRACTION_ENGINE:    ${EXTRACTION_ENGINE:-gemini}
       GEMINI_API_KEY:       ${GEMINI_API_KEY:-}
-      GEMINI_MODEL:         ${GEMINI_MODEL:-gemini-2.5-flash}
+      GEMINI_MODEL:         ${GEMINI_MODEL:-gemini-3.6-flash}
       SMTP_HOST:            ${SMTP_HOST:-}
       SMTP_PORT:            ${SMTP_PORT:-587}
       SMTP_USER:            ${SMTP_USER:-}
@@ -117,6 +117,7 @@ services:
     environment:
       - BACKEND_HOST=backend:3000
       - PORT=80
+      - DNS_RESOLVER=127.0.0.11 [fd12::10]
     ports:
       - "0.0.0.0:3080:80"
     networks:

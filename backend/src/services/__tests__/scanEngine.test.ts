@@ -76,7 +76,7 @@ describe('ScanEngine & Normalizers - Strict Gemini Engine & PO Box Disambiguatio
     ],
     meta: {
       engineUsed: 'gemini',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       processedAt: new Date().toISOString(),
       durationMs: 450,
     },

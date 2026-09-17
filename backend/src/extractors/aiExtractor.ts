@@ -25,10 +25,10 @@ export class AiExtractor {
       throw new Error('Provided CV document text is empty or too short for extraction.');
     }
 
-    const configuredModel = config.geminiModel || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const configuredModel = config.geminiModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     let initialModel = configuredModel;
-    if (initialModel === 'gemini-3.6-flash' || initialModel === 'gemini-flash') {
-      initialModel = 'gemini-2.5-flash';
+    if (initialModel === 'gemini-flash') {
+      initialModel = 'gemini-3.6-flash';
     }
 
     try {
@@ -246,7 +246,7 @@ OUTPUT JSON SCHEMA:
         : `DOCUMENT TEXT:\n${rawText}`;
 
       const candidateModels = [initialModel];
-      for (const fallbackModel of ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']) {
+      for (const fallbackModel of ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3.7-flash']) {
         if (!candidateModels.includes(fallbackModel)) {
           candidateModels.push(fallbackModel);
         }
@@ -296,7 +296,7 @@ OUTPUT JSON SCHEMA:
           } catch (callErr: any) {
             lastCallError = callErr;
             const errStr = callErr?.message || String(callErr);
-            const is503 = errStr.includes('503') || errStr.includes('high demand') || errStr.includes('UNAVAILABLE');
+            const is503 = errStr.includes('503') || errStr.includes('high demand') || errStr.includes('UNAVAILABLE') || errStr.includes('overloaded') || errStr.includes('intermittent errors');
             const is404 = errStr.includes('404') || errStr.includes('not found');
             // Empty output error from SDK — retryable
             const isEmptyOutput = errStr.includes('model output must contain') || errStr.includes('output text or tool calls');

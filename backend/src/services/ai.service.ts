@@ -259,7 +259,7 @@ export class AIService {
     if (isGemini) {
       try {
         const apiKey = config.geminiApiKey || config.aiApiKey;
-        const model = config.aiModel || 'gemini-2.5-flash';
+        const model = config.aiModel || 'gemini-3.6-flash';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         const prompt = `Transcribe every readable resume detail from this document accurately into structured plain text. Preserve all headings, job titles, companies, dates, degree names, skills, contact emails, phone numbers, and URLs. Output the full text strictly without adding commentary.`;
@@ -342,7 +342,7 @@ export class AIService {
    */
   private static async extractWithGemini(text: string, userProfession?: string): Promise<ExtractedCvData> {
     const apiKey = config.geminiApiKey || config.aiApiKey;
-    const model = config.aiModel || 'gemini-2.5-flash';
+    const model = config.aiModel || 'gemini-3.6-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const prompt = `You are a precision CV parser and entity-relationship extraction engine.

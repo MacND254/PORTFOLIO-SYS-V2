@@ -30,8 +30,10 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Defaults used by the Nginx template. Railway overrides PORT at runtime and the
 # frontend service supplies BACKEND_HOST over Railway private networking.
+# DNS_RESOLVER defaults to supporting both local Docker (127.0.0.11) and Railway ([fd12::10]).
 ENV BACKEND_HOST=portfolio-backend.railway.internal:3000
 ENV PORT=80
+ENV DNS_RESOLVER="127.0.0.11 [fd12::10]"
 
 # Copy our custom Nginx config as template for automatic envsubst by nginx:alpine
 COPY nginx.conf /etc/nginx/templates/default.conf.template
