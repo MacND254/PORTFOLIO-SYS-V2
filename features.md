@@ -8,7 +8,7 @@ This document outlines all platform capabilities, completed milestones, and pend
 
 ### 1.1 In-Editor AI Bio & Summary Optimizer
 * **Status**: ⏳ Pending
-* **Specification**: Replace heuristic regex substitutions with direct calls to Google Gemini (`gemini-3.6-flash`).
+* **Specification**: Replace regex substitutions with direct calls to Google Gemini (`gemini-2.5-flash`).
 * **UI Location**: `ProfileEditorPage.tsx` under General/About section ("✨ Polish with Gemini" button).
 * **Backend Endpoint**: `POST /api/v1/ai/enhance-summary`
 * **Behavior**: Accepts raw bio text and desired professional persona, outputs 3 curated variations:

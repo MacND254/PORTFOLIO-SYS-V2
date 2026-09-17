@@ -524,20 +524,13 @@ export const CvImportPage: React.FC = () => {
               </h2>
                 <p className="text-xs text-slate-400">Review and refine your extracted facts below. Changes made here will be applied directly to your profile.</p>
                 <div className="flex flex-wrap items-center gap-2 pt-2">
-                  {(extraction?.confidenceScores?.engineUsed === 'gemini' || extracted?.structuredResume?.meta?.engineUsed === 'gemini') ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Extraction Engine: <strong>Google Gemini Flash (AI Active)</strong></span>
-                      {extracted?.structuredResume?.meta?.durationMs && (
-                        <span className="text-slate-400 text-[11px] font-mono">({extracted.structuredResume.meta.durationMs}ms)</span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                      <Info className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Extraction Engine: <strong>Heuristic Rule Engine (Fallback)</strong></span>
-                    </span>
-                  )}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Extraction Engine: <strong>Google Gemini Flash (AI Active)</strong></span>
+                    {extracted?.structuredResume?.meta?.durationMs && (
+                      <span className="text-slate-400 text-[11px] font-mono">({extracted.structuredResume.meta.durationMs}ms)</span>
+                    )}
+                  </span>
                   {extraction?.confidenceScores?.qualityScore?.overall !== undefined && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                       Quality Score: {extraction.confidenceScores.qualityScore.overall}/100

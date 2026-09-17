@@ -66,7 +66,7 @@ export class GeminiCvService {
     }
     
     // Process strictly with Google Gemini AI Engine
-    const structured = await ScanEngine.processScan(rawText, { forceEngine: 'gemini' });
+    const structured = await ScanEngine.processScan(rawText);
     const data = ScanEngine.toExtractedCvData(structured);
     return { rawText, data, structured };
   }
@@ -83,7 +83,7 @@ export class GeminiCvService {
     }
 
     try {
-      const modelName = config.geminiModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+      const modelName = config.geminiModel || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
       const ai = new GoogleGenAI({ apiKey });
       const fileBuffer = await fs.readFile(filePath);
       const base64Data = fileBuffer.toString('base64');

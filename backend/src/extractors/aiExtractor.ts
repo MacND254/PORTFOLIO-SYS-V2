@@ -8,29 +8,27 @@ import { StructuredResume } from '../types/schema';
 
 export class AiExtractor {
   /**
-   * Extracts full structured resume data from raw document text using Google Gemini 1.5 Flash.
-   * Returns null on missing API key, network/rate limits, or parsing errors to enable fallback.
-   * Uses the new @google/genai SDK which supports AQ. Authorization keys.
+   * Extracts full structured resume data from raw document text strictly using Google Gemini AI.
+   * Throws an explicit error if the API key is missing or extraction fails — NO heuristic fallback.
    */
   public static async extractWithGemini(
     rawText: string,
     layoutSummary?: string
-  ): Promise<Partial<StructuredResume> | null> {
+  ): Promise<Partial<StructuredResume>> {
     const apiKey = config.geminiApiKey || process.env.GEMINI_API_KEY || '';
     if (!apiKey) {
-      logger.warn('[AiExtractor] No GEMINI_API_KEY found. Skipping AI extraction.');
-      return null;
+      logger.error('[AiExtractor] GEMINI_API_KEY is missing. Strict Gemini AI extraction cannot proceed.');
+      throw new Error('GEMINI_API_KEY is not configured in the server environment. Please configure your Google Gemini API key to enable CV extraction.');
     }
 
     if (!rawText || rawText.trim().length < 20) {
-      logger.warn('[AiExtractor] Provided raw text is empty or too short.');
-      return null;
+      throw new Error('Provided CV document text is empty or too short for extraction.');
     }
 
-    // Auto-migrate to gemini-3.6-flash as specified by Google API
-    let modelName = config.geminiModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-    if (modelName.includes('1.5') || modelName.includes('2.0') || modelName === 'gemini-flash') {
-      modelName = 'gemini-3.6-flash';
+    const configuredModel = config.geminiModel || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    let initialModel = configuredModel;
+    if (initialModel === 'gemini-3.6-flash' || initialModel === 'gemini-flash') {
+      initialModel = 'gemini-2.5-flash';
     }
 
     try {
@@ -247,16 +245,20 @@ OUTPUT JSON SCHEMA:
         ? `LAYOUT SUMMARY:\n${layoutSummary}\n\nDOCUMENT TEXT:\n${rawText}`
         : `DOCUMENT TEXT:\n${rawText}`;
 
-      const candidateModels = [modelName];
-      if (modelName === 'gemini-3.6-flash' && !candidateModels.includes('gemini-2.5-flash')) {
-        candidateModels.push('gemini-2.5-flash');
+      const candidateModels = [initialModel];
+      for (const fallbackModel of ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']) {
+        if (!candidateModels.includes(fallbackModel)) {
+          candidateModels.push(fallbackModel);
+        }
       }
 
       let text: string | null = null;
-      let usedModel = modelName;
+      let usedModel = initialModel;
       let durationMs = 0;
+      let lastCallError: any = null;
 
       for (const targetModel of candidateModels) {
+        let brokeToNextModel = false;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             logger.info(`[AiExtractor] Calling Gemini (${targetModel}, attempt ${attempt}/3)...`);
@@ -271,32 +273,54 @@ OUTPUT JSON SCHEMA:
             });
 
             durationMs = Date.now() - startTime;
-            text = result.text || null;
+            // Safely extract text — result.text throws if candidates are empty
+            try {
+              text = result.text ?? null;
+            } catch {
+              text = null;
+            }
+            if (!text) {
+              // Gemini returned an empty candidate — treat as transient and retry
+              lastCallError = new Error('Gemini returned empty output (no text in candidates)');
+              logger.warn(`[AiExtractor] Model ${targetModel} returned empty output on attempt ${attempt}/3. Retrying...`);
+              if (attempt < 3) {
+                await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+                continue;
+              }
+              // Exhausted retries — try next model
+              brokeToNextModel = true;
+              break;
+            }
             usedModel = targetModel;
             break;
           } catch (callErr: any) {
+            lastCallError = callErr;
             const errStr = callErr?.message || String(callErr);
             const is503 = errStr.includes('503') || errStr.includes('high demand') || errStr.includes('UNAVAILABLE');
-            
-            if (is503 && attempt < 3) {
+            const is404 = errStr.includes('404') || errStr.includes('not found');
+            // Empty output error from SDK — retryable
+            const isEmptyOutput = errStr.includes('model output must contain') || errStr.includes('output text or tool calls');
+
+            if ((is503 || isEmptyOutput) && attempt < 3) {
               const delay = attempt * 1500;
-              logger.warn(`[AiExtractor] Model ${targetModel} experiencing temporary high demand (503). Retrying in ${delay}ms...`);
+              logger.warn(`[AiExtractor] Model ${targetModel} returned retryable error (attempt ${attempt}/3): ${errStr}. Retrying in ${delay}ms...`);
               await new Promise((resolve) => setTimeout(resolve, delay));
               continue;
             }
-            if (is503 && targetModel !== candidateModels[candidateModels.length - 1]) {
-              logger.warn(`[AiExtractor] Model ${targetModel} still unavailable. Trying secondary model...`);
+            if ((is503 || is404 || isEmptyOutput) && targetModel !== candidateModels[candidateModels.length - 1]) {
+              logger.warn(`[AiExtractor] Model ${targetModel} unavailable/empty (${errStr}). Trying next candidate model in chain...`);
+              brokeToNextModel = true;
               break; // Try next candidate model
             }
             throw callErr;
           }
         }
         if (text) break;
+        if (!brokeToNextModel) break; // Unexpected exit — stop the outer loop
       }
 
       if (!text) {
-        logger.warn('[AiExtractor] Gemini returned an empty response.');
-        return null;
+        throw new Error(`Google Gemini returned an empty response. Last error: ${lastCallError?.message || 'No response body'}`);
       }
 
       // Parse JSON from response — strip markdown fences if present
@@ -307,16 +331,17 @@ OUTPUT JSON SCHEMA:
       return this.postProcessGeminiOutput(parsed, durationMs, usedModel, rawText);
     } catch (error: any) {
       const errMsg = error?.message || String(error);
-      // Log the full error detail so the operator can diagnose key/quota/network issues
       logger.error(`[AiExtractor] Gemini extraction failed: ${errMsg}`);
       if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('API key not valid')) {
-        logger.error('[AiExtractor] ❌ Your GEMINI_API_KEY is invalid or expired. Please get a new key from https://aistudio.google.com/app/apikey');
+        logger.error('[AiExtractor] ❌ Your GEMINI_API_KEY is invalid or expired.');
+        throw new Error('Google Gemini API key is invalid or expired. Please check your GEMINI_API_KEY environment variable.');
       } else if (errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-        logger.warn('[AiExtractor] ⚠ Gemini quota exceeded. Falling back to heuristics.');
+        logger.error('[AiExtractor] ⚠ Gemini API quota exceeded.');
+        throw new Error('Google Gemini API quota exceeded. Please check your Google Cloud / AI Studio quota.');
       } else if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('403')) {
-        logger.error('[AiExtractor] ❌ Permission denied. Check your API key permissions at https://aistudio.google.com/app/apikey');
+        logger.error('[AiExtractor] ❌ Permission denied accessing Google Gemini API.');
+        throw new Error('Permission denied accessing Google Gemini API. Please check your API key permissions.');
       }
-      // Rethrow so ScanEngine can log a proper fallback warning
       throw error;
     }
   }

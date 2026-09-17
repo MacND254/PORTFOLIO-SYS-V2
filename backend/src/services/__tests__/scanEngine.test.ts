@@ -1,7 +1,8 @@
 import { ScanEngine } from '../scanEngine';
-import { HeuristicExtractor } from '../../extractors/heuristic';
+import { AiExtractor } from '../../extractors/aiExtractor';
+import { ContactNormalizer } from '../../normalizers/contactNormalizer';
 
-describe('ScanEngine & Heuristic Extractor - PO Box and Phone Disambiguation', () => {
+describe('ScanEngine & Normalizers - Strict Gemini Engine & PO Box Disambiguation', () => {
   const sampleCvText = `
     Alex Mwangi
     Senior Cloud Architect
@@ -27,32 +28,90 @@ describe('ScanEngine & Heuristic Extractor - PO Box and Phone Disambiguation', (
     AWS, Kubernetes, Docker, TypeScript, Go, Python
   `;
 
-  it('should correctly extract phone and location without confusing PO Box with phone number in Heuristics', () => {
-    const extracted = HeuristicExtractor.extract(sampleCvText);
+  const mockGeminiOutput = {
+    identity: {
+      fullName: 'Alex Mwangi',
+      title: 'Senior Cloud Architect',
+      headline: 'Senior Cloud Architect',
+      summary: 'Senior Cloud Architect with 8+ years experience in AWS, GCP, and Kubernetes.',
+      location: { raw: 'P.O. Box 284-00900 Kiambu, Kenya' },
+    },
+    contact: {
+      emails: [{ email: 'alex.mwangi@example.com', type: 'WORK', isPrimary: true }],
+      phones: [{ phone: '+254 712 345 678', type: 'MOBILE', isPrimary: true }],
+      location: { raw: 'P.O. Box 284-00900 Kiambu, Kenya' },
+    },
+    workExperience: [
+      {
+        id: 'exp-1',
+        company: 'Safaricom PLC',
+        jobTitle: 'Lead Architect',
+        location: null,
+        startDate: { raw: 'Jan 2020', year: 2020, month: 1 },
+        endDate: null,
+        current: true,
+        description: 'Designed microservices architecture on AWS EKS',
+        bullets: ['Designed microservices architecture on AWS EKS', 'Reduced cloud infrastructure costs by 35%'],
+        technologies: ['AWS', 'EKS'],
+      },
+    ],
+    education: [
+      {
+        id: 'edu-1',
+        institution: 'University of Nairobi',
+        degree: 'Bachelor of Science in Computer Science',
+        fieldOfStudy: 'Computer Science',
+        location: null,
+        startDate: { raw: '2015', year: 2015, month: null },
+        endDate: { raw: '2019', year: 2019, month: null },
+        current: false,
+        grade: null,
+        activities: [],
+      },
+    ],
+    skills: [
+      { name: 'AWS', category: 'CLOUD', proficiency: 'EXPERT' },
+      { name: 'Kubernetes', category: 'CLOUD', proficiency: 'EXPERT' },
+      { name: 'TypeScript', category: 'PROGRAMMING_LANGUAGE', proficiency: 'EXPERT' },
+    ],
+    meta: {
+      engineUsed: 'gemini',
+      model: 'gemini-2.5-flash',
+      processedAt: new Date().toISOString(),
+      durationMs: 450,
+    },
+  };
 
-    // Identity / Location
-    expect(extracted.identity?.location.raw).toContain('P.O. Box 284-00900');
-    expect(extracted.identity?.location.postalCode).toBe('00900');
-
-    // Contact
-    expect(extracted.contact?.emails?.[0].email).toBe('alex.mwangi@example.com');
-    expect(extracted.contact?.phones?.[0].phone).toBe('+254712345678');
-    expect(extracted.contact?.phones?.some((p) => p.phone.includes('28400900'))).toBe(false);
+  beforeEach(() => {
+    jest.spyOn(AiExtractor, 'extractWithGemini').mockResolvedValue(mockGeminiOutput as any);
   });
 
-  it('should process scan with ScanEngine without placing PO Box in phone field', async () => {
-    const result = await ScanEngine.processScan(sampleCvText, { forceEngine: 'heuristic' });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should correctly disambiguate PO Box and phone numbers via ContactNormalizer', () => {
+    const rawPhones = ['284-00900', '+254 712 345 678'];
+    const poBox = ContactNormalizer.extractPoBoxCandidate(rawPhones);
+    expect(poBox).toBe('284-00900');
+
+    const normalizedPhones = ContactNormalizer.normalizePhones(rawPhones);
+    expect(normalizedPhones.some((p) => p.phone.includes('28400900'))).toBe(false);
+    expect(normalizedPhones.some((p) => p.phone === '+254712345678')).toBe(true);
+  });
+
+  it('should process scan strictly with Gemini engine without placing PO Box in phone field', async () => {
+    const result = await ScanEngine.processScan(sampleCvText);
 
     expect(result.identity.fullName).toBe('Alex Mwangi');
     expect(result.contact.phones.length).toBeGreaterThan(0);
     expect(result.contact.phones[0].phone).toBe('+254712345678');
     expect(result.contact.phones.some((p) => p.phone.includes('28400900'))).toBe(false);
-    expect(result.identity.location.postalCode).toBe('00900');
-    expect(result.contact.location.raw).toContain('284-00900');
+    expect(result.meta?.engineUsed).toBe('gemini');
   });
 
   it('should adapt to ExtractedCvData correctly for database consumption', async () => {
-    const result = await ScanEngine.processScan(sampleCvText, { forceEngine: 'heuristic' });
+    const result = await ScanEngine.processScan(sampleCvText);
     const legacyData = ScanEngine.toExtractedCvData(result);
 
     expect(legacyData.personalInfo.fullName).toBe('Alex Mwangi');

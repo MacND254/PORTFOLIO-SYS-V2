@@ -208,7 +208,7 @@ export class AIService {
     }
 
     try {
-      const isGemini = config.geminiApiKey || config.aiProvider === 'gemini' || (config.aiApiKey && config.aiApiKey.startsWith('AIza'));
+      const isGemini = config.geminiApiKey || config.aiProvider === 'gemini' || (config.aiApiKey && (config.aiApiKey.startsWith('AIza') || config.aiApiKey.startsWith('AQ.')));
       const isOpenAI = config.openaiApiKey || config.aiProvider === 'openai' || (config.aiApiKey && config.aiApiKey.startsWith('sk-'));
 
       let result: ExtractedCvData | null = null;
@@ -217,28 +217,27 @@ export class AIService {
         try {
           result = await this.extractWithGemini(cleanText, userProfession);
         } catch (geminiErr: any) {
-          logger.warn(`Gemini extraction failed: ${geminiErr.message}. Trying OpenAI/Heuristic fallback...`);
+          logger.error(`Gemini extraction failed: ${geminiErr.message}`);
           if (isOpenAI) {
             result = await this.extractWithOpenAI(cleanText, userProfession);
+          } else {
+            throw geminiErr;
           }
         }
       } else if (isOpenAI) {
-        try {
-          result = await this.extractWithOpenAI(cleanText, userProfession);
-        } catch (openAiErr: any) {
-          logger.warn(`OpenAI extraction failed: ${openAiErr.message}. Falling back to Heuristic parser...`);
-        }
+        result = await this.extractWithOpenAI(cleanText, userProfession);
+      } else {
+        throw new Error('GEMINI_API_KEY is not configured in the server environment. Please configure your Google Gemini API key.');
       }
 
       if (!result) {
-        result = this.heuristicCvParser(cleanText, userProfession);
+        throw new Error('AI extraction returned no structured data from the document.');
       }
 
       return this.sanitizeAndValidateExtraction(result, cleanText);
     } catch (err: any) {
-      logger.warn(`CV parsing failed: ${err.message}. Running heuristic parser fallback.`);
-      const fallback = this.heuristicCvParser(cleanText, userProfession);
-      return this.sanitizeAndValidateExtraction(fallback, cleanText);
+      logger.error(`CV parsing failed: ${err.message}`);
+      throw err;
     }
   }
 
@@ -260,7 +259,7 @@ export class AIService {
     if (isGemini) {
       try {
         const apiKey = config.geminiApiKey || config.aiApiKey;
-        const model = config.aiModel || 'gemini-3.6-flash';
+        const model = config.aiModel || 'gemini-2.5-flash';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         const prompt = `Transcribe every readable resume detail from this document accurately into structured plain text. Preserve all headings, job titles, companies, dates, degree names, skills, contact emails, phone numbers, and URLs. Output the full text strictly without adding commentary.`;
@@ -343,7 +342,7 @@ export class AIService {
    */
   private static async extractWithGemini(text: string, userProfession?: string): Promise<ExtractedCvData> {
     const apiKey = config.geminiApiKey || config.aiApiKey;
-    const model = config.aiModel || 'gemini-3.6-flash';
+    const model = config.aiModel || 'gemini-2.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const prompt = `You are a precision CV parser and entity-relationship extraction engine.
@@ -741,431 +740,6 @@ ${text.slice(0, 60000)}`;
     if (!content) throw new Error('OpenAI returned empty extraction content');
 
     return JSON.parse(content) as ExtractedCvData;
-  }
-
-  /**
-   * Pure, Non-Hallucinating Heuristic Parser
-   * Extracts ONLY text entities explicitly matched in the source document.
-   */
-  public static heuristicCvParser(text: string, _userProfession?: string): ExtractedCvData {
-    const lines = text
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
-
-    // 1. Email extraction (Strict regex)
-    const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    const email = emailMatch ? emailMatch[0] : '';
-
-    // 2. Phone extraction (Strict validation, excluding PO boxes)
-    const recoveredPhones = ContactNormalizer.recoverPhonesFromText(text);
-    const phone = recoveredPhones.length > 0 ? (recoveredPhones.find((p) => p.isPrimary)?.phone || recoveredPhones[0].phone) : '';
-
-    // 3. Social / Portfolio Links
-    const linkedinMatch = text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9_\-\.]+)/i);
-    const githubMatch = text.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_\-\.]+)/i);
-    const twitterMatch = text.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([a-zA-Z0-9_\-]+)/i);
-    const websiteMatch = text.match(/(?:https?:\/\/)(?:www\.)?[a-zA-Z0-9_\-\.]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i);
-
-    // 4. Candidate Name & Professional Title extraction
-    let fullName = '';
-    let title = '';
-
-    for (let i = 0; i < Math.min(lines.length, 6); i++) {
-      const line = lines[i];
-      if (
-        !line.toLowerCase().includes('curriculum') &&
-        !line.toLowerCase().includes('resume') &&
-        !line.includes('@') &&
-        !line.includes('http') &&
-        !line.includes('www.') &&
-        line.length >= 2 &&
-        line.length <= 45 &&
-        !/^[0-9+() -]+$/.test(line) &&
-        !/^(summary|profile|experience|education|skills|objective)\b/i.test(line)
-      ) {
-        if (!fullName) {
-          fullName = line.replace(/^[#*_\s]+|[#*_\s]+$/g, '');
-        } else if (!title && lines[i].length <= 60 && !lines[i].includes('@') && !lines[i].includes('http')) {
-          title = lines[i].replace(/^[#*_\s]+|[#*_\s]+$/g, '');
-          break;
-        }
-      }
-    }
-
-    // 5. Section Boundary Detection using semantic dictionary
-    const sections: Record<string, string[]> = {
-      summary: [],
-      experience: [],
-      education: [],
-      skills: [],
-      projects: [],
-      certifications: [],
-      languages: [],
-      awards: [],
-      publications: [],
-    };
-
-    let currentSection: keyof typeof sections = 'summary';
-
-    const sectionPatterns: Array<{ key: keyof typeof sections; regex: RegExp }> = [
-      { key: 'summary', regex: /^(summary|professional summary|executive summary|about me|personal profile|overview|career objective|profile)\b/i },
-      { key: 'experience', regex: /^(experience|work experience|work history|employment history|professional experience|career history|professional background|work background)\b/i },
-      { key: 'education', regex: /^(education|academic background|academic qualifications|educational background|academic history|degrees|academic credentials)\b/i },
-      { key: 'skills', regex: /^(skills|technical skills|core competencies|technologies|areas of expertise|technical expertise|tools & technologies|key skills)\b/i },
-      { key: 'projects', regex: /^(projects|featured projects|portfolio|selected work|key projects|technical projects|personal projects)\b/i },
-      { key: 'certifications', regex: /^(certifications|certificates|licenses|accreditations|credentials|licenses & certifications|certifications & training)\b/i },
-      { key: 'languages', regex: /^(languages|language proficiency|spoken languages|languages spoken)\b/i },
-      { key: 'awards', regex: /^(awards|honors|achievements|honors & awards|recognitions)\b/i },
-      { key: 'publications', regex: /^(publications|research papers|articles|patents)\b/i },
-    ];
-
-    for (const line of lines) {
-      let matchedSection = false;
-      for (const pattern of sectionPatterns) {
-        if (pattern.regex.test(line)) {
-          currentSection = pattern.key;
-          matchedSection = true;
-          break;
-        }
-      }
-
-      if (!matchedSection) {
-        sections[currentSection].push(line);
-      }
-    }
-
-    // 6. Summary
-    const summary = sections.summary.slice(0, 10).join(' ');
-
-    // 7. Parse Experiences
-    const experiences = this.heuristicExtractExperiences(sections.experience);
-
-    // 8. Parse Education
-    const education = this.heuristicExtractEducation(sections.education);
-
-    // 9. Parse Skills
-    const skills = this.heuristicExtractSkills(sections.skills, text);
-
-    // 10. Parse Projects
-    const projects = this.heuristicExtractProjects(sections.projects);
-
-    // 11. Parse Certifications
-    const certifications = this.heuristicExtractCertifications(sections.certifications);
-
-    // 12. Parse Languages
-    const languages = this.heuristicExtractLanguages(sections.languages, text);
-
-    return {
-      personalInfo: {
-        fullName: fullName || '',
-        title: title || '',
-        email: email || '',
-        phone: phone || '',
-        location: this.heuristicExtractLocation(text) || '',
-        website: websiteMatch ? websiteMatch[0] : undefined,
-        linkedin: linkedinMatch ? (linkedinMatch[0].startsWith('http') ? linkedinMatch[0] : `https://${linkedinMatch[0]}`) : undefined,
-        github: githubMatch ? (githubMatch[0].startsWith('http') ? githubMatch[0] : `https://${githubMatch[0]}`) : undefined,
-        twitter: twitterMatch ? (twitterMatch[0].startsWith('http') ? twitterMatch[0] : `https://${twitterMatch[0]}`) : undefined,
-      },
-      headline: title || '',
-      summary: summary || '',
-      experiences,
-      education,
-      skills,
-      projects,
-      certifications,
-      languages,
-    };
-  }
-
-  private static heuristicExtractExperiences(lines: string[]): ExtractedCvData['experiences'] {
-    const list: ExtractedCvData['experiences'] = [];
-    let currentExp: any = null;
-
-    const dateRegex = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*)?(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*)?(?:19|20)\d{2}|Present|Current)/i;
-
-    for (const line of lines) {
-      const dateMatch = line.match(dateRegex);
-      const isHeaderLine = (dateMatch !== null) || (line.includes(' | ') || line.includes(' - ') || line.includes(' — ')) && line.length < 90;
-
-      if (isHeaderLine && (dateMatch || line.length < 80)) {
-        if (currentExp && (currentExp.company || currentExp.position)) {
-          list.push(this.finalizeExperience(currentExp));
-        }
-
-        let startDate = '';
-        let endDate: string | undefined = undefined;
-        let isCurrent = false;
-
-        if (dateMatch) {
-          const dateStr = dateMatch[0];
-          const parts = dateStr.split(/[-–—]|to/i).map((s) => s.trim());
-          startDate = parts[0] || '';
-          if (parts[1] && /present|current/i.test(parts[1])) {
-            isCurrent = true;
-          } else {
-            endDate = parts[1];
-          }
-        }
-
-        const textWithoutDate = line.replace(dateRegex, '').trim();
-        const headerParts = textWithoutDate.split(/[-–—|•]/).map((s) => s.trim()).filter(Boolean);
-
-        const position = headerParts[0] || '';
-        const company = headerParts[1] || headerParts[0] || '';
-
-        currentExp = {
-          position,
-          company: company === position && headerParts.length > 1 ? headerParts[1] : company,
-          location: headerParts[2] || '',
-          startDate: startDate || '',
-          endDate,
-          isCurrent,
-          description: '',
-          responsibilities: [],
-          achievements: [],
-        };
-      } else if (currentExp) {
-        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
-          const bullet = line.replace(/^[-•*]\s*/, '').trim();
-          if (bullet) currentExp.responsibilities.push(bullet);
-        } else {
-          currentExp.description += (currentExp.description ? ' ' : '') + line;
-        }
-      }
-    }
-
-    if (currentExp && (currentExp.company || currentExp.position)) {
-      list.push(this.finalizeExperience(currentExp));
-    }
-
-    return list.slice(0, 10);
-  }
-
-  private static finalizeExperience(exp: any) {
-    if (!exp.description && exp.responsibilities && exp.responsibilities.length > 0) {
-      exp.description = exp.responsibilities.join(' ');
-    }
-    return {
-      company: exp.company || 'Organization',
-      position: exp.position || 'Role',
-      location: exp.location || undefined,
-      startDate: exp.startDate || '',
-      endDate: exp.endDate || undefined,
-      isCurrent: exp.isCurrent ?? (!exp.endDate || /present|current/i.test(String(exp.endDate))),
-      description: exp.description || '',
-      responsibilities: exp.responsibilities || [],
-      achievements: exp.achievements || [],
-    };
-  }
-
-  private static heuristicExtractEducation(lines: string[]): ExtractedCvData['education'] {
-    const list: ExtractedCvData['education'] = [];
-    const degreeKeywords = /\b(bachelor|master|phd|doctorate|b\.s|m\.s|b\.a|m\.a|diploma|associate|btech|mtech|b\.sc|m\.sc|higher diploma|certificate)\b/i;
-
-    let currentEdu: any = null;
-
-    for (const line of lines) {
-      const hasDegree = degreeKeywords.test(line);
-      const hasSchool = /\b(university|college|institute|school|academy|polytechnic)\b/i.test(line);
-
-      if (hasDegree || hasSchool) {
-        if (currentEdu && currentEdu.institution) {
-          list.push(currentEdu);
-        }
-
-        const dateMatch = line.match(/(?:19|20)\d{2}/g);
-        let startDate = '';
-        let endDate = '';
-
-        if (dateMatch && dateMatch.length >= 2) {
-          startDate = dateMatch[0];
-          endDate = dateMatch[1];
-        } else if (dateMatch && dateMatch.length === 1) {
-          startDate = dateMatch[0];
-        }
-
-        const parts = line.split(/[-–—|,]/).map((s) => s.trim()).filter(Boolean);
-
-        let qualification = 'Degree';
-        let institution = 'University';
-        let field = '';
-
-        for (const p of parts) {
-          if (degreeKeywords.test(p)) {
-            qualification = p;
-          } else if (/\b(university|college|institute|school)\b/i.test(p)) {
-            institution = p;
-          } else if (/\b(computer|engineering|business|science|arts|economics|finance|design|law|medicine)\b/i.test(p)) {
-            field = p;
-          }
-        }
-
-        if (institution === 'University' && parts.length > 0) {
-          institution = parts[0];
-        }
-
-        currentEdu = {
-          institution,
-          qualification,
-          field: field || undefined,
-          startDate: startDate || '2018',
-          endDate: endDate || undefined,
-          isCurrent: !endDate,
-        };
-      }
-    }
-
-    if (currentEdu && currentEdu.institution) {
-      list.push(currentEdu);
-    }
-
-    return list.slice(0, 5);
-  }
-
-  private static heuristicExtractSkills(skillsLines: string[], fullText: string): ExtractedCvData['skills'] {
-    const skillsList: ExtractedCvData['skills'] = [];
-    const seen = new Set<string>();
-
-    // 1. Direct comma or bullet delimited skill items from the skills section
-    const rawSkillsText = skillsLines.join(', ');
-    const splitTokens = rawSkillsText
-      .split(/[,|•\n\t]/)
-      .map((s) => s.replace(/^[-*•\s]+|[-*•\s]+$/g, '').trim())
-      .filter((s) => s.length >= 2 && s.length <= 40 && !/^(skills|technologies|tools|languages):?$/i.test(s));
-
-    for (const token of splitTokens) {
-      const lower = token.toLowerCase();
-      if (!seen.has(lower) && !token.includes('@') && !token.includes('http')) {
-        seen.add(lower);
-        skillsList.push({
-          name: token,
-          category: this.categorizeSkill(token),
-          proficiency: 85,
-        });
-      }
-    }
-
-    // 2. Fallback scan if skills section was empty
-    if (skillsList.length === 0) {
-      const commonTech = [
-        'TypeScript', 'JavaScript', 'React', 'Node.js', 'Python', 'Java', 'PostgreSQL',
-        'MongoDB', 'Docker', 'Kubernetes', 'AWS', 'Azure', 'Git', 'Tailwind CSS',
-        'REST APIs', 'GraphQL', 'CI/CD', 'Redis', 'SQL', 'C++', 'C#', 'Go', 'PHP', 'HTML/CSS',
-      ];
-      for (const tech of commonTech) {
-        const regex = new RegExp(`\\b${tech.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-        if (regex.test(fullText) && !seen.has(tech.toLowerCase())) {
-          seen.add(tech.toLowerCase());
-          skillsList.push({
-            name: tech,
-            category: this.categorizeSkill(tech),
-            proficiency: 85,
-          });
-        }
-      }
-    }
-
-    return skillsList.slice(0, 20);
-  }
-
-  private static categorizeSkill(name: string): 'Technical' | 'Soft' | 'Tool' | 'Industry' {
-    const lower = name.toLowerCase();
-    if (/git|docker|kubernetes|aws|azure|figma|jira|postman|vscode|linux|tableau|powerbi/i.test(lower)) {
-      return 'Tool';
-    }
-    if (/leadership|communication|agile|scrum|mentorship|collaboration|problem solving|teamwork|management/i.test(lower)) {
-      return 'Soft';
-    }
-    if (/fintech|healthcare|ecommerce|banking|saas|telecom|insurance|compliance/i.test(lower)) {
-      return 'Industry';
-    }
-    return 'Technical';
-  }
-
-  private static heuristicExtractProjects(lines: string[]): ExtractedCvData['projects'] {
-    const projects: ExtractedCvData['projects'] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.length >= 3 && line.length <= 60 && !line.startsWith('-') && !line.startsWith('•')) {
-        const title = line.replace(/[:—|-].*$/, '').trim();
-        const desc = lines[i + 1] && lines[i + 1].length > 10 ? lines[i + 1] : '';
-
-        if (title.length >= 3) {
-          projects.push({
-            title,
-            description: desc,
-            technologies: [],
-            featured: projects.length === 0,
-          });
-        }
-        if (projects.length >= 5) break;
-      }
-    }
-    return projects;
-  }
-
-  private static heuristicExtractCertifications(lines: string[]): ExtractedCvData['certifications'] {
-    const certs: ExtractedCvData['certifications'] = [];
-    for (const line of lines) {
-      if (line.length >= 4 && line.length <= 90) {
-        const dateMatch = line.match(/(?:19|20)\d{2}(?:[-/]\d{2})?/);
-        const issueDate = dateMatch ? dateMatch[0] : '';
-        const nameOnly = line.replace(dateMatch ? dateMatch[0] : '', '').replace(/[()—|-]/g, ' ').trim();
-
-        let org = '';
-        if (/aws|amazon/i.test(line)) org = 'Amazon Web Services';
-        else if (/google|gcp/i.test(line)) org = 'Google Cloud';
-        else if (/microsoft|azure/i.test(line)) org = 'Microsoft';
-        else if (/cisco/i.test(line)) org = 'Cisco';
-        else if (/comptia/i.test(line)) org = 'CompTIA';
-        else if (/scrum|agile/i.test(line)) org = 'Scrum Alliance';
-
-        if (nameOnly) {
-          certs.push({
-            name: nameOnly,
-            issuingOrganization: org || 'Certifying Body',
-            issueDate: issueDate || '2022',
-          });
-        }
-        if (certs.length >= 6) break;
-      }
-    }
-    return certs;
-  }
-
-  private static heuristicExtractLanguages(lines: string[], text: string): ExtractedCvData['languages'] {
-    const commonLanguages = ['English', 'Spanish', 'French', 'German', 'Mandarin', 'Arabic', 'Swahili', 'Japanese', 'Portuguese', 'Hindi', 'Italian', 'Russian'];
-    const langs: ExtractedCvData['languages'] = [];
-    const searchTarget = lines.join(' ') + ' ' + text;
-
-    for (const lang of commonLanguages) {
-      if (new RegExp(`\\b${lang}\\b`, 'i').test(searchTarget)) {
-        langs.push({
-          language: lang,
-          proficiency: langs.length === 0 ? 'Native' : 'Professional',
-        });
-      }
-    }
-    return langs;
-  }
-
-  private static heuristicExtractLocation(text: string): string {
-    const poBoxMatch = text.match(/(?:p\.?\s*o\.?\s*box|post\s*office\s*box|box)\s*[:#-]?\s*\d+(?:\s*-\s*\d+)?(?:\s+[A-Za-z\s]+)?/i);
-    const boxPostalMatch = text.match(/\b\d{2,6}\s*-\s*(?:00\d{3}|\d{4,6})(?:\s+[A-Za-z\s]+)?/);
-    const locationMatch = text.match(/(?:Location|Address|City|Based in)[:\s]+([A-Za-z0-9\s,.-]+)/i);
-
-    if (locationMatch && locationMatch[1]) {
-      return locationMatch[1].trim();
-    }
-    if (poBoxMatch && poBoxMatch[0]) {
-      return poBoxMatch[0].trim();
-    }
-    if (boxPostalMatch && boxPostalMatch[0]) {
-      return boxPostalMatch[0].trim();
-    }
-    return '';
   }
 
   /**

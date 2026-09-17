@@ -3164,16 +3164,10 @@ export const ProfileEditorPage: React.FC = () => {
                   >
                     Reset Scanner
                   </Button>
-                  {extractedCv?.structuredResume?.meta?.engineUsed === 'gemini' ? (
-                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-emerald-400" />
-                      Gemini Flash
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                      Heuristic Engine
-                    </span>
-                  )}
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-400" />
+                    Gemini Flash
+                  </span>
                   <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     Ready to Apply
                   </span>

@@ -223,10 +223,9 @@ export interface StructuredResume {
   qualityScore?: QualityScoreReport;
   rawText?: string;
   meta?: {
-    engineUsed: 'gemini' | 'heuristic';
+    engineUsed: 'gemini';
     model?: string;
     processedAt: string;
     durationMs?: number;
-    ocrApplied?: boolean;
   };
 }

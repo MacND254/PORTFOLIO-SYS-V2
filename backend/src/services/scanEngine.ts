@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 import { AiExtractor } from '../extractors/aiExtractor';
-import { HeuristicExtractor } from '../extractors/heuristic';
 import { ContactNormalizer } from '../normalizers/contactNormalizer';
 import { DateNormalizer } from '../normalizers/dateNormalizer';
 import { SkillNormalizer } from '../normalizers/skillNormalizer';
@@ -17,62 +16,33 @@ import {
 } from '../types/schema';
 
 export interface ScanEngineOptions {
-  forceEngine?: 'gemini' | 'heuristic';
   layoutSummary?: string;
 }
 
 export class ScanEngine {
   /**
    * Main entrypoint for CV-SCAN processing.
-   * Runs AI extraction with Gemini 1.5 Flash -> Fallback to Heuristic rules -> Normalization -> Quality Scoring.
+   * Runs AI extraction strictly with Google Gemini AI -> Normalization -> Quality Scoring.
+   * Throws an explicit error if Gemini extraction fails — NO heuristic fallback.
    */
   public static async processScan(
     rawText: string,
     options: ScanEngineOptions = {}
   ): Promise<StructuredResume> {
     const startTime = Date.now();
-    const extractionEngine = options.forceEngine || config.extractionEngine || 'gemini';
-    const hasGeminiKey = Boolean(config.geminiApiKey || process.env.GEMINI_API_KEY);
 
-    let extracted: Partial<StructuredResume> | null = null;
-    let engineUsed: 'gemini' | 'heuristic' = 'heuristic';
+    logger.info('[ScanEngine] Initiating strict AI Extraction with Google Gemini...');
+    const extracted = await AiExtractor.extractWithGemini(rawText, options.layoutSummary);
 
-    // ─────────────────────────────────────────────────────────────
-    // STEP 1: AI Extraction (Gemini 1.5 Flash)
-    // ─────────────────────────────────────────────────────────────
-    if (extractionEngine === 'gemini' && hasGeminiKey) {
-      try {
-        logger.info('[ScanEngine] Initiating AI Extraction with Google Gemini Flash...');
-        extracted = await AiExtractor.extractWithGemini(rawText, options.layoutSummary);
-        if (extracted) {
-          engineUsed = 'gemini';
-        }
-      } catch (err: any) {
-        logger.warn(`[ScanEngine] Gemini extraction threw an error: ${err.message}. Falling back to heuristics.`);
-        extracted = null;
-      }
-    }
+    const engineUsed = 'gemini' as const;
 
-    // ─────────────────────────────────────────────────────────────
-    // STEP 2: Heuristic Fallback
-    // ─────────────────────────────────────────────────────────────
-    if (!extracted) {
-      logger.info('[ScanEngine] Running deterministic Heuristic Rule Extractors...');
-      extracted = HeuristicExtractor.extract(rawText);
-      engineUsed = 'heuristic';
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // STEP 3: Deterministic Validation & Normalization
-    // ─────────────────────────────────────────────────────────────
+    // Deterministic Validation & Normalization
     const normalized = this.applyNormalizers(extracted, rawText, engineUsed, Date.now() - startTime);
 
-    // ─────────────────────────────────────────────────────────────
-    // STEP 4: Quality Scoring & Confidence Assessment
-    // ─────────────────────────────────────────────────────────────
+    // Quality Scoring & Confidence Assessment
     normalized.qualityScore = this.computeQualityScore(normalized, rawText);
 
-    logger.info(`[ScanEngine] Extraction completed with engine=${engineUsed}, overallQualityScore=${normalized.qualityScore.overall}/100.`);
+    logger.info(`[ScanEngine] Extraction completed with engine=${engineUsed}, overallQualityScore=${normalized.qualityScore.overall}/100 in ${Date.now() - startTime}ms.`);
 
     return normalized;
   }
@@ -83,7 +53,7 @@ export class ScanEngine {
   private static applyNormalizers(
     rawObj: Partial<StructuredResume>,
     rawText: string,
-    engineUsed: 'gemini' | 'heuristic',
+    engineUsed: 'gemini',
     durationMs: number
   ): StructuredResume {
     const rawIdentity = rawObj.identity || { fullName: '', title: '', headline: '', summary: '', location: { raw: '' } };
@@ -261,7 +231,7 @@ export class ScanEngine {
     // 1. Identity Evaluation (30 pts completeness)
     if (resume.identity.fullName) {
       completenessScore += 10;
-      sectionConfidence['fullName'] = resume.meta?.engineUsed === 'gemini' ? 0.98 : 0.92;
+      sectionConfidence['fullName'] = 0.98;
       fieldEvidence['identity.fullName'] = createEvidence(resume.identity.fullName, sectionConfidence['fullName']);
     } else {
       warnings.push('Full name could not be identified with certainty.');
@@ -269,13 +239,13 @@ export class ScanEngine {
 
     if (resume.identity.title || resume.identity.headline) {
       completenessScore += 10;
-      sectionConfidence['title'] = resume.meta?.engineUsed === 'gemini' ? 0.95 : 0.88;
+      sectionConfidence['title'] = 0.95;
       fieldEvidence['identity.title'] = createEvidence(resume.identity.title || resume.identity.headline, sectionConfidence['title']);
     }
 
     if (resume.identity.summary && resume.identity.summary.length > 20) {
       completenessScore += 10;
-      sectionConfidence['summary'] = resume.meta?.engineUsed === 'gemini' ? 0.96 : 0.85;
+      sectionConfidence['summary'] = 0.96;
       fieldEvidence['identity.summary'] = createEvidence(resume.identity.summary, sectionConfidence['summary']);
     }
 
@@ -306,7 +276,7 @@ export class ScanEngine {
     if (resume.workExperience.length > 0) {
       completenessScore += 20;
       formatValidityScore += 20;
-      sectionConfidence['workExperience'] = resume.meta?.engineUsed === 'gemini' ? 0.97 : 0.88;
+      sectionConfidence['workExperience'] = 0.97;
       fieldEvidence['workExperience'] = createEvidence(
         `${resume.workExperience[0].jobTitle} at ${resume.workExperience[0].company}`,
         sectionConfidence['workExperience']
@@ -317,7 +287,7 @@ export class ScanEngine {
     if (resume.education.length > 0) {
       completenessScore += 15;
       formatValidityScore += 20;
-      sectionConfidence['education'] = resume.meta?.engineUsed === 'gemini' ? 0.97 : 0.89;
+      sectionConfidence['education'] = 0.97;
       fieldEvidence['education'] = createEvidence(
         `${resume.education[0].degree} at ${resume.education[0].institution}`,
         sectionConfidence['education']
